@@ -1,12 +1,13 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
+#include "../BaseClasses/Vector3f.h"
 
-uint32_t Renderer::PerPixel(glm::vec2 pixelCoord)
+uint32_t Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel to determine pixel output
 {
     float radius = 0.5f;
-    glm::vec3 rayOrigin(0.0f, 0.0f, 2.0f);  //  we take reference to OpenGL which its forward direction is z = -1
-    glm::vec3 rayDirection(pixelCoord.x, pixelCoord.y, -1.0f);
-    rayDirection = glm::normalize(rayDirection);
+    Vector3f rayOrigin(0.0f, 0.0f, 2.0f);  //  we take reference to OpenGL which its forward direction is z = -1
+    Vector3f rayDirection(pixelCoord.x, pixelCoord.y, -1.0f);
+    //rayDirection.Normalize();
     
     //  (bx^2 + by^2)t^2 + (2(axbx + ayby))t + (ax^2 + ay^2 - r^2) = 0
     //  similar to ax^2 + bx + c = 0
@@ -15,9 +16,9 @@ uint32_t Renderer::PerPixel(glm::vec2 pixelCoord)
     //  b = ray direction
     //  r = circle radius
     //  t = hit distance
-    float a = glm::dot(rayDirection, rayDirection); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
-    float b = 2.0f * glm::dot(rayOrigin, rayDirection);
-    float c = glm::dot(rayOrigin,rayOrigin) - radius * radius;
+    float a = Vector3f::Dot(rayDirection, rayDirection); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
+    float b = 2.0f * Vector3f::Dot(rayOrigin, rayDirection);
+    float c = Vector3f::Dot(rayOrigin,rayOrigin) - radius * radius;
 
     //  The discriminant of the quadratic formula
     //  b^2 - 4ac

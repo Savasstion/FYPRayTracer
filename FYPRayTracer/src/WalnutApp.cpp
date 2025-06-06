@@ -3,7 +3,7 @@
 
 #include "Walnut/Image.h"
 #include "Walnut/Timer.h"
-#include "Renderer.h"
+#include "Classes/Core/Renderer.h"
 
 class ExampleLayer : public Walnut::Layer
 {
