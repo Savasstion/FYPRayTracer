@@ -2,17 +2,14 @@
 #include "Walnut/EntryPoint.h"
 
 #include "Walnut/Image.h"
-#include "Walnut/Random.h"
 #include "Walnut/Timer.h"
-using namespace Walnut;
+#include "Renderer.h"
 
 class ExampleLayer : public Walnut::Layer
 {
 private:
-	std::shared_ptr<Image> m_Image;
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
-	uint32_t* m_ImageData = nullptr;
-
+	Renderer m_Renderer;
 	float m_RenderTime = 0.0f;
 	
 public:
@@ -33,11 +30,13 @@ public:
 		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
 
 		//	display image on window
-		if(m_Image)
+		auto image = m_Renderer.GetFinalRenderImage();
+		if(image)
 		{
-			ImGui::Image(m_Image->GetDescriptorSet(), {(float)m_Image->GetWidth(), (float)m_Image->GetHeight()});	//	Image will only display in its own current dimensions 
-			////ImGui::Image(m_Image->GetDescriptorSet(), {(float)m_ViewportWidth, (float)m_ViewportHeight});	//	Image will always be stretched according to viewport dimensions
-		}
+			//	uv0 and uv1 paramters can be used to flip the UV coords
+			ImGui::Image(image->GetDescriptorSet(), {(float)image->GetWidth(), (float)image->GetHeight()},
+				ImVec2(0,1), ImVec2(1,0));
+		}	
 
 		ImGui::End();
 		ImGui::PopStyleVar();
@@ -47,24 +46,11 @@ public:
 
 	void Render()
 	{
-		Timer timer;
+		Walnut::Timer timer;
 		
-		//	if image member is null or image is resized
-		if(!m_Image || m_ViewportWidth != m_Image->GetWidth() ||  m_ViewportHeight != m_Image->GetHeight())
-		{
-			m_Image = std::make_shared<Image>(m_ViewportWidth, m_ViewportHeight, ImageFormat::RGBA);
-			delete[] m_ImageData;
-			m_ImageData = new uint32_t[m_ViewportWidth * m_ViewportHeight];
-		}
-
-		for(uint32_t i = 0; i < m_ViewportWidth * m_ViewportHeight; i++)
-		{
-			m_ImageData[i] = Random::UInt();	//	In ABGR format, not RGBA
-			m_ImageData[i] |= 0xff000000;	//	makes Alpha channel 255
-		}
-
-		m_Image->SetData(m_ImageData);	//upload the image data onto GPU
-
+		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
+		m_Renderer.Render();
+		
 		m_RenderTime = timer.ElapsedMillis();
 	}
 };
