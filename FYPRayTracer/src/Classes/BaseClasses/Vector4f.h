@@ -3,7 +3,7 @@
 
 // We don't use cmath to prevent dependency issues
 #include "Vector3f.h"
-#include "../../Utility/MathFunctions.h"
+#include "../../Utility/MathUtils.h"
 
 class Vector4f {
 public:
@@ -13,9 +13,30 @@ public:
     Vector4f() : x(0.0f), y(0.0f), z(0.0f), w(0.0f) {}
     Vector4f(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 
+    Vector4f Clamped(const float& min, const float& max)
+    {
+        Vector4f result;
+
+        result.x = (x < min) ? min : (x > max) ? max : x;
+        result.y = (y < min) ? min : (y > max) ? max : y;
+        result.z = (z < min) ? min : (z > max) ? max : z;
+        result.w = (w < min) ? min : (w > max) ? max : w;
+
+        return result;
+    }
+
+    void Clamp(const float& min, const float& max)
+    {
+        x = (x < min) ? min : (x > max) ? max : x;
+        y = (y < min) ? min : (y > max) ? max : y;
+        z = (z < min) ? min : (z > max) ? max : z;
+        w = (w < min) ? min : (w > max) ? max : w;
+        
+    }
+    
     // Magnitude (length)
     float Magnitude() const {
-        return approx_sqrt(x * x + y * y + z * z + w * w); // Use MagnitudeSquared() when possible for performance
+        return MathUtils::approx_sqrt(x * x + y * y + z * z + w * w); // Use MagnitudeSquared() when possible for performance
     }
 
     float MagnitudeSquared() const {
@@ -26,7 +47,7 @@ public:
     Vector4f Normalized() const {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             return Vector4f(x * invMag, y * invMag, z * invMag, w * invMag);
         }
         return Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
@@ -35,7 +56,7 @@ public:
     void Normalize() {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             x *= invMag;
             y *= invMag;
             z *= invMag;
@@ -69,6 +90,10 @@ public:
     Vector4f operator+(const Vector2f& other) const {
         return Vector4f(x + other.x, y + other.y, z, w);
     }
+    
+    Vector4f operator+(const float& scalar) const {
+        return Vector4f(x + scalar, y + scalar, z + scalar, w + scalar);
+    }
 
     Vector4f operator-(const Vector4f& other) const {
         return Vector4f(x - other.x, y - other.y, z - other.z, w - other.w);
@@ -80,6 +105,10 @@ public:
 
     Vector4f operator-(const Vector2f& other) const {
         return Vector4f(x - other.x, y - other.y, z, w);
+    }
+
+    Vector4f operator-(const float& scalar) const {
+        return Vector4f(x - scalar, y - scalar, z - scalar, w - scalar);
     }
 
     Vector4f operator*(float scalar) const {
@@ -111,6 +140,14 @@ public:
         return *this;
     }
 
+    Vector4f& operator+=(const float& scalar) {
+        x += scalar;
+        y += scalar;
+        z += scalar;
+        w += scalar;
+        return *this;
+    }
+
     Vector4f& operator-=(const Vector4f& other) {
         x -= other.x;
         y -= other.y;
@@ -129,6 +166,14 @@ public:
     Vector4f& operator-=(const Vector2f& other) {
         x -= other.x;
         y -= other.y;
+        return *this;
+    }
+
+    Vector4f& operator-=(const float& scalar) {
+        x -= scalar;
+        y -= scalar;
+        z -= scalar;
+        w -= scalar;
         return *this;
     }
 

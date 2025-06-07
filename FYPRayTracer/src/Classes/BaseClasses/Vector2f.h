@@ -2,7 +2,7 @@
 #define VECTOR2F_H
 
 //  We don't use cmath to prevent dependency issues
-#include "../../Utility/MathFunctions.h"
+#include "../../Utility/MathUtils.h"
 
 class Vector2f {
 public:
@@ -12,9 +12,27 @@ public:
     Vector2f() : x(0.0f), y(0.0f) {}
     Vector2f(float x, float y) : x(x), y(y) {}
 
+    Vector2f Clamped(const float& min, const float& max)
+    {
+        Vector2f result;
+
+        result.x = (x < min) ? min : (x > max) ? max : x;
+        result.y = (y < min) ? min : (y > max) ? max : y;
+
+        return result;
+        
+    }
+
+    void Clamp(const float& min, const float& max)
+    {
+        x = (x < min) ? min : (x > max) ? max : x;
+        y = (y < min) ? min : (y > max) ? max : y;
+        
+    }
+
     // Magnitude (length)
     float Magnitude() const {
-        return approx_sqrt(x*x + y*y);    // Use MagnitudeSquared() when possible for performance
+        return MathUtils::approx_sqrt(x*x + y*y);    // Use MagnitudeSquared() when possible for performance
     }
 
     float MagnitudeSquared() const {
@@ -25,7 +43,7 @@ public:
     Vector2f Normalized() const {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             return Vector2f(x * invMag, y * invMag);
         }
         return Vector2f(0.0f, 0.0f);
@@ -34,7 +52,7 @@ public:
     void Normalize() {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             x *= invMag;
             y *= invMag;
         }
@@ -54,8 +72,16 @@ public:
         return Vector2f(x + other.x, y + other.y);
     }
 
+    Vector2f operator+(const float& scalar) const {
+        return Vector2f(x + scalar, y + scalar);
+    }
+
     Vector2f operator-(const Vector2f& other) const {
         return Vector2f(x - other.x, y - other.y);
+    }
+
+    Vector2f operator-(const float& scalar) const {
+        return Vector2f(x - scalar, y - scalar);
     }
 
     Vector2f operator*(float scalar) const {
@@ -72,9 +98,21 @@ public:
         return *this;
     }
 
+    Vector2f& operator+=(const float& scalar) {
+        x += scalar;
+        y += scalar;
+        return *this;
+    }
+
     Vector2f& operator-=(const Vector2f& other) {
         x -= other.x;
         y -= other.y;
+        return *this;
+    }
+
+    Vector2f& operator-=(const float& scalar) {
+        x -= scalar;
+        y -= scalar;
         return *this;
     }
 

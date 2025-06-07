@@ -3,7 +3,7 @@
 
 //  We dont use cmath to prevent dependency issues
 #include "Vector2f.h"
-#include "../../Utility/MathFunctions.h"
+#include "../../Utility/MathUtils.h"
 
 class Vector3f {
 public:
@@ -13,9 +13,28 @@ public:
     Vector3f() : x(0.0f), y(0.0f), z(0.0f) {}
     Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
 
+    Vector3f Clamped(const float& min, const float& max)
+    {
+        Vector3f result;
+
+        result.x = (x < min) ? min : (x > max) ? max : x;
+        result.y = (y < min) ? min : (y > max) ? max : y;
+        result.z = (z < min) ? min : (z > max) ? max : z;
+
+        return result;
+    }
+
+    void Clamp(const float& min, const float& max)
+    {
+        x = (x < min) ? min : (x > max) ? max : x;
+        y = (y < min) ? min : (y > max) ? max : y;
+        z = (z < min) ? min : (z > max) ? max : z;
+        
+    }
+    
     // Magnitude (length)
     float Magnitude() const {
-        return approx_sqrt(x*x + y*y + z*z);    //  square roots are slow so use MagnitudeSquared() when possible
+        return MathUtils::approx_sqrt(x*x + y*y + z*z);    //  square roots are slow so use MagnitudeSquared() when possible
     }
 
     float MagnitudeSquared() const {
@@ -26,7 +45,7 @@ public:
     Vector3f Normalized() const {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             return Vector3f(x * invMag, y * invMag, z * invMag);
         }
         return Vector3f(0.0f, 0.0f, 0.0f);
@@ -35,7 +54,7 @@ public:
     void Normalize() {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
-            float invMag = fi_sqrt(lenSq * lenSq);
+            float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             x *= invMag;
             y *= invMag;
             z *= invMag;
@@ -103,12 +122,20 @@ public:
         return Vector3f(x + other.x, y + other.y, z);
     }
 
+    Vector3f operator+(const float& scalar) const {
+        return Vector3f(x + scalar, y + scalar, z + scalar);
+    }
+
     Vector3f operator-(const Vector3f& other) const {
         return Vector3f(x - other.x, y - other.y, z - other.z);
     }
 
     Vector3f operator-(const Vector2f& other) const {
         return Vector3f(x - other.x, y - other.y, z);
+    }
+
+    Vector3f operator-(const float& scalar) const {
+        return Vector3f(x - scalar, y - scalar, z - scalar);
     }
 
     Vector3f operator*(float scalar) const {
@@ -132,6 +159,13 @@ public:
         return *this;
     }
 
+    Vector3f& operator+=(const float& scalar) {
+        x += scalar;
+        y += scalar;
+        z += scalar;
+        return *this;
+    }
+
     Vector3f& operator-=(const Vector3f& other) {
         x -= other.x;
         y -= other.y;
@@ -142,6 +176,13 @@ public:
     Vector3f& operator-=(const Vector2f& other) {
         x -= other.x;
         y -= other.y;
+        return *this;
+    }
+
+    Vector3f& operator-=(const float& scalar) {
+        x -= scalar;
+        y -= scalar;
+        z -= scalar;
         return *this;
     }
 
