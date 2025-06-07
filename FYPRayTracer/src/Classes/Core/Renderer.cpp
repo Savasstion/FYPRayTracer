@@ -1,14 +1,15 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
-#include "../BaseClasses/Vector3f.h"
+#include "../../Utility/ColorUtils.h"
 
-uint32_t Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel to determine pixel output
+glm::vec4 Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel to determine pixel output
 {
     float radius = 0.5f;
-    Vector3f rayOrigin(0.0f, 0.0f, 2.0f);  //  we take reference to OpenGL which its forward direction is z = -1
-    Vector3f rayDirection(pixelCoord.x, pixelCoord.y, -1.0f);
-    //rayDirection.Normalize();
-    
+    glm::vec3 rayOrigin(0.0f, 0.0f, 1.0f);  //  we take reference to OpenGL which its forward direction is z = -1
+    glm::vec3 rayDirection(pixelCoord.x, pixelCoord.y, -1.0f);
+    //glm::normalize(rayDirection);
+
+    ////  Sphere Ray Hit Detection
     //  (bx^2 + by^2)t^2 + (2(axbx + ayby))t + (ax^2 + ay^2 - r^2) = 0
     //  similar to ax^2 + bx + c = 0
     //  where
@@ -16,19 +17,36 @@ uint32_t Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel 
     //  b = ray direction
     //  r = circle radius
     //  t = hit distance
-    float a = Vector3f::Dot(rayDirection, rayDirection); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
-    float b = 2.0f * Vector3f::Dot(rayOrigin, rayDirection);
-    float c = Vector3f::Dot(rayOrigin,rayOrigin) - radius * radius;
+    float a = glm::dot(rayDirection, rayDirection); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
+    float b = 2.0f * glm::dot(rayOrigin, rayDirection);
+    float c = glm::dot(rayOrigin,rayOrigin) - radius * radius;
 
     //  The discriminant of the quadratic formula
     //  b^2 - 4ac
     //  Used to determine if there is a ray hit to the sphere
     float discriminant = b * b - 4.0f * a * c;
+    if(discriminant < 0.0f)
+        return {0,0, 0, 1};  //  background color which is black
 
-    if(discriminant >= 0.0f)
-        return 0xffff00ff;  //  if hit, draw magenta pixel
+    //  Quadratic formula
+    //  -b +- sqrt(discriminant) / 2a
+    //float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
+    float closestHit = (-b - glm::sqrt(discriminant)) / (2.0f * a);   //  since a will always be positive, the minus part of the formula will always be smaller so thus closer to ray origin
+    glm::vec3 hitPoint = rayOrigin + rayDirection * closestHit;
 
-    return 0xff000000;  //  background color which is black
+    //To get our circle's normal vector onm the hitPoint, normal = hitPoint - centerOfCircle. But since our circle right now is at origin, normal = hitPoint
+    glm::vec3 normal = glm::normalize(hitPoint);
+
+    //  light direction
+    glm::vec3 lightDir = glm::normalize(glm::vec3(-1,-1,-1));
+    
+    float d = glm::max(glm::dot(normal, -lightDir), 0.0f);  //  ==  cos(angle)
+    
+    glm::vec3 sphereColor(1,0,1);
+    sphereColor *= d;
+    return {sphereColor, 1};  //  if hit, draw magenta pixel
+
+    
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
@@ -59,7 +77,10 @@ void Renderer::Render()
         {
             glm::vec2 pixelCoord = {(float)x / m_FinalRenderImage->GetWidth(), (float)y / m_FinalRenderImage->GetHeight()}; //  in range of 0 to 1
             pixelCoord = pixelCoord * 2.0f - 1.0f;  //  remap to range of -1 to 1
-            m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = PerPixel(pixelCoord);
+            
+            glm::vec4 pixelColor = PerPixel(pixelCoord);
+            pixelColor = glm::clamp(pixelColor, glm::vec4(0.0f), glm::vec4(1.0f));
+            m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(pixelColor);
         }
     }
     
