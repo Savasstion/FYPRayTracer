@@ -5,8 +5,8 @@
 glm::vec4 Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel to determine pixel output
 {
     float radius = 0.5f;
-    glm::vec3 rayOrigin(0.0f, 0.0f, 1.0f);  //  we take reference to OpenGL which its forward direction is z = -1
-    glm::vec3 rayDirection(pixelCoord.x, pixelCoord.y, -1.0f);
+    glm::vec3 rayOrigin{0.0f, 0.0f, 1.0f};  //  we take reference to OpenGL which its forward direction is z = -1
+    glm::vec3 rayDirection{pixelCoord.x, pixelCoord.y, -1.0f};
     //glm::normalize(rayDirection);
 
     ////  Sphere Ray Hit Detection
@@ -38,11 +38,11 @@ glm::vec4 Renderer::PerPixel(glm::vec2 pixelCoord)   //  Project a ray per pixel
     glm::vec3 normal = glm::normalize(hitPoint);
 
     //  light direction
-    glm::vec3 lightDir = glm::normalize(glm::vec3(-1,-1,-1));
+    glm::vec3 lightDir = glm::normalize(glm::vec3{-1,-1,-1});
     
     float d = glm::max(glm::dot(normal, -lightDir), 0.0f);  //  ==  cos(angle)
     
-    glm::vec3 sphereColor(1,0,1);
+    glm::vec3 sphereColor{1,0,1};
     sphereColor *= d;
     return {sphereColor, 1};  //  if hit, draw magenta pixel
 
@@ -79,7 +79,8 @@ void Renderer::Render()
             pixelCoord = pixelCoord * 2.0f - 1.0f;  //  remap to range of -1 to 1
             
             glm::vec4 pixelColor = PerPixel(pixelCoord);
-            pixelColor = glm::clamp(pixelColor, glm::vec4(0.0f), glm::vec4(1.0f));
+            pixelColor = glm::clamp(pixelColor, glm::vec4{0.0f}, glm::vec4{1.0f});
+            
             m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(pixelColor);
         }
     }
