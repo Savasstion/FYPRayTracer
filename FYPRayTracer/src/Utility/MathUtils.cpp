@@ -1,6 +1,6 @@
-#include "MathFunctions.h"
+#include "MathUtils.h"
 
-float fi_sqrt(float number)
+float MathUtils::fi_sqrt(float number)
 {
     long i;
     float x2, y;
@@ -17,7 +17,7 @@ float fi_sqrt(float number)
     return y;
 }
 
-float approx_sqrt(float number) //Newton-Raphson square root
+float MathUtils::approx_sqrt(float number) //Newton-Raphson square root
 {
     //  std::sqrt is faster so use this when std lib cant be used
     
