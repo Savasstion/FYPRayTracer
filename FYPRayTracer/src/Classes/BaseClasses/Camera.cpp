@@ -12,15 +12,17 @@ Camera::Camera(float verticalFOV, float nearClip, float farClip)
 	: m_VerticalFOV(verticalFOV), m_NearClip(nearClip), m_FarClip(farClip)
 {
 	m_ForwardDirection = glm::vec3(0, 0, -1);
-	m_Position = glm::vec3(0, 0, 6);
+	m_Position = glm::vec3(0, 0, 3);
 }
 
 bool Camera::OnUpdate(float ts)
 {
+	float mouseSensitivity = 0.002f;
 	glm::vec2 mousePos = Input::GetMousePosition();
-	glm::vec2 delta = (mousePos - m_LastMousePosition) * 0.002f;
+	glm::vec2 delta = (mousePos - m_LastMousePosition) * mouseSensitivity;
 	m_LastMousePosition = mousePos;
 
+	//	We will only move the camera when right click is held
 	if (!Input::IsMouseButtonDown(MouseButton::Right))
 	{
 		Input::SetCursorMode(CursorMode::Normal);
@@ -31,6 +33,7 @@ bool Camera::OnUpdate(float ts)
 
 	bool moved = false;
 
+	//	this assumes camera does not rotate in the z-axis, else we do need to calculate the upDirection
 	constexpr glm::vec3 upDirection(0.0f, 1.0f, 0.0f);
 	glm::vec3 rightDirection = glm::cross(m_ForwardDirection, upDirection);
 
