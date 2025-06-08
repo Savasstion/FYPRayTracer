@@ -1,10 +1,10 @@
 #include "Classes/BaseClasses/Camera.h"
 #include "Walnut/Application.h"
 #include "Walnut/EntryPoint.h"
-
 #include "Walnut/Image.h"
 #include "Walnut/Timer.h"
 #include "Classes/Core/Renderer.h"
+#include <glm/gtc/type_ptr.hpp>
 
 class ExampleLayer : public Walnut::Layer
 {
@@ -13,10 +13,29 @@ private:
 	Renderer m_Renderer;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
+	Scene m_Scene;
 	
 public:
 	ExampleLayer()
-	: m_Camera(45.0f, 0.1f, 100.0f){}
+	: m_Camera(45.0f, 0.1f, 100.0f)
+	{
+		{
+			Sphere sphere;
+			sphere.position = {0,0,0};
+			sphere.radius = 0.5f;
+			sphere.albedo = {1,0,1};
+			m_Scene.spheres.push_back(sphere);
+		}
+		
+		{
+			Sphere sphere;
+			sphere.position = {1,0,-5};
+			sphere.radius = 1.5f;
+			sphere.albedo = {0.2f,0.3f,1.0f};
+			m_Scene.spheres.push_back(sphere);
+		}
+
+	}
 	
 	virtual void OnUpdate(float ts) override
 	{
@@ -27,9 +46,24 @@ public:
 	{
 		ImGui::Begin("Settings");
 		ImGui::Text("Render Time : %.3fms", m_RenderTime);
-		if (ImGui::Button("Render"))
+		//if (ImGui::Button("Render"))
+		//{
+		//	Render();
+		//}
+		ImGui::End();
+
+		ImGui::Begin("Scene");
+		for(size_t i = 0; i < m_Scene.spheres.size(); i++)
 		{
-			Render();
+			ImGui::PushID(i);
+			
+			ImGui::DragFloat3("Position", glm::value_ptr(m_Scene.spheres[i].position), 0.1f);
+			ImGui::DragFloat("Radius", &m_Scene.spheres[i].radius, 0.1f);
+			ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.spheres[i].albedo));
+
+			ImGui::Separator();
+			
+			ImGui::PopID();
 		}
 		ImGui::End();
 
@@ -60,7 +94,7 @@ public:
 		
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
 		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
-		m_Renderer.Render(m_Camera);
+		m_Renderer.Render(m_Scene, m_Camera);
 		
 		m_RenderTime = timer.ElapsedMillis();
 	}
