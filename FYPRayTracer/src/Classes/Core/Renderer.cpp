@@ -2,17 +2,18 @@
 #include "Walnut/Random.h"
 #include "../../Utility/ColorUtils.h"
 
-glm::vec4 Renderer::TraceRay(const Scene& scene, const Ray& ray)   //  Project a ray per pixel to determine pixel output
+RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel to determine pixel output
 {
-    if(scene.spheres.empty())
-        return {0,0, 0, 1}; //  if nothing in scene then don't bother
+    if(m_ActiveScene->spheres.empty())
+        return Miss(ray);
 
-    const Sphere* closestSphere = nullptr;
+    int closestSphere = -1;
     float hitDistance = FLT_MAX;
 
     //  find closest sphere and draw it 
-    for(const Sphere& sphere : scene.spheres)
+    for(uint32_t i = 0; i <  m_ActiveScene->spheres.size(); i++)
     {
+        const Sphere& sphere = m_ActiveScene->spheres[i];
         ////  Sphere Ray Hit Detection
         //  (bx^2 + by^2)t^2 + (2(axbx + ayby))t + (ax^2 + ay^2 - r^2) = 0
         //  similar to ax^2 + bx + c = 0
@@ -40,32 +41,81 @@ glm::vec4 Renderer::TraceRay(const Scene& scene, const Ray& ray)   //  Project a
         //  -b +- sqrt(discriminant) / 2a
         //float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
         float closestHit = (-b - glm::sqrt(discriminant)) / (2.0f * a);   //  since a will always be positive, the minus part of the formula will always be smaller so thus closer to ray origin
-        if(closestHit < hitDistance && closestHit >= 0.0f)
+        if(closestHit < hitDistance && closestHit > 0.0f)
         {
             hitDistance = closestHit;
-            closestSphere = &sphere;
+            closestSphere = (int)i;
         }
     }
 
-    if(closestSphere == nullptr)
-        return {0,0, 0, 1};
+    if(closestSphere < 0)
+        return Miss(ray);
+
+    return ClosestHit(ray, hitDistance, closestSphere);
+}
+
+glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
+{
+    Ray ray;
+    ray.origin = m_ActiveCamera->GetPosition();
+    ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
+
+    glm::vec3 color{0.0f};
+    float multiplier = 1.0f;
     
+    int bounces = 2;
+    for(int i = 0; i < bounces; i++)
+    {
+        RayHitPayload payload = TraceRay(ray);
+        if(payload.hitDistance < 0.0f)
+        {
+            glm::vec3 skyColor{0,0,0};
+            color += skyColor * multiplier;
+            break;  //  stop tracing rays when there is nothing to bounce off of
+        }
+        
+        //  determine color of light for pixel
+        glm::vec3 lightDir = glm::normalize(glm::vec3{-1,-1,-1});
+        float lightIntensity = glm::max(glm::dot(payload.worldNormal, -lightDir), 0.0f);  //  ==  cos(angle)
 
-    glm::vec3 origin = ray.origin - closestSphere->position;
-
-    glm::vec3 hitPoint = origin + ray.direction * hitDistance;
-
-    //To get our circle's normal vector onm the hitPoint, normal = hitPoint - centerOfCircle. But since our circle right now is at origin, normal = hitPoint
-    glm::vec3 normal = glm::normalize(hitPoint);
-
-    //  light direction
-    glm::vec3 lightDir = glm::normalize(glm::vec3{-1,-1,-1});
+        const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
     
-    float d = glm::max(glm::dot(normal, -lightDir), 0.0f);  //  ==  cos(angle)
+        glm::vec3 sphereColor = sphere.albedo;
+        sphereColor *= lightIntensity;
+        color += sphereColor * multiplier;
+
+        multiplier *= .7f;
+
+        ray.origin = payload.worldPosition + payload.worldNormal * 0.000000001f;
+        ray.direction = glm::reflect(ray.direction, payload.worldNormal);
+    }
+
+    return {color, 1};  //  if hit, draw magenta pixel
+}
+
+RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
+{
+    RayHitPayload payload;
+    payload.hitDistance = hitDistance;
+    payload.objectIndex = objectIndex;
     
-    glm::vec3 sphereColor = closestSphere->albedo;
-    sphereColor *= d;
-    return {sphereColor, 1};  //  if hit, draw magenta pixel
+    const Sphere& closestSphere = m_ActiveScene->spheres[objectIndex];
+    
+    glm::vec3 origin = ray.origin - closestSphere.position; //  disregard world position for easier calculations for now
+    payload.worldPosition = origin + ray.direction * hitDistance;
+    //To get our circle's normal vector on the hitPoint, normal = hitPoint - centerOfCircle. But since our circle right now is at origin, normal = hitPoint
+    payload.worldNormal = glm::normalize(payload.worldPosition);
+
+    payload.worldPosition += closestSphere.position;    //  move back to actual world position
+    
+    return payload;
+}
+
+RayHitPayload Renderer::Miss(const Ray& ray)
+{
+    RayHitPayload payload;
+    payload.hitDistance = -1;
+    return payload;
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
@@ -89,18 +139,16 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
 void Renderer::Render(const Scene& scene, const Camera& camera)
 {
-    Ray ray;
-    ray.origin = camera.GetPosition();
+    m_ActiveScene = &scene;
+    m_ActiveCamera = &camera;
     
     //  draw every pixel onto screen
     for(uint32_t y = 0; y < m_FinalRenderImage->GetHeight(); y++)
     {
         for(uint32_t x = 0; x < m_FinalRenderImage->GetWidth(); x++)
         {
-            ray.direction = camera.GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
-            glm::vec4 pixelColor = TraceRay(scene, ray);
+            glm::vec4 pixelColor = PerPixel(x, y);
             pixelColor = glm::clamp(pixelColor, glm::vec4{0.0f}, glm::vec4{1.0f});
-            
             m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(pixelColor);
         }
     }

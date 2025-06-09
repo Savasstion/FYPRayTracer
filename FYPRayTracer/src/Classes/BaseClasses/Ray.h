@@ -10,4 +10,14 @@ struct Ray
     glm::vec3 direction;
 };
 
+struct RayHitPayload
+{
+    float hitDistance;
+    glm::vec3 worldPosition;
+    glm::vec3 worldNormal;
+
+    int objectIndex;
+    //  may also need in the future, the type of object (ie : Sphere, Quad or Triangle)
+};
+
 #endif

@@ -22,15 +22,15 @@ public:
 		{
 			Sphere sphere;
 			sphere.position = {0,0,0};
-			sphere.radius = 0.5f;
+			sphere.radius = 1.0f;
 			sphere.albedo = {1,0,1};
 			m_Scene.spheres.push_back(sphere);
 		}
 		
 		{
 			Sphere sphere;
-			sphere.position = {1,0,-5};
-			sphere.radius = 1.5f;
+			sphere.position = {0,-101,0};
+			sphere.radius = 100.0f;
 			sphere.albedo = {0.2f,0.3f,1.0f};
 			m_Scene.spheres.push_back(sphere);
 		}
