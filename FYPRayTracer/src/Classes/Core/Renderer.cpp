@@ -40,7 +40,7 @@ glm::vec4 Renderer::TraceRay(const Scene& scene, const Ray& ray)   //  Project a
         //  -b +- sqrt(discriminant) / 2a
         //float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
         float closestHit = (-b - glm::sqrt(discriminant)) / (2.0f * a);   //  since a will always be positive, the minus part of the formula will always be smaller so thus closer to ray origin
-        if(closestHit < hitDistance)    //  TODO: need to take account of near plane
+        if(closestHit < hitDistance && closestHit >= 0.0f)
         {
             hitDistance = closestHit;
             closestSphere = &sphere;
@@ -50,8 +50,6 @@ glm::vec4 Renderer::TraceRay(const Scene& scene, const Ray& ray)   //  Project a
     if(closestSphere == nullptr)
         return {0,0, 0, 1};
     
-    if(hitDistance < 0.0f)   //  if closest hit is negative, don't draw
-        return {0,0, 0, 1};
 
     glm::vec3 origin = ray.origin - closestSphere->position;
 
