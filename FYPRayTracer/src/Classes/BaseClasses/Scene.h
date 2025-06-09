@@ -8,7 +8,7 @@ struct Scene
 {
     //  vectors of primitives
     std::vector<Sphere> spheres;
-    
+    std::vector<Material> materials;
 };
 
 #endif

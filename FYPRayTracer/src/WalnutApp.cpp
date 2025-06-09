@@ -19,11 +19,20 @@ public:
 	ExampleLayer()
 	: m_Camera(45.0f, 0.1f, 100.0f)
 	{
+		Material& matPinkSphere = m_Scene.materials.emplace_back();
+		matPinkSphere.albedo = {1.0f,0.0f,1.0f};
+		matPinkSphere.roughness = 0.0f;
+		
+		Material& matBlueSphere = m_Scene.materials.emplace_back();
+		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
+		matBlueSphere.roughness = 0.1f;
+		
 		{
 			Sphere sphere;
 			sphere.position = {0,0,0};
 			sphere.radius = 1.0f;
-			sphere.albedo = {1,0,1};
+			sphere.materialIndex = 0;
+
 			m_Scene.spheres.push_back(sphere);
 		}
 		
@@ -31,7 +40,8 @@ public:
 			Sphere sphere;
 			sphere.position = {0,-101,0};
 			sphere.radius = 100.0f;
-			sphere.albedo = {0.2f,0.3f,1.0f};
+			sphere.materialIndex = 1;
+
 			m_Scene.spheres.push_back(sphere);
 		}
 
@@ -39,7 +49,9 @@ public:
 	
 	virtual void OnUpdate(float ts) override
 	{
-		m_Camera.OnUpdate(ts);
+		bool cameraMoved = m_Camera.OnUpdate(ts);
+		if(cameraMoved)
+			m_Renderer.ResetFrameIndex();
 	}
 	
 	virtual void OnUIRender() override
@@ -47,24 +59,41 @@ public:
 		ImGui::Begin("Settings");
 		ImGui::Text("Render Time : %.3fms", m_RenderTime);
 		//if (ImGui::Button("Render"))
-		//{
-		//	Render();
-		//}
+		//		Render();
+		if (ImGui::Button("Reset"))
+			m_Renderer.ResetFrameIndex();
+		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().toAccumulate);
 		ImGui::End();
 
 		ImGui::Begin("Scene");
 		for(size_t i = 0; i < m_Scene.spheres.size(); i++)
 		{
 			ImGui::PushID(i);
-			
-			ImGui::DragFloat3("Position", glm::value_ptr(m_Scene.spheres[i].position), 0.1f);
-			ImGui::DragFloat("Radius", &m_Scene.spheres[i].radius, 0.1f);
-			ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.spheres[i].albedo));
 
+			Sphere& sphere = m_Scene.spheres[i];
+			ImGui::DragFloat3("Position", glm::value_ptr(sphere.position), 0.1f);
+			ImGui::DragFloat("Radius", &sphere.radius, 0.1f);
+			ImGui::DragInt("Material Index", &sphere.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
+			
 			ImGui::Separator();
 			
 			ImGui::PopID();
 		}
+
+		for(size_t i = 0; i < m_Scene.materials.size(); i++)
+		{
+			ImGui::PushID(i);
+
+			Material& material = m_Scene.materials[i];
+			ImGui::ColorEdit3("Albedo", glm::value_ptr(material.albedo));
+			ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
+			ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
+
+			ImGui::Separator();
+
+			ImGui::PopID();
+		}
+		
 		ImGui::End();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f,0.0f));

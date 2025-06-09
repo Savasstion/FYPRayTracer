@@ -63,13 +63,13 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
     glm::vec3 color{0.0f};
     float multiplier = 1.0f;
     
-    int bounces = 2;
+    int bounces = 5;
     for(int i = 0; i < bounces; i++)
     {
         RayHitPayload payload = TraceRay(ray);
         if(payload.hitDistance < 0.0f)
         {
-            glm::vec3 skyColor{0,0,0};
+            glm::vec3 skyColor{0.6f,0.7f,0.9f};
             color += skyColor * multiplier;
             break;  //  stop tracing rays when there is nothing to bounce off of
         }
@@ -79,15 +79,17 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
         float lightIntensity = glm::max(glm::dot(payload.worldNormal, -lightDir), 0.0f);  //  ==  cos(angle)
 
         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
+        const Material& material = m_ActiveScene->materials[sphere.materialIndex];
     
-        glm::vec3 sphereColor = sphere.albedo;
+        glm::vec3 sphereColor = material.albedo;
         sphereColor *= lightIntensity;
         color += sphereColor * multiplier;
 
-        multiplier *= .7f;
+        multiplier *= .5f;
 
         ray.origin = payload.worldPosition + payload.worldNormal * 0.000000001f;
-        ray.direction = glm::reflect(ray.direction, payload.worldNormal);
+        ray.direction = glm::reflect(ray.direction,
+            payload.worldNormal + material.roughness * Walnut::Random::Vec3(-.5f, .5f));
     }
 
     return {color, 1};  //  if hit, draw magenta pixel
@@ -135,12 +137,19 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
     delete[] m_RenderImageData;
     m_RenderImageData = new uint32_t[width * height];
+
+    delete[] m_AccumulationData;
+    m_AccumulationData = new glm::vec4[width * height];
 }
 
 void Renderer::Render(const Scene& scene, const Camera& camera)
 {
     m_ActiveScene = &scene;
     m_ActiveCamera = &camera;
+
+    constexpr size_t vec4Size = sizeof(glm::vec4);
+    if(m_FrameIndex == 1)
+        memset(m_AccumulationData, 0, m_FinalRenderImage->GetWidth() * m_FinalRenderImage->GetHeight() * vec4Size);
     
     //  draw every pixel onto screen
     for(uint32_t y = 0; y < m_FinalRenderImage->GetHeight(); y++)
@@ -148,10 +157,20 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         for(uint32_t x = 0; x < m_FinalRenderImage->GetWidth(); x++)
         {
             glm::vec4 pixelColor = PerPixel(x, y);
-            pixelColor = glm::clamp(pixelColor, glm::vec4{0.0f}, glm::vec4{1.0f});
-            m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(pixelColor);
+            m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
+
+            glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];
+            accumulatedColor /= (float)m_FrameIndex;
+            
+            accumulatedColor = glm::clamp(accumulatedColor, glm::vec4{0.0f}, glm::vec4{1.0f});
+            m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(accumulatedColor);
         }
     }
     
     m_FinalRenderImage->SetData(m_RenderImageData);	//upload the image data onto GPU
+
+    if(m_Settings.toAccumulate)
+        m_FrameIndex++;
+    else
+        m_FrameIndex = 1;
 }
