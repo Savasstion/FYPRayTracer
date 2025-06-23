@@ -61,8 +61,8 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
     ray.origin = m_ActiveCamera->GetPosition();
     ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
 
-    glm::vec3 color{0.0f};
-    float multiplier = 1.0f;
+    glm::vec3 light{0.0f};
+    glm::vec3 contribution{1.0f}; //  color of ray, will lose certain colors when materials absorb it
     
     int bounces = 5;
     for(int i = 0; i < bounces; i++)
@@ -70,30 +70,31 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
         RayHitPayload payload = TraceRay(ray);
         if(payload.hitDistance < 0.0f)
         {
-            glm::vec3 skyColor{0.6f,0.7f,0.9f};
-            color += skyColor * multiplier;
+            //glm::vec3 skyColor{0.6f,0.7f,0.9f};
+            //light += skyColor * contribution;
             break;  //  stop tracing rays when there is nothing to bounce off of
         }
-        
-        //  determine color of light for pixel
-        glm::vec3 lightDir = glm::normalize(glm::vec3{-1,-1,-1});
-        float lightIntensity = glm::max(glm::dot(payload.worldNormal, -lightDir), 0.0f);  //  ==  cos(angle)
-    
+       
         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
-    
-        glm::vec3 sphereColor = material.albedo;
-        sphereColor *= lightIntensity;
-        color += sphereColor * multiplier;
+        
+        // light will be absorbed by materials when it hit
+        contribution *= material.albedo;
+        //  add light emission from material
+        light += material.GetEmission() * contribution;
 
-        multiplier *= .5f;
+        //  if hit light source already, no need to bounce again
+        if(material.GetEmissionPower() > 0.0f)
+            break;
 
         ray.origin = payload.worldPosition + payload.worldNormal * 0.000000001f;
-        ray.direction = glm::reflect(ray.direction,
-            payload.worldNormal + material.roughness * Walnut::Random::Vec3(-.5f, .5f));
+
+        //  scuff implementation of projecting a ray within a hemisphere
+        //  diffuse behavior, light will be scatter within a hemisphere
+        ray.direction = glm::normalize(payload.worldNormal + Walnut::Random::InUnitSphere());
     }
 
-    return {color, 1};  //  if hit, draw magenta pixel
+    return {light, 1};  //  if hit, draw magenta pixel
 }
 
 RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
