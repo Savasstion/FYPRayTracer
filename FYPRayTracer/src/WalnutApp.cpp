@@ -62,7 +62,7 @@ public:
 		//		Render();
 		if (ImGui::Button("Reset"))
 			m_Renderer.ResetFrameIndex();
-		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().toAccumulate);
+		ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)", &m_Renderer.GetSettings().toAccumulate);
 		ImGui::End();
 
 		ImGui::Begin("Scene");

@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
 #include "../../Utility/ColorUtils.h"
+#include <execution>
 
 RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel to determine pixel output
 {
@@ -77,7 +78,7 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
         //  determine color of light for pixel
         glm::vec3 lightDir = glm::normalize(glm::vec3{-1,-1,-1});
         float lightIntensity = glm::max(glm::dot(payload.worldNormal, -lightDir), 0.0f);  //  ==  cos(angle)
-
+    
         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
     
@@ -140,6 +141,13 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
     delete[] m_AccumulationData;
     m_AccumulationData = new glm::vec4[width * height];
+
+    m_ImageHorizontalIter.resize(width);
+    m_ImageVerticalIter.resize(height);
+    for(uint32_t i = 0; i < width; i++)
+        m_ImageHorizontalIter[i] = i;
+    for(uint32_t i = 0; i < height; i++)
+        m_ImageVerticalIter[i] = i;
 }
 
 void Renderer::Render(const Scene& scene, const Camera& camera)
@@ -152,13 +160,34 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         memset(m_AccumulationData, 0, m_FinalRenderImage->GetWidth() * m_FinalRenderImage->GetHeight() * vec4Size);
     
     //  draw every pixel onto screen
+
+
+#define MT 1    //  set to 1 if we want CPU multithreading
+#if MT
+    std::for_each(std::execution::par, m_ImageVerticalIter.begin(), m_ImageVerticalIter.end(),
+        [this](uint32_t y)
+        {
+            std::for_each(std::execution::par, m_ImageHorizontalIter.begin(), m_ImageHorizontalIter.end(),
+                [this, y](uint32_t x)
+                {
+                  glm::vec4 pixelColor = PerPixel(x, y);
+                  m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
+
+                  glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];
+                  accumulatedColor /= (float)m_FrameIndex;
+
+                  accumulatedColor = glm::clamp(accumulatedColor, glm::vec4{0.0f}, glm::vec4{1.0f});
+                  m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(accumulatedColor);
+                });
+        });
+#else
     for(uint32_t y = 0; y < m_FinalRenderImage->GetHeight(); y++)
     {
         for(uint32_t x = 0; x < m_FinalRenderImage->GetWidth(); x++)
         {
             glm::vec4 pixelColor = PerPixel(x, y);
             m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
-
+    
             glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];
             accumulatedColor /= (float)m_FrameIndex;
             
@@ -166,6 +195,7 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
             m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(accumulatedColor);
         }
     }
+#endif
     
     m_FinalRenderImage->SetData(m_RenderImageData);	//upload the image data onto GPU
 

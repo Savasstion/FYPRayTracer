@@ -10,7 +10,7 @@
 
 struct Settings
 {
-    bool toAccumulate = true;
+    bool toAccumulate = false;
 };
 
 class Renderer
@@ -23,6 +23,8 @@ private:
     const Scene* m_ActiveScene = nullptr;
     const Camera* m_ActiveCamera = nullptr;
     uint32_t m_FrameIndex = 1;
+
+    std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 
     glm::vec4 PerPixel(uint32_t x, uint32_t y);    //RayGen
     RayHitPayload TraceRay(const Ray& ray);
