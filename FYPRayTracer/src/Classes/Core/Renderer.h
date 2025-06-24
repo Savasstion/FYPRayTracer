@@ -30,6 +30,10 @@ private:
     RayHitPayload TraceRay(const Ray& ray);
     RayHitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
     RayHitPayload Miss(const Ray& ray);
+    glm::vec3 CalculateBRDF(
+    const glm::vec3& N, const glm::vec3& V, const glm::vec3& L,
+    const glm::vec3& albedo, float metallic, float roughness);
+
 public:
     Renderer() = default;
     

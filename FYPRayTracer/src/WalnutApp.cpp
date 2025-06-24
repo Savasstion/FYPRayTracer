@@ -27,11 +27,11 @@ public:
 		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
 		matBlueSphere.roughness = 0.1f;
 
-		Material& matOrangeSphere = m_Scene.materials.emplace_back();
-		matOrangeSphere.albedo = {1,1,1};
-		matOrangeSphere.roughness = 0.1f;
-		matOrangeSphere.emissionColor = matOrangeSphere.albedo;
-		matOrangeSphere.emissionPower = 20.0f;
+		Material& matWhiteGlowingSphere = m_Scene.materials.emplace_back();
+		matWhiteGlowingSphere.albedo = {1,1,1};
+		matWhiteGlowingSphere.roughness = 0.1f;
+		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
+		matWhiteGlowingSphere.emissionPower = 10.0f;
 		
 		{
 			Sphere sphere;
@@ -53,7 +53,7 @@ public:
 
 		{
 			Sphere sphere;
-			sphere.position = {20,0,0};
+			sphere.position = {40,0,0};
 			sphere.radius = 10.0f;
 			sphere.materialIndex = 2;
 

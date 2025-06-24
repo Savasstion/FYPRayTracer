@@ -57,44 +57,64 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
 
 glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 {
+    uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
+    seed *= m_FrameIndex;
+
     Ray ray;
     ray.origin = m_ActiveCamera->GetPosition();
     ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
 
-    glm::vec3 light{0.0f};
-    glm::vec3 contribution{1.0f}; //  color of ray, will lose certain colors when materials absorb it
-    
-    int bounces = 5;
-    for(int i = 0; i < bounces; i++)
+    glm::vec3 radiance{0.0f};
+    glm::vec3 contribution{1.0f};
+
+    int maxBounces = 5;
+
+    for (int bounce = 0; bounce < maxBounces; bounce++)
     {
         RayHitPayload payload = TraceRay(ray);
-        if(payload.hitDistance < 0.0f)
+        if (payload.hitDistance < 0.0f)
         {
-            //glm::vec3 skyColor{0.6f,0.7f,0.9f};
-            //light += skyColor * contribution;
-            break;  //  stop tracing rays when there is nothing to bounce off of
+            radiance += contribution * glm::vec3(0.6f, 0.7f, 0.9f); // sky
+            break;
         }
-       
+
         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
-        
-        // light will be absorbed by materials when it hit
-        contribution *= material.albedo;
-        //  add light emission from material
-        light += material.GetEmission() * contribution;
 
-        //  if hit light source already, no need to bounce again
-        if(material.GetEmissionPower() > 0.0f)
+        glm::vec3 emission = material.GetEmission();
+        if (glm::length(emission) > 0.0f)
+        {
+            radiance += contribution * emission;
             break;
+        }
 
-        ray.origin = payload.worldPosition + payload.worldNormal * 0.000000001f;
+        // Sample next direction
+        glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
+        float cosTheta = glm::dot(newDir, payload.worldNormal); //The dot product between surface normal and the sampled direction. Also the Geometry Term
+        if (cosTheta <= 0.0f) break;
 
-        //  scuff implementation of projecting a ray within a hemisphere
-        //  diffuse behavior, light will be scatter within a hemisphere
-        ray.direction = glm::normalize(payload.worldNormal + Walnut::Random::InUnitSphere());
+        // Compute BRDF and PDF
+        float pdf = MathUtils::CosineHemispherePDF(cosTheta);
+        
+        glm::vec3 brdf = CalculateBRDF(
+            payload.worldNormal,
+            -ray.direction,     // V (view dir)
+            newDir,             // L (outgoing dir)
+            material.albedo,
+            material.metallic,
+            material.roughness
+        );
+
+        //  Monte Carlo estimator
+        //  no need to sum and average here because the accumulator option adds up pixel's color and averaging them over time
+        contribution *= brdf * cosTheta / pdf;
+
+        // Prepare to project next ray.
+        ray.origin = payload.worldPosition + payload.worldNormal * 1e-4f;
+        ray.direction = glm::normalize(newDir);
     }
 
-    return {light, 1};  //  if hit, draw magenta pixel
+    return glm::vec4(radiance, 1.0f);
 }
 
 RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
@@ -121,6 +141,43 @@ RayHitPayload Renderer::Miss(const Ray& ray)
     payload.hitDistance = -1;
     return payload;
 }
+
+glm::vec3 Renderer::CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo,
+    float metallic, float roughness)
+{
+    glm::vec3 H = glm::normalize(V + L);
+    float NdotL = glm::max(glm::dot(N, L), 0.0f);
+    float NdotV = glm::max(glm::dot(N, V), 0.0f);
+    float NdotH = glm::max(glm::dot(N, H), 0.0f);
+    float VdotH = glm::max(glm::dot(V, H), 0.0f);
+
+    // Fresnel (Schlick's approximation)
+    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+    glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - VdotH, 5.0f);
+
+    // Geometry Shadowing (Smith)
+    float k = (roughness + 1.0f) * (roughness + 1.0f) / 8.0f;
+    float G_V = NdotV / (NdotV * (1.0f - k) + k);
+    float G_L = NdotL / (NdotL * (1.0f - k) + k);
+    float G = G_V * G_L;
+    
+    // Lambertian diffuse (non-metallic only)
+    glm::vec3 diffuse = (1.0f - metallic) * albedo / MathUtils::pi;
+
+    // Normal Distribution (GGX / Trowbridge-Reitz)
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float denominator = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
+    float D = a2 / (MathUtils::pi * denominator * denominator);
+
+    
+    //  Cook-Torrance specular
+    glm::vec3 specular = (D * F * G) / glm::max(4.0f * NdotV * NdotL, 0.001f);
+
+    //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
+    return diffuse + specular;
+}
+
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
 {

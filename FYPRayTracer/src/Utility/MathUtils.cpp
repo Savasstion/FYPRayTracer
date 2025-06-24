@@ -1,5 +1,8 @@
 #include "MathUtils.h"
 
+#include <limits>
+#include <glm/detail/func_geometric.inl>
+
 float MathUtils::fi_sqrt(float number)
 {
     long i;
@@ -30,3 +33,50 @@ float MathUtils::approx_sqrt(float number) //Newton-Raphson square root
     approx = 0.5f * (approx + number / approx);
     return approx;
 }
+
+uint32_t MathUtils::pcg_hash(uint32_t input)
+{
+    uint32_t state = input * 747796405u + 2891336453u;
+    uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float MathUtils::randomFloat(uint32_t& seed)
+{
+    seed = pcg_hash(seed);  //  in case you wanna call this multiple times, so we gonna overwrite the seed to be reused
+    return (float)seed / (float)UINT32_MAX; //  return a random float between 0 to 1
+}
+
+void MathUtils::BuildOrthonormalBasis(const glm::vec3& n, glm::vec3& tangent, glm::vec3& bitangent)
+{
+    if (fabs(n.x) > fabs(n.z))
+        tangent = glm::normalize(glm::vec3(-n.y, n.x, 0.0f));
+    else
+        tangent = glm::normalize(glm::vec3(0.0f, -n.z, n.y));
+    bitangent = glm::normalize(glm::cross(n, tangent));
+}
+
+glm::vec3 MathUtils::CosineSampleHemisphere(const glm::vec3& normal, uint32_t& seed)
+{
+    float u1 = MathUtils::randomFloat(seed);
+    float u2 = MathUtils::randomFloat(seed);
+
+    float r = sqrt(u1);
+    float theta = 2.0f * pi * u2;
+
+    float x = r * cos(theta);
+    float y = r * sin(theta);
+    float z = sqrt(glm::max(0.0f, 1.0f - u1));
+
+    // Convert to world space
+    glm::vec3 tangent, bitangent;
+    MathUtils::BuildOrthonormalBasis(normal, tangent, bitangent);
+    return glm::normalize(tangent * x + bitangent * y + normal * z);
+}
+
+float MathUtils::CosineHemispherePDF(float cosTheta)
+{
+    return cosTheta / pi; // standard cosine-weighted PDF
+}
+
+
