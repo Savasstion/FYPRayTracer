@@ -99,17 +99,17 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
             glm::vec3 finalBounceColor{0.0f};
             for (uint8_t i = 0; i < sampleCount; i++)
             {
-                seed += (uint32_t)i;
+                seed += (uint32_t)(i+1);
                 glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
-                float cosTheta = glm::dot(newDir, payload.worldNormal);
+                float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
                 if (cosTheta <= 0.0f) continue;
 
                 float pdf = MathUtils::CosineHemispherePDF(cosTheta);
 
                 glm::vec3 brdf = CalculateBRDF(
                     payload.worldNormal,
-                    -ray.direction,  // V
-                    newDir,          // L
+                    -ray.direction,  // Viewing Direction, V
+                    newDir,          // Incoming Light Direction, L
                     material.albedo,
                     material.metallic,
                     material.roughness
@@ -138,7 +138,7 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
 
         // Normal bounce path
         glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
-        float cosTheta = glm::dot(newDir, payload.worldNormal);
+        float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
         if (cosTheta <= 0.0f) break;
 
         float pdf = MathUtils::CosineHemispherePDF(cosTheta);
