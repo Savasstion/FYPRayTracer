@@ -11,6 +11,7 @@ class ExampleLayer : public Walnut::Layer
 private:
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 	Renderer m_Renderer;
+	float m_CurrentFrameTime = 0.0f;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
@@ -72,11 +73,15 @@ public:
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
-		ImGui::Text("Render Time : %.3fms", m_RenderTime);
-		//if (ImGui::Button("Render"))
-		//		Render();
+		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
+		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
+		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
 		if (ImGui::Button("Reset"))
+		{
 			m_Renderer.ResetFrameIndex();
+			m_RenderTime = 0.0f;
+		}
+
 		ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)", &m_Renderer.GetSettings().toAccumulate);
 		ImGui::End();
 
@@ -142,7 +147,8 @@ public:
 		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
 		m_Renderer.Render(m_Scene, m_Camera);
 		
-		m_RenderTime = timer.ElapsedMillis();
+		m_CurrentFrameTime = timer.ElapsedMillis();
+		m_RenderTime += m_CurrentFrameTime;
 	}
 };
 

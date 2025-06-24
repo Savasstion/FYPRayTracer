@@ -10,7 +10,7 @@
 
 struct Settings
 {
-    bool toAccumulate = false;
+    bool toAccumulate = true;
 };
 
 class Renderer
@@ -42,6 +42,7 @@ public:
     std::shared_ptr<Walnut::Image> GetFinalRenderImage() const {return m_FinalRenderImage;}
     void ResetFrameIndex(){ m_FrameIndex = 1; }
     Settings& GetSettings(){ return m_Settings; }
+    uint32_t GetCurrentFrameIndex() const {return m_FrameIndex;}
 };
 
 #endif
