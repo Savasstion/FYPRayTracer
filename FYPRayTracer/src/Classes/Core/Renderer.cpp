@@ -93,7 +93,7 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
             break;
         }
 
-        // Final bounce: project multiple rays and average the results
+        // Final bounce: project multiple rays to find light sources and average the results
         if (currentBounce == maxBounces-1 && rayProjectCount != 0)
         {
             glm::vec3 finalBounceColor{0.0f};
@@ -101,10 +101,10 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
             {
                 seed += (uint32_t)(i+1);
                 glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
-                float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
+                float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term, no need to add inverse square law here since we are not directly sampling light sources, do it for RIS (Resampled Importance Sampling) later
                 if (cosTheta <= 0.0f) continue;
 
-                float pdf = MathUtils::CosineHemispherePDF(cosTheta);
+                float pdf = MathUtils::CosineHemispherePDF(cosTheta);   //  find the probability of choosing this direction 
 
                 glm::vec3 brdf = CalculateBRDF(
                     payload.worldNormal,
