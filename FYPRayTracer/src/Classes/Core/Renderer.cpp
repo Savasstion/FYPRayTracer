@@ -54,7 +54,7 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
     return ClosestHit(ray, hitDistance, closestSphere);
 }
 
-glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& bounces, const uint8_t& sampleCount)
+glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
 {
     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
     seed *= m_FrameIndex;
@@ -67,11 +67,11 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
     glm::vec3 contribution{1.0f};
 
     
-    const uint8_t maxBounces = bounces;
+    const uint8_t rayProjectCount = maxBounces + 1; //  add one to ensure first camera ray is still projected
 
-    for (int bounce = -1; bounce < maxBounces; bounce++)
+    for (int currentBounce = 0; currentBounce < rayProjectCount; currentBounce++)
     {
-        seed += (uint32_t)(bounce+1);
+        seed += (uint32_t)(currentBounce+1);
         
         RayHitPayload payload = TraceRay(ray);
 
@@ -94,7 +94,7 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
         }
 
         // Final bounce: project multiple rays and average the results
-        if (bounce == maxBounces)
+        if (currentBounce == maxBounces-1 && rayProjectCount != 0)
         {
             glm::vec3 finalBounceColor{0.0f};
             for (uint8_t i = 0; i < sampleCount; i++)

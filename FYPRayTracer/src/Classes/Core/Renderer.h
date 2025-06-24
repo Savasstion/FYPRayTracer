@@ -29,7 +29,7 @@ private:
 
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 
-    glm::vec4 PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& bounces, const uint8_t& sampleCount);    //RayGen
+    glm::vec4 PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount);    //RayGen
     RayHitPayload TraceRay(const Ray& ray);
     RayHitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
     RayHitPayload Miss(const Ray& ray);
