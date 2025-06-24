@@ -1,5 +1,4 @@
 #include "Renderer.h"
-#include "Walnut/Random.h"
 #include "../../Utility/ColorUtils.h"
 #include <execution>
 
@@ -55,7 +54,7 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
     return ClosestHit(ray, hitDistance, closestSphere);
 }
 
-glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
+glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& bounces, const uint8_t& sampleCount)
 {
     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
     seed *= m_FrameIndex;
@@ -67,20 +66,26 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
     glm::vec3 radiance{0.0f};
     glm::vec3 contribution{1.0f};
 
-    int maxBounces = 5;
+    
+    const uint8_t maxBounces = bounces;
 
-    for (int bounce = 0; bounce < maxBounces+1; bounce++)   //maxBounces+1 to take account of the first non-bounced project ray from camera
+    for (int bounce = -1; bounce < maxBounces; bounce++)
     {
+        seed += (uint32_t)(bounce+1);
+        
         RayHitPayload payload = TraceRay(ray);
+
+        //  if hit skybox
         if (payload.hitDistance < 0.0f)
         {
-            radiance += contribution * glm::vec3(0.6f, 0.7f, 0.9f); // skybox
+            radiance += contribution * m_Settings.skyColor; // Skybox color
             break;
         }
 
         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
 
+        //  if hit light source
         glm::vec3 emission = material.GetEmission();
         if (glm::length(emission) > 0.0f)
         {
@@ -88,28 +93,65 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
             break;
         }
 
-        // Sample next direction
+        // Final bounce: project multiple rays and average the results
+        if (bounce == maxBounces)
+        {
+            glm::vec3 finalBounceColor{0.0f};
+            for (uint8_t i = 0; i < sampleCount; i++)
+            {
+                seed += (uint32_t)i;
+                glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
+                float cosTheta = glm::dot(newDir, payload.worldNormal);
+                if (cosTheta <= 0.0f) continue;
+
+                float pdf = MathUtils::CosineHemispherePDF(cosTheta);
+
+                glm::vec3 brdf = CalculateBRDF(
+                    payload.worldNormal,
+                    -ray.direction,  // V
+                    newDir,          // L
+                    material.albedo,
+                    material.metallic,
+                    material.roughness
+                );
+
+                Ray bounceRay;
+                bounceRay.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
+                bounceRay.direction = glm::normalize(newDir);
+
+                RayHitPayload bouncePayload = TraceRay(bounceRay);
+                if (bouncePayload.hitDistance < 0.0f)
+                {
+                    finalBounceColor += brdf * m_Settings.skyColor * cosTheta / pdf;
+                }
+                else
+                {
+                    const Material& bounceMat = m_ActiveScene->materials[
+                        m_ActiveScene->spheres[bouncePayload.objectIndex].materialIndex];
+                    finalBounceColor += brdf * bounceMat.GetEmission() * cosTheta / pdf;
+                }
+            }
+            finalBounceColor /= (float)sampleCount;
+            radiance += contribution * finalBounceColor;
+            break;
+        }
+
+        // Normal bounce path
         glm::vec3 newDir = MathUtils::CosineSampleHemisphere(payload.worldNormal, seed);
-        float cosTheta = glm::dot(newDir, payload.worldNormal); //The dot product between surface normal and the sampled direction. Also the Geometry Term
+        float cosTheta = glm::dot(newDir, payload.worldNormal);
         if (cosTheta <= 0.0f) break;
 
-        // Compute BRDF and PDF
         float pdf = MathUtils::CosineHemispherePDF(cosTheta);
-        
         glm::vec3 brdf = CalculateBRDF(
             payload.worldNormal,
-            -ray.direction,     // V (view dir)
-            newDir,             // L (outgoing dir)
+            -ray.direction,
+            newDir,
             material.albedo,
             material.metallic,
             material.roughness
         );
 
-        //  Monte Carlo estimator
-        //  no need to sum and average here because the accumulator option adds up pixel's color and averaging them over time
         contribution *= brdf * cosTheta / pdf;
-
-        // Prepare to project next ray.
         ray.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
         ray.direction = glm::normalize(newDir);
     }
@@ -228,7 +270,7 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
             std::for_each(std::execution::par, m_ImageHorizontalIter.begin(), m_ImageHorizontalIter.end(),
                 [this, y](uint32_t x)
                 {
-                  glm::vec4 pixelColor = PerPixel(x, y);
+                  glm::vec4 pixelColor = PerPixel(x, y, (uint8_t)m_Settings.lightBounces, (uint8_t)m_Settings.sampleCount);
                   m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
 
                   glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];

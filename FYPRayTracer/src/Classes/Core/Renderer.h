@@ -11,6 +11,9 @@
 struct Settings
 {
     bool toAccumulate = true;
+    int lightBounces = 5;
+    int sampleCount = 1;
+    glm::vec3 skyColor{0.6f, 0.7f, 0.9f};
 };
 
 class Renderer
@@ -26,7 +29,7 @@ private:
 
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 
-    glm::vec4 PerPixel(uint32_t x, uint32_t y);    //RayGen
+    glm::vec4 PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& bounces, const uint8_t& sampleCount);    //RayGen
     RayHitPayload TraceRay(const Ray& ray);
     RayHitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
     RayHitPayload Miss(const Ray& ray);

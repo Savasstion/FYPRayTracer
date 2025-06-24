@@ -35,7 +35,7 @@ public:
 		matWhiteGlowingSphere.albedo = {1,1,1};
 		matWhiteGlowingSphere.roughness = 0.1f;
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
-		matWhiteGlowingSphere.emissionPower = 10.0f;
+		matWhiteGlowingSphere.emissionPower = 20.0f;
 		
 		{
 			Sphere sphere;
@@ -80,6 +80,9 @@ public:
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
+		ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
+		ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
+		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
 		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
