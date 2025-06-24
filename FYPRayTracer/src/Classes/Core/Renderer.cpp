@@ -69,12 +69,12 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
     int maxBounces = 5;
 
-    for (int bounce = 0; bounce < maxBounces; bounce++)
+    for (int bounce = 0; bounce < maxBounces+1; bounce++)   //maxBounces+1 to take account of the first non-bounced project ray from camera
     {
         RayHitPayload payload = TraceRay(ray);
         if (payload.hitDistance < 0.0f)
         {
-            radiance += contribution * glm::vec3(0.6f, 0.7f, 0.9f); // sky
+            radiance += contribution * glm::vec3(0.6f, 0.7f, 0.9f); // skybox
             break;
         }
 
@@ -110,7 +110,7 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
         contribution *= brdf * cosTheta / pdf;
 
         // Prepare to project next ray.
-        ray.origin = payload.worldPosition + payload.worldNormal * 1e-4f;
+        ray.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
         ray.direction = glm::normalize(newDir);
     }
 
