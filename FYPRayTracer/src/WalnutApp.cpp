@@ -15,6 +15,8 @@ private:
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
+
+	bool stopDemo = false;
 	
 public:
 	ExampleLayer()
@@ -152,13 +154,22 @@ public:
 	void Render()
 	{
 		Walnut::Timer timer;
-		
+
+
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
 		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
-		m_Renderer.Render(m_Scene, m_Camera);
+		if(!stopDemo)
+		{
+			m_Renderer.Render(m_Scene, m_Camera);
+			m_CurrentFrameTime = timer.ElapsedMillis();
+			m_RenderTime += m_CurrentFrameTime;
+		}
 		
-		m_CurrentFrameTime = timer.ElapsedMillis();
-		m_RenderTime += m_CurrentFrameTime;
+		//	DEBUG
+		 if(m_RenderTime / 60000.0f >= 2.0f)
+		 {
+		 	stopDemo = true;
+		 }
 	}
 };
 

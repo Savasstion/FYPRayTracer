@@ -7,7 +7,7 @@
 
 namespace MathUtils
 {
-    static const float pi = 3.1415926535f;
+    static constexpr float pi = 3.1415926535f;
     
     float fi_sqrt( float number );   //  Quake 3's fast inverse square root
     float approx_sqrt(float number);
@@ -15,7 +15,10 @@ namespace MathUtils
     float randomFloat(uint32_t& seed);
     void BuildOrthonormalBasis(const glm::vec3& n, glm::vec3& tangent, glm::vec3& bitangent);
     glm::vec3 CosineSampleHemisphere(const glm::vec3& normal, uint32_t& seed);
-    float CosineHemispherePDF(float cosTheta);
+    constexpr inline float CosineHemispherePDF(float cosTheta){ return cosTheta / pi;}
+    glm::vec3 UniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed);
+    constexpr inline float UniformHemispherePDF() {return 1 / (2 * pi);}
+
 }
 
 

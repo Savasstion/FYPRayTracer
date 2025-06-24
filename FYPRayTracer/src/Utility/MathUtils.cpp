@@ -1,7 +1,6 @@
 #include "MathUtils.h"
-
-#include <limits>
 #include <glm/detail/func_geometric.inl>
+#include <glm/trigonometric.hpp>
 
 float MathUtils::fi_sqrt(float number)
 {
@@ -64,8 +63,8 @@ glm::vec3 MathUtils::CosineSampleHemisphere(const glm::vec3& normal, uint32_t& s
     float r = sqrt(u1);
     float theta = 2.0f * pi * u2;
 
-    float x = r * cos(theta);
-    float y = r * sin(theta);
+    float x = r * glm::cos(theta);
+    float y = r * glm::sin(theta);
     float z = sqrt(glm::max(0.0f, 1.0f - u1));
 
     // Convert to world space
@@ -74,9 +73,25 @@ glm::vec3 MathUtils::CosineSampleHemisphere(const glm::vec3& normal, uint32_t& s
     return glm::normalize(tangent * x + bitangent * y + normal * z);
 }
 
-float MathUtils::CosineHemispherePDF(float cosTheta)
+
+glm::vec3 MathUtils::UniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed)
 {
-    return cosTheta / pi; // standard cosine-weighted PDF
+    float u1 = MathUtils::randomFloat(seed);
+    float u2 = MathUtils::randomFloat(seed);
+
+    float phi = 2.0f * pi * u1;
+    float cosTheta = u2;
+    float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
+
+    float x = sinTheta * glm::cos(phi);
+    float y = sinTheta * glm::sin(phi);
+    float z = cosTheta;
+
+    // Convert from local to world space using normal, tangent, and bitangent
+    glm::vec3 tangent, bitangent;
+    MathUtils::BuildOrthonormalBasis(normal, tangent, bitangent);
+    return glm::normalize(tangent * x + bitangent * y + normal * z);
 }
+
 
 
