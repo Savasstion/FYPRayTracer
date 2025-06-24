@@ -70,7 +70,11 @@ public:
 	{
 		bool cameraMoved = m_Camera.OnUpdate(ts);
 		if(cameraMoved)
+		{
 			m_Renderer.ResetFrameIndex();
+			m_RenderTime = 0.0f;
+		}
+
 	}
 	
 	virtual void OnUIRender() override
