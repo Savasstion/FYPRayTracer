@@ -48,15 +48,18 @@ float MathUtils::randomFloat(uint32_t& seed)
 
 void MathUtils::BuildOrthonormalBasis(const glm::vec3& n, glm::vec3& tangent, glm::vec3& bitangent)
 {
-    if (fabs(n.x) > fabs(n.z))
+    // Used to help build a local coordinate system
+    if (n.x * n.x > n.z * n.z)
         tangent = glm::normalize(glm::vec3(-n.y, n.x, 0.0f));
     else
         tangent = glm::normalize(glm::vec3(0.0f, -n.z, n.y));
+    
     bitangent = glm::normalize(glm::cross(n, tangent));
 }
 
 glm::vec3 MathUtils::CosineSampleHemisphere(const glm::vec3& normal, uint32_t& seed)
 {
+    //  Focus on sampling diffuse lights
     float u1 = MathUtils::randomFloat(seed);
     float u2 = MathUtils::randomFloat(seed);
 
@@ -91,6 +94,97 @@ glm::vec3 MathUtils::UniformSampleHemisphere(const glm::vec3& normal, uint32_t& 
     glm::vec3 tangent, bitangent;
     MathUtils::BuildOrthonormalBasis(normal, tangent, bitangent);
     return glm::normalize(tangent * x + bitangent * y + normal * z);
+}
+
+glm::vec3 MathUtils::GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness,
+    uint32_t& seed)
+{
+    //  Heavily focuses on sampling specular lights
+    glm::vec3 L;
+    do
+    {
+        float u1 = MathUtils::randomFloat(seed);
+        float u2 = MathUtils::randomFloat(seed);
+        float a = roughness * roughness;
+
+        // Sample GGX in spherical coordinates
+        float phi = 2.0f * pi * u1;
+        float cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (a * a - 1.0f) * u2));
+        float sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
+
+        // Convert spherical to Cartesian (tangent space)
+        glm::vec3 h_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
+
+        // Build orthonormal basis from surface normal
+        glm::vec3 tangent, bitangent;
+        BuildOrthonormalBasis(normal, tangent, bitangent); // Your function
+
+        // Transform half-vector to world space
+        glm::vec3 halfVector = glm::normalize(h_tangent.x * tangent + h_tangent.y * bitangent + h_tangent.z * normal);
+
+        // Reflect view vector about half-vector
+        L = glm::reflect(-viewVector, halfVector);
+        
+    }while(glm::dot(normal, L) <= 0.0f);    //  resample if reflected ray is going below surface
+    
+    return glm::normalize(L);
+}
+
+glm::vec3 MathUtils::BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector,
+    const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
+{
+    float u1 = MathUtils::randomFloat(seed);
+    float u2 = MathUtils::randomFloat(seed);
+    float u3 = MathUtils::randomFloat(seed);
+    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+    glm::vec3 H, L;
+    glm::vec3 T, B;
+    BuildOrthonormalBasis(normal, T, B);
+
+    // Schlick approximation for Fresnel
+    glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
+    float specularWeight = glm::max(glm::max(F.x, F.y), F.z); // Clamp to prevent total diffuse
+
+    if (u3 < specularWeight)
+    {
+        // --- Sample GGX specular lobe ---
+        float a = roughness * roughness;
+        float phi = 2.0f * pi * u1;
+        float cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (a * a - 1.0f) * u2));
+        float sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
+
+        glm::vec3 h_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
+        H = glm::normalize(h_tangent.x * T + h_tangent.y * B + h_tangent.z * normal);
+        L = glm::reflect(-viewingVector, H);
+
+        if (glm::dot(normal, L) <= 0.0f)
+        {
+            outPDF = 0.0f;
+            return glm::vec3(0.0f);
+        }
+
+        float NdotH = glm::max(glm::dot(normal, H), 0.0f);
+        float VdotH = glm::max(glm::dot(viewingVector, H), 0.0f);
+        float D = (a * a) / (pi * glm::pow((NdotH * NdotH) * (a * a - 1.0f) + 1.0f, 2.0f));
+        float pdf = (D * NdotH) / (4.0f * VdotH);
+
+        outPDF = pdf * specularWeight;
+    }
+    else
+    {
+        // Sample cosine-weighted diffuse lobe
+        float phi = 2.0f * pi * u1;
+        float cosTheta = glm::sqrt(1.0f - u2);
+        float sinTheta = glm::sqrt(u2);
+
+        glm::vec3 L_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
+        L = glm::normalize(L_tangent.x * T + L_tangent.y * B + L_tangent.z * normal);
+
+        float NdotL = glm::max(glm::dot(normal, L), 0.0f);
+        outPDF = (NdotL / pi) * (1.0f - specularWeight);
+    }
+
+    return L;   //  sample vector within the hemisphere
 }
 
 

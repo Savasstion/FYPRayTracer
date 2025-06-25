@@ -378,7 +378,8 @@ glm::vec3 Renderer::CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const 
     float G = G_V * G_L;
     
     // Lambertian diffuse (non-metallic only)
-    glm::vec3 diffuse = (1.0f - metallic) * albedo / MathUtils::pi;
+    glm::vec3 kD = (1.0f - F) * (1.0f - metallic);
+    glm::vec3 diffuse = kD * albedo / MathUtils::pi;
 
     // Normal Distribution (GGX / Trowbridge-Reitz)
     float a = roughness * roughness;

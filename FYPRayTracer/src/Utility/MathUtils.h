@@ -18,7 +18,8 @@ namespace MathUtils
     constexpr inline float CosineHemispherePDF(float cosTheta){ return cosTheta / pi;}
     glm::vec3 UniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed);
     constexpr inline float UniformHemispherePDF() {return 1 / (2 * pi);}
-
+    glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed);
+    glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector,const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF);
 }
 
 
