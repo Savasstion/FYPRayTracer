@@ -11,7 +11,7 @@
 struct Settings
 {
     bool toAccumulate = true;
-    int lightBounces = 5;
+    int lightBounces = 1;
     int sampleCount = 1;
     glm::vec3 skyColor{0.6f, 0.7f, 0.9f};
 };

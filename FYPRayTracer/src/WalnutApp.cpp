@@ -25,12 +25,12 @@ public:
 		Material& matPinkSphere = m_Scene.materials.emplace_back();
 		matPinkSphere.albedo = {1.0f,0.0f,1.0f};
 		matPinkSphere.roughness = 0.1f;
-		matPinkSphere.metallic = 0.0f;
+		matPinkSphere.metallic = 0.45f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
 		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
-		matBlueSphere.roughness = 0.1f;
-		matBlueSphere.metallic = 0.4f;
+		matBlueSphere.roughness = 0.7f;
+		matBlueSphere.metallic = 0.0f;
 		
 
 		Material& matWhiteGlowingSphere = m_Scene.materials.emplace_back();
