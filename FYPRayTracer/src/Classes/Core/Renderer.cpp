@@ -54,74 +54,74 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
     return ClosestHit(ray, hitDistance, closestSphere);
 }
 
-glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
-{
-    //  PURE BRUTE-FORCE, EVERY FRAME ONLY CHOOSE ONE RANDOM PATH TO FOLLOW
-    //  LIKE A OFFLINE-RENDERER, KEEPS TRACK OF SUM AND THEN AVERAGE THE PIXEL'S COLOR OVER TIME TO EVENTUALLY FORM A PHYSICALLY-ACCURATE IMAGE (keyword : "eventually")
-    
-    uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
-    seed *= m_FrameIndex;
-
-    Ray ray;
-    ray.origin = m_ActiveCamera->GetPosition();
-    ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
-
-    glm::vec3 radiance{0.0f};
-    glm::vec3 contribution{1.0f};
-
-    
-    const uint8_t rayProjectCount = maxBounces + 1; //  add one to ensure first camera ray is still projected
-
-    for (int currentBounce = 0; currentBounce < rayProjectCount; currentBounce++)
-    {
-        seed += (uint32_t)(currentBounce+1);
-        
-        RayHitPayload payload = TraceRay(ray);
-
-        //  if hit skybox
-        if (payload.hitDistance < 0.0f)
-        {
-            radiance += contribution * m_Settings.skyColor; // Skybox color
-            break;
-        }
-
-        const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
-        const Material& material = m_ActiveScene->materials[sphere.materialIndex];
-
-        //  if hit light source
-        glm::vec3 emission = material.GetEmission();
-        if (glm::length(emission) > 0.0f)
-        {
-            radiance += contribution * emission;
-            break;
-        }
-
-        glm::vec3 newDir = MathUtils::UniformSampleHemisphere(payload.worldNormal, seed);
-        float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
-        if (cosTheta <= 0.0f) break;
-
-        float pdf = MathUtils::UniformHemispherePDF();
-        glm::vec3 brdf = CalculateBRDF(
-            payload.worldNormal,
-            -ray.direction,
-            newDir,
-            material.albedo,
-            material.metallic,
-            material.roughness
-        );
-
-        contribution *= brdf * cosTheta / pdf;
-        ray.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
-        ray.direction = glm::normalize(newDir);
-    }
-
-    return glm::vec4(radiance, 1.0f);
-}
-
+//  //  PURE BRUTE-FORCE
 // glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
 // {
-//     //  UNIFORM SAMPLING, WE YOLO
+//     //  PURE BRUTE-FORCE, EVERY FRAME ONLY CHOOSE ONE RANDOM PATH TO FOLLOW
+//     //  LIKE A OFFLINE-RENDERER, KEEPS TRACK OF SUM AND THEN AVERAGE THE PIXEL'S COLOR OVER TIME TO EVENTUALLY FORM A PHYSICALLY-ACCURATE IMAGE (keyword : "eventually")
 //     
+//     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
+//     seed *= m_FrameIndex;
+//
+//     Ray ray;
+//     ray.origin = m_ActiveCamera->GetPosition();
+//     ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
+//
+//     glm::vec3 radiance{0.0f};
+//     glm::vec3 contribution{1.0f};
+//
+//     
+//     const uint8_t rayProjectCount = maxBounces + 1; //  add one to ensure first camera ray is still projected
+//
+//     for (int currentBounce = 0; currentBounce < rayProjectCount; currentBounce++)
+//     {
+//         seed += (uint32_t)(currentBounce+1);
+//         
+//         RayHitPayload payload = TraceRay(ray);
+//
+//         //  if hit skybox
+//         if (payload.hitDistance < 0.0f)
+//         {
+//             radiance += contribution * m_Settings.skyColor; // Skybox color
+//             break;
+//         }
+//
+//         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
+//         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+//
+//         //  if hit light source
+//         glm::vec3 emission = material.GetEmission();
+//         if (glm::length(emission) > 0.0f)
+//         {
+//             radiance += contribution * emission;
+//             break;
+//         }
+//
+//         glm::vec3 newDir = MathUtils::UniformSampleHemisphere(payload.worldNormal, seed);
+//         float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
+//         if (cosTheta <= 0.0f) break;
+//
+//         float pdf = MathUtils::UniformHemispherePDF();
+//         glm::vec3 brdf = CalculateBRDF(
+//             payload.worldNormal,
+//             -ray.direction,
+//             newDir,
+//             material.albedo,
+//             material.metallic,
+//             material.roughness
+//         );
+//
+//         contribution *= brdf * cosTheta / pdf;
+//         ray.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
+//         ray.direction = glm::normalize(newDir);
+//     }
+//
+//     return glm::vec4(radiance, 1.0f);
+// }
+
+//  //  UNIFORM SAMPLING
+// glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
+// {
 //     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
 //     seed *= m_FrameIndex;
 //
@@ -225,9 +225,10 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
 //     return glm::vec4(radiance, 1.0f);
 // }
 
+//  //  COSINE-WEIGHTED SAMPLING
 // glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
 // {
-//     //  COSINE-WEIGHTED SAMPLING
+//     
 //     //  a kind of BRDF sampling method that makes it so that shallower angles are less likely to be sampled as they likely contribute less light
 //     
 //     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
@@ -332,6 +333,238 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
 //
 //     return glm::vec4(radiance, 1.0f);
 // }
+
+//  //  BRDF SAMPLING
+// glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
+// {
+//     //  full-fledged that takes account of both diffuse and specular light sampling
+//     
+//     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
+//     seed *= m_FrameIndex;
+//
+//     Ray ray;
+//     ray.origin = m_ActiveCamera->GetPosition();
+//     ray.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
+//
+//     glm::vec3 radiance{0.0f};
+//     glm::vec3 contribution{1.0f};
+//
+//     
+//     const uint8_t rayProjectCount = maxBounces + 1; //  add one to ensure first camera ray is still projected
+//
+//     for (int currentBounce = 0; currentBounce < rayProjectCount; currentBounce++)
+//     {
+//         seed += (uint32_t)(currentBounce+1);
+//         
+//         RayHitPayload payload = TraceRay(ray);
+//
+//         //  if hit skybox
+//         if (payload.hitDistance < 0.0f)
+//         {
+//             radiance += contribution * m_Settings.skyColor; // Skybox color
+//             break;
+//         }
+//
+//         const Sphere& sphere = m_ActiveScene->spheres[payload.objectIndex];
+//         const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+//
+//         //  if hit light source
+//         glm::vec3 emission = material.GetEmission();
+//         if (glm::length(emission) > 0.0f)
+//         {
+//             radiance += contribution * emission;
+//             break;
+//         }
+//
+//         // Final bounce: project multiple rays to find light sources and average the results
+//         if (currentBounce == maxBounces-1 && rayProjectCount != 0)
+//         {
+//             glm::vec3 finalBounceColor{0.0f};
+//             for (uint8_t i = 0; i < sampleCount; i++)
+//             {
+//                 seed += (uint32_t)(i+1);
+//                 float pdf;
+//                  glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
+//                     payload.worldNormal,
+//                     -ray.direction,
+//                     material.albedo,
+//                     material.metallic,
+//                     material.roughness,
+//                     seed,
+//                     pdf);
+//                 float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term, no need to add inverse square law here since we are not directly sampling light sources, do it for RIS (Resampled Importance Sampling) later
+//                 if (cosTheta <= 0.0f) continue;
+//
+//                 glm::vec3 brdf = CalculateBRDF(
+//                     payload.worldNormal,
+//                     -ray.direction,  // Viewing Direction, V
+//                     newDir,          // Incoming Light Direction, L
+//                     material.albedo,
+//                     material.metallic,
+//                     material.roughness
+//                 );
+//
+//                 Ray bounceRay;
+//                 bounceRay.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
+//                 bounceRay.direction = glm::normalize(newDir);
+//
+//                 RayHitPayload bouncePayload = TraceRay(bounceRay);
+//                 if (bouncePayload.hitDistance < 0.0f)
+//                 {
+//                     finalBounceColor += brdf * m_Settings.skyColor * cosTheta / pdf;
+//                 }
+//                 else
+//                 {
+//                     const Material& bounceMat = m_ActiveScene->materials[
+//                         m_ActiveScene->spheres[bouncePayload.objectIndex].materialIndex];
+//                     finalBounceColor += brdf * bounceMat.GetEmission() * cosTheta / pdf;
+//                 }
+//             }
+//             finalBounceColor /= (float)sampleCount;
+//             radiance += contribution * finalBounceColor;
+//             break;
+//         }
+//
+//         // Normal bounce path
+//         float pdf;
+//         glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
+//            payload.worldNormal,
+//            -ray.direction,
+//            material.albedo,
+//            material.metallic,
+//            material.roughness,
+//            seed,
+//            pdf);
+//         float cosTheta = glm::dot(newDir, payload.worldNormal); //  Geometry Term
+//         if (cosTheta <= 0.0f) break;
+//         
+//         glm::vec3 brdf = CalculateBRDF(
+//             payload.worldNormal,
+//             -ray.direction,
+//             newDir,
+//             material.albedo,
+//             material.metallic,
+//             material.roughness
+//         );
+//
+//         contribution *= brdf * cosTheta / pdf;
+//         ray.origin = payload.worldPosition + payload.worldNormal * 1e-3f;
+//         ray.direction = glm::normalize(newDir);
+//     }
+//
+//     return glm::vec4(radiance, 1.0f);
+// }
+
+//  REWRITE PATH TRACING
+glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
+{
+    //  full-fledged that takes account of both diffuse and specular light sampling
+    
+    uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
+    seed *= m_FrameIndex;
+
+    Ray firstRay;
+    firstRay.origin = m_ActiveCamera->GetPosition();
+    firstRay.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
+    
+    glm::vec3 radiance{0.0f};   //  how much light should a pixel have
+    glm::vec3 throughput{1.0f}; //  ratio of how much light is still contributing after bounces  
+
+    //  DO FIRST PROJECTED RAY
+    RayHitPayload firstRayPayload = TraceRay(firstRay);
+
+    //  if hit skybox
+    if (firstRayPayload.hitDistance < 0.0f)
+    {
+        radiance += throughput * m_Settings.skyColor; // Skybox color
+        return glm::vec4{radiance, 1};
+    }
+    
+    const Sphere& sphere = m_ActiveScene->spheres[firstRayPayload.objectIndex];
+    const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+    //  if hit light source
+    glm::vec3 emission = material.GetEmission();
+    if (glm::length(emission) > 0.0f)
+    {
+        radiance += throughput * emission;
+        return glm::vec4{radiance, 1};
+    }
+
+    //  AT THIS POINT, A HIT IS DETECTED THEREFORE :
+    //  START SAMPLING MULTIPLE PATHS
+    Ray sampleRay;
+    RayHitPayload sampleRayPayload;
+    glm::vec3 totalSampleRadiance{0};   //  Total radiance from all sample
+    
+    for (int currentSample = 0; currentSample < sampleCount; currentSample++)
+    {
+        sampleRay.origin = firstRayPayload.worldPosition + firstRayPayload.worldNormal * 1e-3f;
+        sampleRay.direction = firstRay.direction;
+        sampleRayPayload = firstRayPayload;
+        glm::vec3 sampleRadiance{0};    //  how much light a sample should have
+        glm::vec3 sampleThroughput{1};
+        seed += (uint32_t)(currentSample*sampleCount+1);
+        
+        //  if hit object then start bouncing them rays
+        for(int bounce = 0; bounce < maxBounces; bounce++)
+        {
+            seed += (uint32_t)(bounce*maxBounces+1);
+
+            float pdf;
+            glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
+                sampleRayPayload.worldNormal,
+                -sampleRay.direction,
+                material.albedo,
+                material.metallic,
+                material.roughness,
+                seed,
+                pdf);
+
+            glm::vec3 brdf = CalculateBRDF(
+                sampleRayPayload.worldNormal,
+                -sampleRay.direction,
+                newDir,
+                material.albedo,
+                material.metallic,
+                material.roughness
+                );
+
+            float cosTheta = glm::dot(newDir, firstRayPayload.worldNormal); //  Geometry Term
+            
+            sampleRay.origin = sampleRayPayload.worldPosition + sampleRayPayload.worldNormal * 1e-3f;
+            sampleRay.direction = newDir;
+
+            //  Now that we know where the ray is going, we can start tracing it
+            sampleRayPayload = TraceRay(sampleRay);
+
+            //  //  DO HIT LOGICS
+            //  if hit skybox
+            if (firstRayPayload.hitDistance < 0.0f)
+            {
+                sampleRadiance += sampleThroughput * m_Settings.skyColor; // Skybox color
+                break;
+            }
+    
+            const Sphere& sphere = m_ActiveScene->spheres[firstRayPayload.objectIndex];
+            const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+    
+            //  if hit light source
+            glm::vec3 emission = material.GetEmission();
+            if (glm::length(emission) > 0.0f)
+            {
+                sampleRadiance += sampleThroughput * emission;  
+                break;
+            }
+            
+            sampleThroughput *= brdf * cosTheta / pdf;  //  refer to the rendering equation
+            
+        }
+        totalSampleRadiance += sampleRadiance;
+    }
+    radiance += totalSampleRadiance / sampleCount;
+    
+    return glm::vec4(radiance, 1.0f);
+}
 
 RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
 {

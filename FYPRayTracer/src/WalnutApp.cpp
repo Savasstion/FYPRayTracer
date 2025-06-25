@@ -166,7 +166,7 @@ public:
 		}
 		
 		//	DEBUG
-		 if(m_RenderTime / 60000.0f >= 2.0f)
+		 if(m_RenderTime / 60000.0f >= 60.0f)
 		 {
 		 	stopDemo = true;
 		 }
