@@ -470,7 +470,7 @@ RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int object
 RayHitPayload Renderer::Miss(const Ray& ray)
 {
     RayHitPayload payload;
-    payload.hitDistance = -1;
+    payload.hitDistance = -1.0f;
     return payload;
 }
 
