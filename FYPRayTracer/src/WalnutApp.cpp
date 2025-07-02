@@ -5,6 +5,7 @@
 #include "Walnut/Timer.h"
 #include "Classes/Core/Renderer.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "Utility/MisUtils.h"
 
 class ExampleLayer : public Walnut::Layer
 {
@@ -28,7 +29,7 @@ public:
 		matPinkSphere.metallic = 0.45f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
-		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
+		matBlueSphere.albedo = {1,1,1};//{0.2f,0.3f,1.0f};
 		matBlueSphere.roughness = 0.7f;
 		matBlueSphere.metallic = 0.0f;
 		
@@ -85,6 +86,7 @@ public:
 		ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
 		ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
 		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
+		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
 		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
 		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
@@ -166,9 +168,11 @@ public:
 		}
 		
 		//	DEBUG
-		 if(m_RenderTime / 60000.0f >= 60.0f)
+		 if(m_RenderTime / 60000.0f >= 15.0f && !stopDemo)
 		 {
 		 	stopDemo = true;
+		 	std::string filename = MisUtils::GetTimestampedFilename("RenderedImages/output");
+		 	MisUtils::SaveABGRToBMP(filename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
 		 }
 	}
 };

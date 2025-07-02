@@ -13,7 +13,7 @@ struct Settings
     bool toAccumulate = true;
     int lightBounces = 1;
     int sampleCount = 1;
-    glm::vec3 skyColor{0.6f, 0.7f, 0.9f};
+    glm::vec3 skyColor{1,1,1};//{0.6f, 0.7f, 0.9f};
 };
 
 class Renderer
@@ -46,6 +46,8 @@ public:
     void ResetFrameIndex(){ m_FrameIndex = 1; }
     Settings& GetSettings(){ return m_Settings; }
     uint32_t GetCurrentFrameIndex() const {return m_FrameIndex;}
+    uint32_t* GetRenderImageDataPtr() const {return m_RenderImageData;}
+    
 };
 
 #endif

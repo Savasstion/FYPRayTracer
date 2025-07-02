@@ -595,3 +595,4 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     else
         m_FrameIndex = 1;
 }
+
