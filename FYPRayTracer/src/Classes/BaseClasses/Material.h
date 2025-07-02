@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MATERIAL_H
+#define MATERIAL_H
 
 struct Material
 {
@@ -11,3 +12,5 @@ struct Material
     glm::vec3 GetEmission() const {return emissionColor * emissionPower;}
     float GetEmissionPower() const {return emissionPower;}
 };
+
+#endif
