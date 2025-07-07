@@ -13,6 +13,8 @@ private:
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 	Renderer m_Renderer;
 	float m_CurrentFrameTime = 0.0f;
+	float m_AverageFrameTime = 0.0f;
+	float m_TimeToRender = 15.0f;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
@@ -88,6 +90,7 @@ public:
 		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
 		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
+		ImGui::DragFloat("Total Time to Render(min)", &m_TimeToRender, 0.1f);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
 		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
 		if (ImGui::Button("Reset"))
@@ -168,11 +171,15 @@ public:
 		}
 		
 		//	DEBUG
-		 if(m_RenderTime / 60000.0f >= 15.0f && !stopDemo)
+		 if(m_RenderTime / 60000.0f >= m_TimeToRender && !stopDemo)
 		 {
 		 	stopDemo = true;
-		 	std::string filename = MisUtils::GetTimestampedFilename("RenderedImages/output");
-		 	MisUtils::SaveABGRToBMP(filename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
+		 	m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
+		 	std::string fileName = "RenderedImages/output";
+		 	fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
+		 	fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");
+		 	std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
+		 	MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
 		 }
 	}
 };
