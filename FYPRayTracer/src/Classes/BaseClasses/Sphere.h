@@ -3,8 +3,6 @@
 
 #include <glm/vec3.hpp>
 
-#include "Material.h"
-
 struct Sphere
 {
     glm::vec3 position{0.0f,0.0f,0.0f};
