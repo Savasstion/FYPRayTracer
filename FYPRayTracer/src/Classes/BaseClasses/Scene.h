@@ -2,7 +2,10 @@
 #define SCENE_H
 
 #include <vector>
+
+#include "Mesh.h"
 #include "Sphere.h"
+#include "Triangle.h"
 #include "Vertex.h"
 #include "../BaseClasses/Material.h"
 
@@ -10,11 +13,18 @@ struct Scene
 {
     //  vectors of primitives in the scene
     std::vector<Sphere> spheres;
-    std::vector<Vertex> vertices;
-    std::vector<Vertex> transformedVertices;
-    std::vector<uint32_t> triangleIndices;  //  stores the vertexIDs of each triangle
+    std::vector<Vertex> vertices;   //  vertices with mesh local coordinates with no transforms 
+    std::vector<Vertex> worldVertices; //   vertices that has world transforms applied
+    std::vector<uint32_t> triangleVertexIndices;    //  every three index of a vertex represents a triangle in this list of indices
+    std::vector<Triangle> triangles;    //  used as a buffer to group triangles up for easier calculations like for ray intersection test or bvh
+    std::vector<Mesh> meshes;
     
     std::vector<Material> materials;
+
+    void AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices,
+        glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale, int materialIndex);
+    void UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot, const glm::vec3& newScale);
+    void UpdateAllTransformedSceneMeshes();
 };
 
 #endif
