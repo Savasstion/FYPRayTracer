@@ -31,7 +31,7 @@ private:
 
     glm::vec4 PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount);    //RayGen
     RayHitPayload TraceRay(const Ray& ray);
-    RayHitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
+    RayHitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex, float u, float v);
     RayHitPayload Miss(const Ray& ray);
     glm::vec3 CalculateBRDF(
     const glm::vec3& N, const glm::vec3& V, const glm::vec3& L,

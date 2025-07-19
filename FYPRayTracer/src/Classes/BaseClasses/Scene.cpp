@@ -4,10 +4,12 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices,
-                              glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale, int materialIndex)
+void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
+    std::vector<uint32_t>& meshTriangleVertexIndices,
+    glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale,
+    int materialIndex)
 {
-    // Step 1: Build world transform matrix (T * R * S) using quaternion
+    // Step 1: Build world transform matrix (T * R * S)
     glm::vec3 rotationRadians = glm::radians(rotation);
     glm::quat q = glm::quat(rotationRadians);
     glm::mat4 R = glm::toMat4(q);
@@ -15,40 +17,41 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uin
     glm::mat4 T = glm::translate(glm::mat4(1.0f), pos);
     glm::mat4 worldMatrix = T * R * S;
 
-    // Step 2: Record starting indices
+    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(worldMatrix)));
+
+    // Step 2: Record vertex and index starting offsets
     uint32_t vertexStart = static_cast<uint32_t>(vertices.size());
     uint32_t indexStart = static_cast<uint32_t>(triangleVertexIndices.size());
 
-    // Step 3: Append local vertices
-    vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
-
-    // Step 4: Append world-space transformed vertices
+    // Step 3: Transform and store each vertex into both 'vertices' and 'worldVertices'
     for (const auto& v : meshVertices)
     {
-        Vertex wv;
-        wv.position = glm::vec3(worldMatrix * glm::vec4(v.position, 1.0f));
-        wv.normal   = glm::normalize(glm::vec3(worldMatrix * glm::vec4(v.normal, 0.0f)));
-        wv.uv       = v.uv;
-        worldVertices.push_back(wv);
+        Vertex transformed;
+        transformed.position = glm::vec3(worldMatrix * glm::vec4(v.position, 1.0f));
+        transformed.normal = glm::normalize(normalMatrix * v.normal);
+        transformed.uv = v.uv;
+
+        vertices.push_back(transformed);        // Optional: keep for original mesh data
+        worldVertices.push_back(transformed);   // Required: used in TraceRay()
     }
 
-    // Step 5: Add triangles (each 3 indices → 1 triangle)
+    // Step 4: Create triangles using vertex indices
     for (size_t i = 0; i < meshTriangleVertexIndices.size(); i += 3)
     {
         Triangle tri;
         tri.v0 = vertexStart + meshTriangleVertexIndices[i + 0];
         tri.v1 = vertexStart + meshTriangleVertexIndices[i + 1];
         tri.v2 = vertexStart + meshTriangleVertexIndices[i + 2];
-        tri.materialIndex = materialIndex; 
+        tri.materialIndex = materialIndex;
 
         triangles.push_back(tri);
     }
 
-    // Step 6: Add into scene triangle vertex indices
-    for (auto idx : meshTriangleVertexIndices)
+    // Step 5: Store adjusted triangle vertex indices for indexing
+    for (uint32_t idx : meshTriangleVertexIndices)
         triangleVertexIndices.push_back(vertexStart + idx);
 
-    // Step 7: Store the mesh metadata
+    // Step 6: Store mesh metadata
     Mesh mesh;
     mesh.position = pos;
     mesh.rotation = rotation;
@@ -62,6 +65,7 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uin
 
     meshes.push_back(mesh);
 }
+
 
 void Scene::UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot,
     const glm::vec3& newScale)

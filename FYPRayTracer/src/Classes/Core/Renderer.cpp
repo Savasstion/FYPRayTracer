@@ -4,54 +4,92 @@
 
 RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel to determine pixel output
 {
-    if(m_ActiveScene->spheres.empty())
+    if(m_ActiveScene->triangles.empty())
         return Miss(ray);
 
-    int closestSphere = -1;
+    int closestTriangle = -1;
     float hitDistance = FLT_MAX;
+    float closestU = 0.0f;
+    float closestV = 0.0f;
 
-    //  find closest sphere and draw it 
-    for(uint32_t i = 0; i <  m_ActiveScene->spheres.size(); i++)
+    ////  find closest sphere and draw it 
+    //for(uint32_t i = 0; i <  m_ActiveScene->spheres.size(); i++)
+    //{
+    //    const Sphere& sphere = m_ActiveScene->spheres[i];
+    //    ////  Sphere Ray Hit Detection
+    //    //  (bx^2 + by^2)t^2 + (2(axbx + ayby))t + (ax^2 + ay^2 - r^2) = 0
+    //    //  similar to ax^2 + bx + c = 0
+    //    //  where
+    //    //  a = ray origin
+    //    //  b = ray direction
+    //    //  r = circle radius
+    //    //  t = hit distance
+    //
+    //    //  subtract with sphere's pos to take account of its position transform, formula above haven't yet take account of sphere position
+    //    glm::vec3 origin = ray.origin - sphere.position;
+    //
+    //    float a = glm::dot(ray.direction, ray.direction); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
+    //    float b = 2.0f * glm::dot(origin, ray.direction);
+    //    float c = glm::dot(origin,origin) - sphere.radius * sphere.radius;
+    //
+    //    //  The discriminant of the quadratic formula
+    //    //  b^2 - 4ac
+    //    //  Used to determine if there is a ray hit to the sphere
+    //    float discriminant = b * b - 4.0f * a * c;
+    //    if(discriminant < 0.0f)
+    //        continue;
+    //
+    //    //  Quadratic formula
+    //    //  -b +- sqrt(discriminant) / 2a
+    //    //float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
+    //    float closestHit = (-b - glm::sqrt(discriminant)) / (2.0f * a);   //  since a will always be positive, the minus part of the formula will always be smaller so thus closer to ray origin
+    //    if(closestHit < hitDistance && closestHit > 0.0f)
+    //    {
+    //        hitDistance = closestHit;
+    //        closestObj = (int)i;
+    //    }
+    //}
+
+    //  find closest triangle and draw it
+    for (uint32_t i = 0; i < m_ActiveScene->triangles.size(); i++)
     {
-        const Sphere& sphere = m_ActiveScene->spheres[i];
-        ////  Sphere Ray Hit Detection
-        //  (bx^2 + by^2)t^2 + (2(axbx + ayby))t + (ax^2 + ay^2 - r^2) = 0
-        //  similar to ax^2 + bx + c = 0
-        //  where
-        //  a = ray origin
-        //  b = ray direction
-        //  r = circle radius
-        //  t = hit distance
-    
-        //  subtract with sphere's pos to take account of its position transform, formula above haven't yet take account of sphere position
-        glm::vec3 origin = ray.origin - sphere.position;
-    
-        float a = glm::dot(ray.direction, ray.direction); //same as a = rayDirection.x * rayDirection.x + rayDirection.y * rayDirection.y + rayDirection.z * rayDirection.z;
-        float b = 2.0f * glm::dot(origin, ray.direction);
-        float c = glm::dot(origin,origin) - sphere.radius * sphere.radius;
+        const Triangle& triangle = m_ActiveScene->triangles[i];
+        
+        const glm::vec3& v0 = m_ActiveScene->worldVertices[triangle.v0].position;
+        const glm::vec3& v1 = m_ActiveScene->worldVertices[triangle.v1].position;
+        const glm::vec3& v2 = m_ActiveScene->worldVertices[triangle.v2].position;
 
-        //  The discriminant of the quadratic formula
-        //  b^2 - 4ac
-        //  Used to determine if there is a ray hit to the sphere
-        float discriminant = b * b - 4.0f * a * c;
-        if(discriminant < 0.0f)
-            continue;
+        glm::vec3 edge1 = v1 - v0;
+        glm::vec3 edge2 = v2 - v0;
+        glm::vec3 h = glm::cross(ray.direction, edge2);
+        float a = glm::dot(edge1, h);
 
-        //  Quadratic formula
-        //  -b +- sqrt(discriminant) / 2a
-        //float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
-        float closestHit = (-b - glm::sqrt(discriminant)) / (2.0f * a);   //  since a will always be positive, the minus part of the formula will always be smaller so thus closer to ray origin
-        if(closestHit < hitDistance && closestHit > 0.0f)
+        float absoluteOfA = a < 0.0f ? -a : a;
+        if (absoluteOfA < 1e-8f) continue;
+
+        float f = 1.0f / a;
+        glm::vec3 s = ray.origin - v0;
+        float u = f * glm::dot(s, h);
+        if (u < 0.0f || u > 1.0f) continue;
+
+        glm::vec3 q = glm::cross(s, edge1);
+        float v = f * glm::dot(ray.direction, q);
+        if (v < 0.0f || u + v > 1.0f) continue;
+
+        float t = f * glm::dot(edge2, q);
+        if (t > 0.0001f && t < hitDistance)
         {
-            hitDistance = closestHit;
-            closestSphere = (int)i;
+            hitDistance = t;
+            closestTriangle = static_cast<int>(i);
+            closestU = u;
+            closestV = v;
         }
     }
 
-    if(closestSphere < 0)
+    if(closestTriangle < 0)
         return Miss(ray);
 
-    return ClosestHit(ray, hitDistance, closestSphere);
+    return ClosestHit(ray, hitDistance, closestTriangle, closestU, closestV);
 }
 
 //  //  PURE BRUTE-FORCE
@@ -348,8 +386,8 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
     if (primaryPayload.hitDistance < 0.0f)
         return glm::vec4(m_Settings.skyColor, 1.0f);
 
-    const Sphere& hitSphere = m_ActiveScene->spheres[primaryPayload.objectIndex];
-    const Material& hitMaterial = m_ActiveScene->materials[hitSphere.materialIndex];
+    const Triangle& hitTri = m_ActiveScene->triangles[primaryPayload.objectIndex];
+    const Material& hitMaterial = m_ActiveScene->materials[hitTri.materialIndex];
 
     // Hit emissive object immediately
     if (glm::length(hitMaterial.GetEmission()) > 0.0f)
@@ -405,8 +443,8 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
                 break;
             }
 
-            const Sphere& sphere = m_ActiveScene->spheres[samplePayload.objectIndex];
-            const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+            const Triangle& tri = m_ActiveScene->triangles[samplePayload.objectIndex];
+            const Material& material = m_ActiveScene->materials[tri.materialIndex];
 
             // Hit emissive light
             glm::vec3 emission = material.GetEmission();
@@ -449,20 +487,40 @@ glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t
     return glm::vec4(radiance, 1.0f);
 }
 
-RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
+RayHitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex, float u, float v)
 {
     RayHitPayload payload;
     payload.hitDistance = hitDistance;
     payload.objectIndex = objectIndex;
     
-    const Sphere& closestSphere = m_ActiveScene->spheres[objectIndex];
-    
-    glm::vec3 origin = ray.origin - closestSphere.position; //  disregard world position for easier calculations for now
-    payload.worldPosition = origin + ray.direction * hitDistance;
-    //To get our circle's normal vector on the hitPoint, normal = hitPoint - centerOfCircle. But since our circle right now is at origin, normal = hitPoint
-    payload.worldNormal = glm::normalize(payload.worldPosition);
+    //  For Spheres
+    //const Sphere& closestSphere = m_ActiveScene->spheres[objectIndex];
+    //
+    //glm::vec3 origin = ray.origin - closestSphere.position; //  disregard world position for easier calculations for now
+    //payload.worldPosition = origin + ray.direction * hitDistance;
+    ////To get our circle's normal vector on the hitPoint, normal = hitPoint - centerOfCircle. But since our circle right now is at origin, normal = hitPoint
+    //payload.worldNormal = glm::normalize(payload.worldPosition);
 
-    payload.worldPosition += closestSphere.position;    //  move back to actual world position
+    //payload.worldPosition += closestSphere.position;    //  move back to actual world position
+
+    //  For Triangles
+    const Triangle& tri = m_ActiveScene->triangles[objectIndex];
+
+    payload.worldPosition = ray.origin + ray.direction * hitDistance;
+
+    // Interpolate normal using barycentric coordinates
+    float w = 1.0f - u - v;
+    glm::vec3 n0 = m_ActiveScene->worldVertices[tri.v0].normal;
+    glm::vec3 n1 = m_ActiveScene->worldVertices[tri.v1].normal;
+    glm::vec3 n2 = m_ActiveScene->worldVertices[tri.v2].normal;
+
+    glm::vec3 interpolatedNormal = glm::normalize(
+        n0 * w +
+        n1 * u +
+        n2 * v
+    );
+
+    payload.worldNormal = interpolatedNormal;
     
     return payload;
 }

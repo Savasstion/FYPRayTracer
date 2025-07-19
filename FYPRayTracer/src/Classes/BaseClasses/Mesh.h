@@ -1,6 +1,10 @@
 #ifndef MESH_H
 #define MESH_H
 #include <cstdint>
+#include "../../Utility/MathUtils.h"
+#include <glm/ext/matrix_float4x4.hpp>
+#include <vector>
+#include "Vertex.h"
 
 struct Mesh
 {
@@ -18,6 +22,8 @@ struct Mesh
     uint32_t indexCount;
     
     int materialIndex;
+
+    static void GenerateSphereMesh(float radius, int latitudeSegments, int longitudeSegments, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 };
 
 #endif

@@ -53,9 +53,14 @@ public:
 				0, 1, 2,  // First triangle
 				0, 2, 3   // Second triangle
 			};
-			glm::vec3 pos{0,0,0};
+
+			//std::vector<Vertex> sphereVertices;
+			//std::vector<uint32_t> sphereIndices;
+
+			//Mesh::GenerateSphereMesh(1, 10,10, sphereVertices, sphereIndices);
+			glm::vec3 pos{0,-1,0};
 			glm::vec3 rot{0,0,0};
-			glm::vec3 scale{1,1,1};
+			glm::vec3 scale{10,10,10};
 			m_Scene.AddNewMeshToScene(planeVertices,
 				planeIndices,
 				pos,
@@ -63,8 +68,8 @@ public:
 				scale,
 				0);
 		}
-		
-		{
+
+		/*{
 			Sphere sphere;
 			sphere.position = {0,0,0};
 			sphere.radius = 1.0f;
@@ -89,7 +94,7 @@ public:
 			sphere.materialIndex = 2;
 
 			m_Scene.spheres.push_back(sphere);
-		}
+		}*/
 
 	}
 	
