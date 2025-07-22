@@ -2,6 +2,16 @@
 #include <glm/detail/func_geometric.inl>
 #include <glm/trigonometric.hpp>
 
+float MathUtils::minFloat(const float a, const float b)
+{
+    return (a < b) ? a : b;
+}
+
+float MathUtils::maxFloat(const float a, const float b)
+{
+    return (a > b) ? a : b;
+}
+
 float MathUtils::fi_sqrt(float number)
 {
     long i;

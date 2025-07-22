@@ -2,6 +2,7 @@
 #define VECTOR2F_H
 
 //  We don't use cmath to prevent dependency issues
+#include <glm/vec2.hpp>
 #include "../../Utility/MathUtils.h"
 
 class Vector2f {
@@ -11,6 +12,7 @@ public:
     // Constructors
     Vector2f() : x(0.0f), y(0.0f) {}
     Vector2f(float x, float y) : x(x), y(y) {}
+    Vector2f(glm::vec2 vector) : x(vector.x), y(vector.y) {}
 
     Vector2f Clamped(const float& min, const float& max)
     {

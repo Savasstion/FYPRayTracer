@@ -8,7 +8,8 @@
 namespace MathUtils
 {
     static constexpr float pi = 3.1415926535f;
-    
+    float minFloat(const float a, const float b);
+    float maxFloat(const float a, const float b);
     float fi_sqrt( float number );   //  Quake 3's fast inverse square root
     float approx_sqrt(float number);
     uint32_t pcg_hash(uint32_t input);  //  quick random number generator
