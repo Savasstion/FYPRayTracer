@@ -32,9 +32,9 @@ void BVH::OMP_AssignMortonCodes(size_t objectCount)
     {
         omp_sortedMortonCodes[i].objectIndex = i;
     
-        float x = nodes[i].centroidPos.x;
-        float y = nodes[i].centroidPos.y;
-        float z = nodes[i].centroidPos.z;
+        float x = omp_AABBs[i].centroidPos.x;
+        float y = omp_AABBs[i].centroidPos.y;
+        float z = omp_AABBs[i].centroidPos.z;
         omp_sortedMortonCodes[i].mortonCode = morton3D(x, y, z);
     }
     

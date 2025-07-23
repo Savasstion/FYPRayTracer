@@ -7,18 +7,29 @@ struct AABB
 {
     Vector3f lowerBound;    // Bottom-left corner
     Vector3f upperBound;    // Upper-right corner
-
-    AABB(const Vector3f lowerBound, const Vector3f upperBound)
-        : lowerBound(lowerBound), upperBound(upperBound) {
-    }
-
-    AABB(const glm::vec3 lowerBound, const glm::vec3 upperBound)
-        : lowerBound(Vector3f(lowerBound)), upperBound(Vector3f(upperBound)) {
-    }
+    Vector3f centroidPos;
 
     AABB()
-        : lowerBound(Vector3f(0, 0, 0)), upperBound(Vector3f(0, 0, 0)) {
+        : lowerBound(Vector3f(0, 0, 0)),
+          upperBound(Vector3f(0, 0, 0)),
+          centroidPos(Vector3f(0, 0, 0)) {}
+
+    AABB(const Vector3f lowerBound, const Vector3f upperBound)
+        : lowerBound(lowerBound),
+          upperBound(upperBound),
+          centroidPos((lowerBound + upperBound) * 0.5f) {}
+
+    AABB(const glm::vec3 lowerBound, const glm::vec3 upperBound)
+        : lowerBound(Vector3f(lowerBound)),
+          upperBound(Vector3f(upperBound)),
+          centroidPos((Vector3f(lowerBound) + Vector3f(upperBound)) * 0.5f) {}
+
+    static Vector3f FindCentroid(AABB& aabb)
+    {
+        aabb.centroidPos = (Vector3f(aabb.lowerBound) + Vector3f(aabb.upperBound)) * 0.5f;
+        return aabb.centroidPos;
     }
+
     static AABB UnionAABB(const AABB& a, const AABB& b)
     {
         AABB c;

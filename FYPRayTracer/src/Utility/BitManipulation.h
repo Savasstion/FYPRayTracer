@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BIT_MANIPULATION_H
+#define BIT_MANIPULATION_H
 //#include "cuda_runtime.h"
 //#include "device_launch_parameters.h"
 
@@ -13,4 +14,6 @@
     }
     return count;
 }
+
+#endif
 

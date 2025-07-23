@@ -1,3 +1,6 @@
+#ifndef MORTON_CODE_H
+#define MORTON_CODE_H
+
 //#include "cuda_runtime.h"
 //#include <device_launch_parameters.h>
 
@@ -34,3 +37,5 @@ unsigned int expandBits(unsigned int v)
     return xx * 4 + yy * 2 + zz;
     
 }
+
+#endif

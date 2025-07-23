@@ -4,6 +4,7 @@
 #include "../../Utility/MathUtils.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <vector>
+#include "AABB.h"
 #include "Vertex.h"
 
 struct Mesh
@@ -22,6 +23,8 @@ struct Mesh
     uint32_t indexCount;
     
     int materialIndex;
+
+    AABB aabb;
 
     static void GenerateSphereMesh(float radius, int latitudeSegments, int longitudeSegments, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 };
