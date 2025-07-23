@@ -33,7 +33,6 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         vertices.push_back(transformed);
         worldVertices.push_back(transformed);
 
-        // Expand mesh AABB
         meshAABBLow = meshAABBLow.min(transformed.position);
         meshAABBHigh = meshAABBHigh.max(transformed.position);
     }
@@ -54,6 +53,10 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         Vector3f triLow = p0.min(p1).min(p2);
         Vector3f triHigh = p0.max(p1).max(p2);
         tri.aabb = AABB(triLow, triHigh);
+
+        //  Update mesh AABB
+        meshAABBLow = meshAABBLow.min(triLow);
+        meshAABBHigh = meshAABBHigh.max(triHigh);
 
         triangles.push_back(tri);
     }

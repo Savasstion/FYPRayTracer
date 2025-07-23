@@ -51,7 +51,7 @@ public:
 			};
 			std::vector<uint32_t> planeIndices = {
 				0, 1, 2,  // First triangle
-				0, 2, 3   // Second triangle
+				1, 2, 3   // Second triangle
 			};
 
 			//std::vector<Vertex> sphereVertices;
@@ -68,6 +68,11 @@ public:
 				scale,
 				0);
 		}
+
+		auto a1 = m_Scene.triangles[0].aabb;
+		auto a2 = m_Scene.triangles[1].aabb;
+
+		auto a3 = m_Scene.meshes.back().aabb;
 
 	}
 	
