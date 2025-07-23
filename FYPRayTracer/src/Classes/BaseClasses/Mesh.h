@@ -6,6 +6,8 @@
 #include <vector>
 #include "AABB.h"
 #include "Vertex.h"
+#include "Triangle.h"
+
 
 struct Mesh
 {
@@ -27,6 +29,9 @@ struct Mesh
     AABB aabb;
 
     static void GenerateSphereMesh(float radius, int latitudeSegments, int longitudeSegments, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
+    static void UpdateWorldTransform(Mesh& mesh);
+    static void UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector<Vertex>& worldVertices, 
+        std::vector<Triangle>& triangles, const std::vector<uint32_t>& triangleVertexIndices);
 };
 
 #endif

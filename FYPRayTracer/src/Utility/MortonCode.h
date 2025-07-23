@@ -1,16 +1,14 @@
 #ifndef MORTON_CODE_H
 #define MORTON_CODE_H
 
+#include "MathUtils.h"
+#include "../Classes/BaseClasses/Scene.h"
 //#include "cuda_runtime.h"
 //#include <device_launch_parameters.h>
 
 //Expands a 10-bit integer into 30 bits
 //by inserting 2 zeros after each bit.
-/*__device__ __host__ __forceinline__ */
-#include "MathUtils.h"
-#include "../Classes/BaseClasses/Scene.h"
-
-unsigned int expandBits(unsigned int v)
+inline unsigned int expandBits(unsigned int v)
 {
     v = (v * 0x00010001u) & 0xFF0000FFu;
     v = (v * 0x00000101u) & 0x0F00F00Fu;
@@ -19,12 +17,12 @@ unsigned int expandBits(unsigned int v)
     return v;
 }
 //given 3D point located within the unit square [0,1].
-/*_device__ __host__ __forceinline__ */unsigned int morton3D(float x, float y, float z)
+inline unsigned int morton3D(float x, float y, float z)
 {
     //  convert to range of (0,1)
-    x = (x - SceneSettings::minBound.x) / (SceneSettings::maxBound.x - SceneSettings::minBound.x);
-    y = (y - SceneSettings::minBound.y) / (SceneSettings::maxBound.y - SceneSettings::minBound.y);
-    z = (z - SceneSettings::minBound.z) / (SceneSettings::maxBound.z - SceneSettings::minBound.z);
+    x = (x - SceneSettings::minSceneBound.x) / (SceneSettings::maxSceneBound.x - SceneSettings::minSceneBound.x);
+    y = (y - SceneSettings::minSceneBound.y) / (SceneSettings::maxSceneBound.y - SceneSettings::minSceneBound.y);
+    z = (z - SceneSettings::minSceneBound.z) / (SceneSettings::maxSceneBound.z - SceneSettings::minSceneBound.z);
 
     
     x = MathUtils::minFloat(MathUtils::maxFloat(x * 1024.0f, 0.0f), 1023.0f);

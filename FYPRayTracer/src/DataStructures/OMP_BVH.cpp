@@ -1,6 +1,5 @@
-#include <algorithm>
-
 #include "BVH.h"
+#include <algorithm>
 #include "../Utility/MortonCode.h"
 
 //  OMP variable

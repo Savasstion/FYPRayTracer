@@ -4,7 +4,7 @@
 //#include "device_launch_parameters.h"
 
 //  Count leading zeroes
-/*__host__ __device__ __forceinline__ */int clz(unsigned int x)
+inline int clz(unsigned int x)
 {
     if (x == 0) return 32; // All bits are zero
 

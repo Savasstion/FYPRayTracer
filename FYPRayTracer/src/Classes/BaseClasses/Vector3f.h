@@ -115,6 +115,24 @@ public:
         );
     }
 
+    Vector3f min(const Vector3f& other) const
+    {
+        return Vector3f(
+            (x < other.x) ? x : other.x,
+            (y < other.y) ? y : other.y,
+            (z < other.z) ? z : other.z
+        );
+    }
+
+    Vector3f max(const Vector3f& other) const
+    {
+        return Vector3f(
+            (x > other.x) ? x : other.x,
+            (y > other.y) ? y : other.y,
+            (z > other.z) ? z : other.z
+        );
+    }
+
     // Operator overloading
     Vector3f operator+(const Vector3f& other) const {
         return Vector3f(x + other.x, y + other.y, z + other.z);

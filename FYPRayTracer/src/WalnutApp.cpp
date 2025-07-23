@@ -69,33 +69,6 @@ public:
 				0);
 		}
 
-		/*{
-			Sphere sphere;
-			sphere.position = {0,0,0};
-			sphere.radius = 1.0f;
-			sphere.materialIndex = 0;
-
-			m_Scene.spheres.push_back(sphere);
-		}
-		
-		{
-			Sphere sphere;
-			sphere.position = {0,-101,0};
-			sphere.radius = 100.0f;
-			sphere.materialIndex = 1;
-
-			m_Scene.spheres.push_back(sphere);
-		}
-
-		{
-			Sphere sphere;
-			sphere.position = {80,0,0};
-			sphere.radius = 10.0f;
-			sphere.materialIndex = 2;
-
-			m_Scene.spheres.push_back(sphere);
-		}*/
-
 	}
 	
 	virtual void OnUpdate(float ts) override

@@ -1,15 +1,12 @@
 #include "Scene.h"
-#include <glm/fwd.hpp>
-#include <glm/detail/type_quat.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+
 
 void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     std::vector<uint32_t>& meshTriangleVertexIndices,
     glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale,
     int materialIndex)
 {
-    // Step 1: Build world transform matrix (T * R * S)
     glm::vec3 rotationRadians = glm::radians(rotation);
     glm::quat q = glm::quat(rotationRadians);
     glm::mat4 R = glm::toMat4(q);
@@ -19,11 +16,13 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
 
     glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(worldMatrix)));
 
-    // Step 2: Record vertex and index starting offsets
     uint32_t vertexStart = static_cast<uint32_t>(vertices.size());
     uint32_t indexStart = static_cast<uint32_t>(triangleVertexIndices.size());
 
-    // Step 3: Transform and store each vertex into both 'vertices' and 'worldVertices'
+    Vector3f meshAABBLow(FLT_MAX, FLT_MAX, FLT_MAX);
+    Vector3f meshAABBHigh(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+    // Transform and store each vertex
     for (const auto& v : meshVertices)
     {
         Vertex transformed;
@@ -31,11 +30,15 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         transformed.normal = glm::normalize(normalMatrix * v.normal);
         transformed.uv = v.uv;
 
-        vertices.push_back(transformed);        // Optional: keep for original mesh data
-        worldVertices.push_back(transformed);   // Required: used in TraceRay()
+        vertices.push_back(transformed);
+        worldVertices.push_back(transformed);
+
+        // Expand mesh AABB
+        meshAABBLow = meshAABBLow.min(transformed.position);
+        meshAABBHigh = meshAABBHigh.max(transformed.position);
     }
 
-    // Step 4: Create triangles using vertex indices
+    // Create triangles and calculate their AABBs
     for (size_t i = 0; i < meshTriangleVertexIndices.size(); i += 3)
     {
         Triangle tri;
@@ -44,14 +47,20 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         tri.v2 = vertexStart + meshTriangleVertexIndices[i + 2];
         tri.materialIndex = materialIndex;
 
+        const Vector3f& p0 = worldVertices[tri.v0].position;
+        const Vector3f& p1 = worldVertices[tri.v1].position;
+        const Vector3f& p2 = worldVertices[tri.v2].position;
+
+        Vector3f triLow = p0.min(p1).min(p2);
+        Vector3f triHigh = p0.max(p1).max(p2);
+        tri.aabb = AABB(triLow, triHigh);
+
         triangles.push_back(tri);
     }
 
-    // Step 5: Store adjusted triangle vertex indices for indexing
     for (uint32_t idx : meshTriangleVertexIndices)
         triangleVertexIndices.push_back(vertexStart + idx);
 
-    // Step 6: Store mesh metadata
     Mesh mesh;
     mesh.position = pos;
     mesh.rotation = rotation;
@@ -62,6 +71,7 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     mesh.indexStart = indexStart;
     mesh.indexCount = static_cast<uint32_t>(meshTriangleVertexIndices.size());
     mesh.materialIndex = materialIndex;
+    mesh.aabb = AABB(meshAABBLow, meshAABBHigh);
 
     meshes.push_back(mesh);
 }
@@ -85,13 +95,7 @@ void Scene::UpdateAllTransformedSceneMeshes()
     {
         if (!mesh.isTransformed) continue;
 
-        // Rebuild transform
-        glm::vec3 rotationRadians = glm::radians(mesh.rotation);
-        glm::quat q = glm::quat(rotationRadians);
-        glm::mat4 R = glm::toMat4(q);
-        glm::mat4 S = glm::scale(glm::mat4(1.0f), mesh.scale);
-        glm::mat4 T = glm::translate(glm::mat4(1.0f), mesh.position);
-        mesh.worldTransformMatrix = T * R * S;
+        Mesh::UpdateWorldTransform(mesh);
 
         // Re-apply to worldVertices
         for (uint32_t i = 0; i < mesh.vertexCount; ++i)
@@ -103,6 +107,9 @@ void Scene::UpdateAllTransformedSceneMeshes()
             worldV.normal   = glm::normalize(glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.normal, 0.0f)));
             worldV.uv       = localV.uv;
         }
+
+        Mesh::UpdateMeshAABB(mesh, vertices, worldVertices, triangles, triangleVertexIndices);
+      
 
         // Mark as clean
         mesh.isTransformed = false;

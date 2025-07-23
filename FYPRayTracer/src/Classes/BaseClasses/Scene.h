@@ -12,8 +12,8 @@
 
 namespace SceneSettings
 {
-    Vector3f minBound{-1024, -1024, -1024};
-    Vector3f maxBound{1024, 1024, 1024};
+    static Vector3f minSceneBound{-1024, -1024, -1024};
+    static Vector3f maxSceneBound{1024, 1024, 1024};
 }
 
 struct Scene
