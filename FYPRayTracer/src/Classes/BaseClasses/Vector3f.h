@@ -12,6 +12,8 @@ public:
     // Constructors
     Vector3f() : x(0.0f), y(0.0f), z(0.0f) {}
     Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    Vector3f(glm::vec3 vector) : x(vector.x), y(vector.y), z(vector.z) {}
+    Vector3f(glm::vec2 vector) : x(vector.x), y(vector.y), z(0.0f) {}
 
     Vector3f Clamped(const float& min, const float& max)
     {

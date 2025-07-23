@@ -6,8 +6,15 @@
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Triangle.h"
+#include "Vector3f.h"
 #include "Vertex.h"
 #include "../BaseClasses/Material.h"
+
+namespace SceneSettings
+{
+    Vector3f minBound{-1024, -1024, -1024};
+    Vector3f maxBound{1024, 1024, 1024};
+}
 
 struct Scene
 {
