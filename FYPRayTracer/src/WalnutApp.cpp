@@ -83,8 +83,8 @@ public:
 
 		auto& tris = m_Scene.triangles;	//	debug vars
 		auto& verts = m_Scene.worldVertices;
-		auto& bvhObject = m_Scene.CreateBVHnodesFromSceneTriangles();
-		m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObject);
+		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
+		m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
 		
 	}
 	
