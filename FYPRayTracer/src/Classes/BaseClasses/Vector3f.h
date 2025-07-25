@@ -219,6 +219,24 @@ public:
         z /= scalar;
         return *this;
     }
+    
+    float operator[](int i) const {
+        switch (i) {
+        case 0: return x;
+        case 1: return y;
+        case 2: return z;
+        default: return x;
+        }
+    }
+    
+    float& operator[](int i) {
+        switch (i) {
+        case 0: return x;
+        case 1: return y;
+        case 2: return z;
+        default: return x;
+        }
+    }
 };
 
 #endif

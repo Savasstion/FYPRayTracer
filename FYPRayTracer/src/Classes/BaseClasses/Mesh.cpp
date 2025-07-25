@@ -5,55 +5,85 @@
 
 
 
-void Mesh::GenerateSphereMesh(float radius, int latitudeSegments, int longitudeSegments, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
+void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
+                              std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
 {
     outVertices.clear();
     outIndices.clear();
 
-    // Generate vertices
-    for (int lat = 0; lat <= latitudeSegments; lat++)
+    // --- Top pole ---
+    outVertices.push_back(Vertex{ glm::vec3(0, radius, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 1.0f) });
+    uint32_t topIndex = 0;
+
+    // --- Generate ring vertices ---
+    for (int i = 0; i < n_stacks - 1; ++i)
     {
-        float theta = lat * MathUtils::pi / latitudeSegments;
-        float sinTheta = sin(theta);
-        float cosTheta = cos(theta);
+        float phi = MathUtils::pi * float(i + 1) / float(n_stacks);  // from (0,pi)
+        float y = std::cos(phi);
+        float r = std::sin(phi);
 
-        for (int lon = 0; lon <= longitudeSegments; lon++)
+        for (int j = 0; j < n_slices; ++j)
         {
-            float phi = lon * 2.0f * MathUtils::pi / longitudeSegments;
-            float sinPhi = sin(phi);
-            float cosPhi = cos(phi);
+            float theta = 2.0f * MathUtils::pi * float(j) / float(n_slices); // from (0,2pi)
 
-            glm::vec3 position;
-            position.x = radius * sinTheta * cosPhi;
-            position.y = radius * cosTheta;
-            position.z = radius * sinTheta * sinPhi;
+            float x = r * std::cos(theta);
+            float z = r * std::sin(theta);
 
-            glm::vec3 normal = glm::normalize(position);  // outward-pointing normal for a sphere
-            glm::vec2 uv;
-            uv.x = static_cast<float>(lon) / static_cast<float>(longitudeSegments);
-            uv.y = static_cast<float>(lat) / static_cast<float>(latitudeSegments);
+            glm::vec3 pos = glm::vec3(x, y, z) * radius;
+            glm::vec3 normal = glm::normalize(pos);
+            glm::vec2 uv = glm::vec2(float(j) / n_slices, 1.0f - float(i + 1) / n_stacks);
 
-            outVertices.push_back(Vertex{ position, normal, uv });
+            outVertices.push_back(Vertex{ pos, normal, uv });
         }
     }
 
-    // Generate triangle indices
-    for (int lat = 0; lat < latitudeSegments; ++lat)
+    // --- Bottom pole ---
+    outVertices.push_back(Vertex{ glm::vec3(0, -radius, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.0f) });
+    uint32_t bottomIndex = static_cast<uint32_t>(outVertices.size() - 1);
+
+    // --- Top cap triangles ---
+    for (int j = 0; j < n_slices; ++j)
     {
-        for (int lon = 0; lon < longitudeSegments; ++lon)
+        uint32_t i0 = j + 1;
+        uint32_t i1 = (j + 1) % n_slices + 1;
+        outIndices.push_back(topIndex);
+        outIndices.push_back(i1);
+        outIndices.push_back(i0);
+    }
+
+    // --- Bottom cap triangles ---
+    int baseIndex = 1 + (n_stacks - 2) * n_slices;
+    for (int j = 0; j < n_slices; ++j)
+    {
+        uint32_t i0 = baseIndex + j;
+        uint32_t i1 = baseIndex + (j + 1) % n_slices;
+        outIndices.push_back(bottomIndex);
+        outIndices.push_back(i0);
+        outIndices.push_back(i1);
+    }
+
+    // --- Middle quads (split into 2 triangles) ---
+    for (int i = 0; i < n_stacks - 2; ++i)
+    {
+        int ringStart0 = 1 + i * n_slices;
+        int ringStart1 = 1 + (i + 1) * n_slices;
+
+        for (int j = 0; j < n_slices; ++j)
         {
-            int first = (lat * (longitudeSegments + 1)) + lon;
-            int second = first + longitudeSegments + 1;
+            uint32_t i0 = ringStart0 + j;
+            uint32_t i1 = ringStart0 + (j + 1) % n_slices;
+            uint32_t i2 = ringStart1 + (j + 1) % n_slices;
+            uint32_t i3 = ringStart1 + j;
 
-            // Triangle 1
-            outIndices.push_back(first);
-            outIndices.push_back(second);
-            outIndices.push_back(first + 1);
+            // First triangle
+            outIndices.push_back(i0);
+            outIndices.push_back(i1);
+            outIndices.push_back(i2);
 
-            // Triangle 2
-            outIndices.push_back(second);
-            outIndices.push_back(second + 1);
-            outIndices.push_back(first + 1);
+            // Second triangle
+            outIndices.push_back(i0);
+            outIndices.push_back(i2);
+            outIndices.push_back(i3);
         }
     }
 }

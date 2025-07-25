@@ -51,13 +51,9 @@ public:
 			};
 			std::vector<uint32_t> planeIndices = {
 				0, 1, 2,  // First triangle
-				1, 2, 3   // Second triangle
+				0, 2, 3   // Second triangle
 			};
-
-			//std::vector<Vertex> sphereVertices;
-			//std::vector<uint32_t> sphereIndices;
-
-			//Mesh::GenerateSphereMesh(1, 10,10, sphereVertices, sphereIndices);
+			
 			glm::vec3 pos{0,-1,0};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{10,10,10};
@@ -69,11 +65,27 @@ public:
 				0);
 		}
 
-		auto a1 = m_Scene.triangles[0].aabb;
-		auto a2 = m_Scene.triangles[1].aabb;
+		{
+			std::vector<Vertex> sphereVertices;
+			std::vector<uint32_t> sphereIndices;
+		
+			Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
+			glm::vec3 pos{0,1,0};
+			glm::vec3 rot{0,0,0};
+			glm::vec3 scale{1,1,1};
+			m_Scene.AddNewMeshToScene(sphereVertices,
+				sphereIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		}
 
-		auto a3 = m_Scene.meshes.back().aabb;
-
+		auto& tris = m_Scene.triangles;
+		auto& verts = m_Scene.worldVertices;
+		auto& bvhObject = m_Scene.CreateBVHnodesFromSceneTriangles();
+		m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObject);
+		
 	}
 	
 	virtual void OnUpdate(float ts) override
@@ -84,7 +96,7 @@ public:
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
 		}
-
+		
 	}
 	
 	virtual void OnUIRender() override

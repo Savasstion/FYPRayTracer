@@ -51,9 +51,13 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
     //}
 
     //  find closest triangle and draw it
-    for (uint32_t i = 0; i < m_ActiveScene->triangles.size(); i++)
+    std::vector<size_t> collidedTriangleIndices;
+    m_ActiveScene->bvh.TraverseRayRecursive(collidedTriangleIndices, ray, m_ActiveScene->bvh.rootIndex);
+    
+    for (size_t i = 0; i < collidedTriangleIndices.size(); i++)
     {
-        const Triangle& triangle = m_ActiveScene->triangles[i];
+        size_t objectIndex = collidedTriangleIndices[i];
+        const Triangle& triangle = m_ActiveScene->triangles[objectIndex];
         
         const glm::vec3& v0 = m_ActiveScene->worldVertices[triangle.v0].position;
         const glm::vec3& v1 = m_ActiveScene->worldVertices[triangle.v1].position;
@@ -80,7 +84,7 @@ RayHitPayload Renderer::TraceRay(const Ray& ray)   //  Project a ray per pixel t
         if (t > 0.0001f && t < hitDistance)
         {
             hitDistance = t;
-            closestTriangle = static_cast<int>(i);
+            closestTriangle = static_cast<int>(objectIndex);
             closestU = u;
             closestV = v;
         }

@@ -118,3 +118,24 @@ void Scene::UpdateAllTransformedSceneMeshes()
         mesh.isTransformed = false;
     }
 }
+
+std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles()
+{
+    std::vector<BVH::Node> leafNodes;
+    leafNodes.reserve(triangles.size());
+
+    for (size_t i = 0; i < triangles.size(); ++i)
+    {
+        const Triangle& tri = triangles[i];
+        const AABB& aabb = tri.aabb;
+
+        // Create a leaf node for the triangle (objectIndex = i)
+        leafNodes.emplace_back(i, aabb);
+    }
+
+    return leafNodes;
+}
+
+// std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
+// {
+// }

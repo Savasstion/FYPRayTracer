@@ -9,11 +9,12 @@
 #include "Vector3f.h"
 #include "Vertex.h"
 #include "../BaseClasses/Material.h"
+#include "../../DataStructures/BVH.h"
 
 namespace SceneSettings
 {
-    static Vector3f minSceneBound{-1024, -1024, -1024};
-    static Vector3f maxSceneBound{1024, 1024, 1024};
+    static Vector3f minSceneBound{-30, -30, -30};
+    static Vector3f maxSceneBound{30, 30, 30};
 }
 
 struct Scene
@@ -25,6 +26,9 @@ struct Scene
     std::vector<uint32_t> triangleVertexIndices;    //  every three index of a vertex represents a triangle in this list of indices
     std::vector<Triangle> triangles;    //  used as a buffer to group triangles up for easier calculations like for ray intersection test or bvh
     std::vector<Mesh> meshes;
+
+    //  Acceleration Structure
+    BVH bvh;    //  TODO: Make this a TLAS, Top Level Acceleration Structure
     
     std::vector<Material> materials;
 
@@ -32,6 +36,8 @@ struct Scene
         glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale, int materialIndex);
     void UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot, const glm::vec3& newScale);
     void UpdateAllTransformedSceneMeshes();
+    std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();
+    //std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes();
 };
 
 #endif

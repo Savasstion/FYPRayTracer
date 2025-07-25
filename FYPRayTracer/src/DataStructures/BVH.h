@@ -5,6 +5,7 @@
 #include "../Classes/BaseClasses/AABB.h"
 #include <omp.h>
 #include "../Classes/BaseClasses/Vector3f.h"
+#include "../Classes/BaseClasses/Ray.h"
 
 class BVH
 {
@@ -46,7 +47,9 @@ public:
     std::vector<Node> nodes;
     size_t rootIndex = -1;
     
-    void TraverseRecursive(std::vector<size_t>& collisionList, const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex);
+    void TraverseRecursive(std::vector<size_t>& collisionList, const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex) const;
+    void TraverseRayRecursive(std::vector<size_t>& collisionList, const Ray& ray, size_t nodeIndex) const;
+    bool IntersectRayAABB(const Ray& ray, const AABB& box) const;
     int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
     int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 
