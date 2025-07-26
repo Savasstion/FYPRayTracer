@@ -1,10 +1,10 @@
 #ifndef BIT_MANIPULATION_H
 #define BIT_MANIPULATION_H
-//#include "cuda_runtime.h"
-//#include "device_launch_parameters.h"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 //  Count leading zeroes
-inline int clz(unsigned int x)
+__host__ __device__ __forceinline__ int clz(unsigned int x)
 {
     if (x == 0) return 32; // All bits are zero
 

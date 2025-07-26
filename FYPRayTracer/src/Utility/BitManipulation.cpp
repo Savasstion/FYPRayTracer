@@ -1,3 +1,3 @@
-#include "BitManipulation.h"
+#include "BitManipulation.cuh"
 
 

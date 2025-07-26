@@ -1,14 +1,14 @@
 #ifndef MORTON_CODE_H
 #define MORTON_CODE_H
 
-#include "MathUtils.h"
+#include "MathUtils.cuh"
 #include "../Classes/BaseClasses/Scene.h"
-//#include "cuda_runtime.h"
-//#include <device_launch_parameters.h>
+#include "cuda_runtime.h"
+#include <device_launch_parameters.h>
 
 //Expands a 10-bit integer into 30 bits
 //by inserting 2 zeros after each bit.
-inline unsigned int expandBits(unsigned int v)
+__host__ __device__ __forceinline__ int expandBits(unsigned int v)
 {
     v = (v * 0x00010001u) & 0xFF0000FFu;
     v = (v * 0x00000101u) & 0x0F00F00Fu;
@@ -17,7 +17,7 @@ inline unsigned int expandBits(unsigned int v)
     return v;
 }
 //given 3D point located within the unit square [0,1].
-inline unsigned int morton3D(float x, float y, float z)
+__host__ __device__ __forceinline__ unsigned int morton3D(float x, float y, float z)
 {
     //  convert to range of (0,1)
     x = (x - SceneSettings::minSceneBound.x) / (SceneSettings::maxSceneBound.x - SceneSettings::minSceneBound.x);

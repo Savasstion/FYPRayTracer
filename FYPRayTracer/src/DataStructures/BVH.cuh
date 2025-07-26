@@ -30,16 +30,16 @@ public:
         size_t child2 = -1;
         bool isLeaf;    //  false = internal node/sector, true = leaf node/collision object
 
-        Node()
+        __host__ __device__ Node()
         : box(AABB()), objectIndex(-1), child1(-1), child2(-1), isLeaf(false) {}
 
-        Node(const size_t objectIndex, const AABB& box)
+        __host__ __device__ Node(const size_t objectIndex, const AABB& box)
             : box(box), objectIndex(objectIndex), child1(-1), child2(-1), isLeaf(true) {}
 
-        Node(const size_t leftChild, const size_t rightChild, const AABB& box)
+        __host__ __device__ Node(const size_t leftChild, const size_t rightChild, const AABB& box)
             : box(box), objectIndex(-1), child1(leftChild), child2(rightChild), isLeaf(false) {}
 
-        Node(const size_t leftChild, const size_t rightChild)
+        __host__ __device__ Node(const size_t leftChild, const size_t rightChild)
             : box(AABB()), objectIndex(-1), child1(leftChild), child2(rightChild), isLeaf(false) {}
 
     };
@@ -60,6 +60,16 @@ public:
     void OMP_AssignMortonCodes(size_t objectCount);
     void OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount);
     void OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount);
+
+    //  CUDA
+    //__global__ void BuildLeafNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, AABB* ptr_objectAABBs, size_t objectCount);
+    //__global__ void BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, size_t objectCount);
+    //__global__ void AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedMortonCodes, CircleColliderComponent* d_ptr_circle_collider_components, Entity* d_ptr_entities, TransformComponent* d_ptr_transform_components, size_t objectCount);
+    //__global__ void SortMortonCodesKernel(BVH::MortonCodeEntry* data, int n);
+    //__host__ void AssignInternalNodeAABB(size_t nodeIndex, BVH::Node* nodes, size_t nodeCount);
+    //__host__ void AssignInternalNodeAABB_Updated(BVH::Node* nodes, size_t objectCount);
+    //__host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
+    //__host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 
 };
 

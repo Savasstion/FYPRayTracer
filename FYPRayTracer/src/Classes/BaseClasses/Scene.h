@@ -9,7 +9,7 @@
 #include "Vector3f.h"
 #include "Vertex.h"
 #include "../BaseClasses/Material.h"
-#include "../../DataStructures/BVH.h"
+#include "../../DataStructures/BVH.cuh"
 
 namespace SceneSettings
 {

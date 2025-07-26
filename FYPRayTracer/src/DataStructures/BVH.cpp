@@ -1,6 +1,6 @@
 #include "BVH.h"
 #include <iostream>
-#include "../Utility/BitManipulation.h"
+#include "../Utility/BitManipulation.cuh"
 
 void BVH::TraverseRecursive(std::vector<size_t>& collisionList, const AABB& queryAABB, size_t objectQueryIndex,
                             size_t nodeIndex) const

@@ -1,6 +1,6 @@
 #include "BVH.h"
 #include <algorithm>
-#include "../Utility/MortonCode.h"
+#include "../Utility/MortonCode.cuh"
 
 //  OMP variable
 namespace 

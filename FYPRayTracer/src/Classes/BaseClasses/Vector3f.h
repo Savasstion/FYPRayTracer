@@ -1,50 +1,47 @@
 #ifndef VECTOR3F_H
 #define VECTOR3F_H
 
-//  We dont use cmath to prevent dependency issues
+//  Force GLM to be CUDA-compatible
+#define GLM_FORCE_CUDA
+#include <glm/ext/vector_float3.hpp>
+#include "cuda_runtime.h"
+#include <device_launch_parameters.h>
 #include "Vector2f.h"
-#include "../../Utility/MathUtils.h"
+#include "../../Utility/MathUtils.cuh"
 
 class Vector3f {
 public:
     float x, y, z;
 
     // Constructors
-    Vector3f() : x(0.0f), y(0.0f), z(0.0f) {}
-    Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
-    Vector3f(glm::vec3 vector) : x(vector.x), y(vector.y), z(vector.z) {}
-    Vector3f(glm::vec2 vector) : x(vector.x), y(vector.y), z(0.0f) {}
+    __host__ __device__ Vector3f() : x(0.0f), y(0.0f), z(0.0f) {}
+    __host__ __device__ Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    __host__ __device__ Vector3f(glm::vec3 vector) : x(vector.x), y(vector.y), z(vector.z) {}
+    __host__ __device__ Vector3f(glm::vec2 vector) : x(vector.x), y(vector.y), z(0.0f) {}
 
-    Vector3f Clamped(const float& min, const float& max)
-    {
+    __host__ __device__ Vector3f Clamped(const float& min, const float& max) const {
         Vector3f result;
-
         result.x = (x < min) ? min : (x > max) ? max : x;
         result.y = (y < min) ? min : (y > max) ? max : y;
         result.z = (z < min) ? min : (z > max) ? max : z;
-
         return result;
     }
 
-    void Clamp(const float& min, const float& max)
-    {
+    __host__ __device__ void Clamp(const float& min, const float& max) {
         x = (x < min) ? min : (x > max) ? max : x;
         y = (y < min) ? min : (y > max) ? max : y;
         z = (z < min) ? min : (z > max) ? max : z;
-        
-    }
-    
-    // Magnitude (length)
-    float Magnitude() const {
-        return MathUtils::approx_sqrt(x*x + y*y + z*z);    //  square roots are slow so use MagnitudeSquared() when possible
     }
 
-    float MagnitudeSquared() const {
-        return x*x + y*y + z*z;
+    __host__ __device__ float Magnitude() const {
+        return MathUtils::approx_sqrt(x * x + y * y + z * z);
     }
 
-    // Normalize the vector (make it unit length)
-    Vector3f Normalized() const {
+    __host__ __device__ float MagnitudeSquared() const {
+        return x * x + y * y + z * z;
+    }
+
+    __host__ __device__ Vector3f Normalized() const {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
             float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
@@ -53,7 +50,7 @@ public:
         return Vector3f(0.0f, 0.0f, 0.0f);
     }
 
-    void Normalize() {
+    __host__ __device__ void Normalize() {
         float lenSq = MagnitudeSquared();
         if (lenSq > 0.0f) {
             float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
@@ -63,26 +60,23 @@ public:
         }
     }
 
-    // Dot product
-    float Dot(const Vector3f& other) const {
+    __host__ __device__ float Dot(const Vector3f& other) const {
         return x * other.x + y * other.y + z * other.z;
     }
 
-    float Dot(const Vector2f& other) const {
-        return x * other.x + y * other.y; // Treat Vector2f as (x, y, 0)
+    __host__ __device__ float Dot(const Vector2f& other) const {
+        return x * other.x + y * other.y;
     }
 
-    static float Dot(const Vector3f& a, const Vector3f& b) {
+    __host__ __device__ static float Dot(const Vector3f& a, const Vector3f& b) {
         return a.x * b.x + a.y * b.y + a.z * b.z;
     }
 
-    static float Dot(const Vector3f& a, const Vector2f& b) {
+    __host__ __device__ static float Dot(const Vector3f& a, const Vector2f& b) {
         return a.x * b.x + a.y * b.y;
     }
 
-
-    // Cross product
-    Vector3f Cross(const Vector3f& other) const {
+    __host__ __device__ Vector3f Cross(const Vector3f& other) const {
         return Vector3f(
             y * other.z - z * other.y,
             z * other.x - x * other.z,
@@ -90,8 +84,7 @@ public:
         );
     }
 
-    Vector3f Cross(const Vector2f& other) const {
-        // Treat Vector2f as (x, y, 0) and return the 3D cross product
+    __host__ __device__ Vector3f Cross(const Vector2f& other) const {
         return Vector3f(
             0.0f,
             0.0f,
@@ -99,7 +92,7 @@ public:
         );
     }
 
-    static Vector3f Cross(const Vector3f& a, const Vector3f& b) {
+    __host__ __device__ static Vector3f Cross(const Vector3f& a, const Vector3f& b) {
         return Vector3f(
             a.y * b.z - a.z * b.y,
             a.z * b.x - a.x * b.z,
@@ -107,7 +100,7 @@ public:
         );
     }
 
-    static Vector3f Cross(const Vector3f& a, const Vector2f& b) {
+    __host__ __device__ static Vector3f Cross(const Vector3f& a, const Vector2f& b) {
         return Vector3f(
             0.0f,
             0.0f,
@@ -115,8 +108,7 @@ public:
         );
     }
 
-    Vector3f min(const Vector3f& other) const
-    {
+    __host__ __device__ Vector3f min(const Vector3f& other) const {
         return Vector3f(
             (x < other.x) ? x : other.x,
             (y < other.y) ? y : other.y,
@@ -124,8 +116,7 @@ public:
         );
     }
 
-    Vector3f max(const Vector3f& other) const
-    {
+    __host__ __device__ Vector3f max(const Vector3f& other) const {
         return Vector3f(
             (x > other.x) ? x : other.x,
             (y > other.y) ? y : other.y,
@@ -133,109 +124,35 @@ public:
         );
     }
 
-    // Operator overloading
-    Vector3f operator+(const Vector3f& other) const {
-        return Vector3f(x + other.x, y + other.y, z + other.z);
+    // Operators
+    __host__ __device__ Vector3f operator+(const Vector3f& other) const { return Vector3f(x + other.x, y + other.y, z + other.z); }
+    __host__ __device__ Vector3f operator+(const Vector2f& other) const { return Vector3f(x + other.x, y + other.y, z); }
+    __host__ __device__ Vector3f operator+(const float& scalar) const { return Vector3f(x + scalar, y + scalar, z + scalar); }
+
+    __host__ __device__ Vector3f operator-(const Vector3f& other) const { return Vector3f(x - other.x, y - other.y, z - other.z); }
+    __host__ __device__ Vector3f operator-(const Vector2f& other) const { return Vector3f(x - other.x, y - other.y, z); }
+    __host__ __device__ Vector3f operator-(const float& scalar) const { return Vector3f(x - scalar, y - scalar, z - scalar); }
+
+    __host__ __device__ Vector3f operator*(float scalar) const { return Vector3f(x * scalar, y * scalar, z * scalar); }
+    __host__ __device__ Vector3f operator/(float scalar) const { return Vector3f(x / scalar, y / scalar, z / scalar); }
+
+    __host__ __device__ Vector3f& operator+=(const Vector3f& other) { x += other.x; y += other.y; z += other.z; return *this; }
+    __host__ __device__ Vector3f& operator+=(const Vector2f& other) { x += other.x; y += other.y; return *this; }
+    __host__ __device__ Vector3f& operator+=(const float& scalar) { x += scalar; y += scalar; z += scalar; return *this; }
+
+    __host__ __device__ Vector3f& operator-=(const Vector3f& other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
+    __host__ __device__ Vector3f& operator-=(const Vector2f& other) { x -= other.x; y -= other.y; return *this; }
+    __host__ __device__ Vector3f& operator-=(const float& scalar) { x -= scalar; y -= scalar; z -= scalar; return *this; }
+
+    __host__ __device__ Vector3f& operator*=(float scalar) { x *= scalar; y *= scalar; z *= scalar; return *this; }
+    __host__ __device__ Vector3f& operator/=(float scalar) { x /= scalar; y /= scalar; z /= scalar; return *this; }
+
+    __host__ __device__ float operator[](int i) const {
+        return (i == 0) ? x : (i == 1) ? y : z;
     }
 
-    Vector3f operator+(const Vector2f& other) const {
-        return Vector3f(x + other.x, y + other.y, z);
-    }
-
-    Vector3f operator+(const float& scalar) const {
-        return Vector3f(x + scalar, y + scalar, z + scalar);
-    }
-
-    Vector3f operator-(const Vector3f& other) const {
-        return Vector3f(x - other.x, y - other.y, z - other.z);
-    }
-
-    Vector3f operator-(const Vector2f& other) const {
-        return Vector3f(x - other.x, y - other.y, z);
-    }
-
-    Vector3f operator-(const float& scalar) const {
-        return Vector3f(x - scalar, y - scalar, z - scalar);
-    }
-
-    Vector3f operator*(float scalar) const {
-        return Vector3f(x * scalar, y * scalar, z * scalar);
-    }
-
-    Vector3f operator/(float scalar) const {
-        return Vector3f(x / scalar, y / scalar, z / scalar);
-    }
-
-    Vector3f& operator+=(const Vector3f& other) {
-        x += other.x;
-        y += other.y;
-        z += other.z;
-        return *this;
-    }
-
-    Vector3f& operator+=(const Vector2f& other) {
-        x += other.x;
-        y += other.y;
-        return *this;
-    }
-
-    Vector3f& operator+=(const float& scalar) {
-        x += scalar;
-        y += scalar;
-        z += scalar;
-        return *this;
-    }
-
-    Vector3f& operator-=(const Vector3f& other) {
-        x -= other.x;
-        y -= other.y;
-        z -= other.z;
-        return *this;
-    }
-
-    Vector3f& operator-=(const Vector2f& other) {
-        x -= other.x;
-        y -= other.y;
-        return *this;
-    }
-
-    Vector3f& operator-=(const float& scalar) {
-        x -= scalar;
-        y -= scalar;
-        z -= scalar;
-        return *this;
-    }
-
-    Vector3f& operator*=(float scalar) {
-        x *= scalar;
-        y *= scalar;
-        z *= scalar;
-        return *this;
-    }
-
-    Vector3f& operator/=(float scalar) {
-        x /= scalar;
-        y /= scalar;
-        z /= scalar;
-        return *this;
-    }
-    
-    float operator[](int i) const {
-        switch (i) {
-        case 0: return x;
-        case 1: return y;
-        case 2: return z;
-        default: return x;
-        }
-    }
-    
-    float& operator[](int i) {
-        switch (i) {
-        case 0: return x;
-        case 1: return y;
-        case 2: return z;
-        default: return x;
-        }
+    __host__ __device__ float& operator[](int i) {
+        return (i == 0) ? x : (i == 1) ? y : z;
     }
 };
 

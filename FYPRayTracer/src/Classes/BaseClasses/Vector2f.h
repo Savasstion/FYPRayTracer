@@ -3,7 +3,7 @@
 
 //  We don't use cmath to prevent dependency issues
 #include <glm/vec2.hpp>
-#include "../../Utility/MathUtils.h"
+#include "../../Utility/MathUtils.cuh"
 
 class Vector2f {
 public:
