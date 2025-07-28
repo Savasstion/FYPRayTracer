@@ -1,4 +1,4 @@
-#include "BVH.h"
+#include "BVH.cuh"
 #include <algorithm>
 #include "../Utility/MortonCode.cuh"
 

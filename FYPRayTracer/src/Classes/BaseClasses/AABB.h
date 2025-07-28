@@ -1,7 +1,7 @@
 #ifndef AABB_H
 #define AABB_H
 
-#include "Vector3f.h"
+#include "Vector3f.cuh"
 #include <glm/ext/vector_float2.hpp>
 struct AABB
 {

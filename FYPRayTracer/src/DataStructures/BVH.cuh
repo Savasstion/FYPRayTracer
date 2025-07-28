@@ -4,7 +4,7 @@
 #include <vector>
 #include "../Classes/BaseClasses/AABB.h"
 #include <omp.h>
-#include "../Classes/BaseClasses/Vector3f.h"
+#include "../Classes/BaseClasses/Vector3f.cuh"
 #include "../Classes/BaseClasses/Ray.h"
 
 class BVH

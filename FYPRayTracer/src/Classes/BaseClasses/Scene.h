@@ -6,7 +6,7 @@
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Triangle.h"
-#include "Vector3f.h"
+#include "Vector3f.cuh"
 #include "Vertex.h"
 #include "../BaseClasses/Material.h"
 #include "../../DataStructures/BVH.cuh"

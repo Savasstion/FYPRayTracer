@@ -2,7 +2,7 @@
 #define VECTOR4F_H
 
 // We don't use cmath to prevent dependency issues
-#include "Vector3f.h"
+#include "Vector3f.cuh"
 #include "../../Utility/MathUtils.h"
 
 class Vector4f {

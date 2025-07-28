@@ -1,4 +1,4 @@
-#include "BVH.h"
+#include "BVH.cuh"
 #include <iostream>
 #include "../Utility/BitManipulation.cuh"
 
