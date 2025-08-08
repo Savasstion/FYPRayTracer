@@ -1,7 +1,7 @@
 #ifndef TRIANGLE_H
 #define TRIANGLE_H
 #include <cstdint>
-#include "AABB.h"
+#include "AABB.cuh"
 
 struct Triangle
 {

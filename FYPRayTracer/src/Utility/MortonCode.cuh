@@ -17,12 +17,12 @@ __host__ __device__ __forceinline__ int expandBits(unsigned int v)
     return v;
 }
 //given 3D point located within the unit square [0,1].
-__host__ __device__ __forceinline__ unsigned int morton3D(float x, float y, float z)
+__host__ __device__ __forceinline__ unsigned int morton3D(float x, float y, float z, Vector3f minSceneBound, Vector3f maxSceneBound)
 {
     //  convert to range of (0,1)
-    x = (x - SceneSettings::minSceneBound.x) / (SceneSettings::maxSceneBound.x - SceneSettings::minSceneBound.x);
-    y = (y - SceneSettings::minSceneBound.y) / (SceneSettings::maxSceneBound.y - SceneSettings::minSceneBound.y);
-    z = (z - SceneSettings::minSceneBound.z) / (SceneSettings::maxSceneBound.z - SceneSettings::minSceneBound.z);
+    x = (x - minSceneBound.x) / (maxSceneBound.x - minSceneBound.x);
+    y = (y - minSceneBound.y) / (maxSceneBound.y - minSceneBound.y);
+    z = (z - minSceneBound.z) / (maxSceneBound.z - minSceneBound.z);
 
     
     x = MathUtils::minFloat(MathUtils::maxFloat(x * 1024.0f, 0.0f), 1023.0f);

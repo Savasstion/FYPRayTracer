@@ -80,12 +80,11 @@ public:
 				scale,
 				0);
 		}
-
-		auto& tris = m_Scene.triangles;	//	debug vars
-		auto& verts = m_Scene.worldVertices;
-		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
-		m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
 		
+		//	BVH Construction
+		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
+		//m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
+		m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes);
 	}
 	
 	virtual void OnUpdate(float ts) override
@@ -176,8 +175,7 @@ public:
 	void Render()
 	{
 		Walnut::Timer timer;
-
-
+		
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
 		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
 		if(!stopDemo)

@@ -4,7 +4,7 @@
 #include "../../Utility/MathUtils.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <vector>
-#include "AABB.h"
+#include "AABB.cuh"
 #include "Vertex.h"
 #include "Triangle.h"
 
