@@ -1,20 +1,17 @@
 #ifndef BVH_H
 #define BVH_H
 
+#define GLM_FORCE_CUDA
 #include <vector>
-#include "../Classes/BaseClasses/AABB.h"
+#include "../Classes/BaseClasses/AABB.cuh"
 #include <omp.h>
 #include "../Classes/BaseClasses/Vector3f.cuh"
 #include "../Classes/BaseClasses/Ray.h"
 
+
 class BVH
 {
 public:
-    struct int2
-    {
-        int x, y;
-    };
-    
     struct MortonCodeEntry
     {
         unsigned int mortonCode;
@@ -50,8 +47,6 @@ public:
     void TraverseRecursive(std::vector<size_t>& collisionList, const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex) const;
     void TraverseRayRecursive(std::vector<size_t>& collisionList, const Ray& ray, size_t nodeIndex) const;
     bool IntersectRayAABB(const Ray& ray, const AABB& box) const;
-    int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
-    int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 
     //OMP
     void OMP_ClearBVH();
@@ -61,19 +56,24 @@ public:
     void OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount);
     void OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount);
 
+
     //  CUDA
-    //__global__ void BuildLeafNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, AABB* ptr_objectAABBs, size_t objectCount);
-    //__global__ void BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, size_t objectCount);
-    //__global__ void AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedMortonCodes, CircleColliderComponent* d_ptr_circle_collider_components, Entity* d_ptr_entities, TransformComponent* d_ptr_transform_components, size_t objectCount);
-    //__global__ void SortMortonCodesKernel(BVH::MortonCodeEntry* data, int n);
-    //__host__ void AssignInternalNodeAABB(size_t nodeIndex, BVH::Node* nodes, size_t nodeCount);
-    //__host__ void AssignInternalNodeAABB_Updated(BVH::Node* nodes, size_t objectCount);
-    //__host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
-    //__host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
+    __host__ void CUDA_ConstructBVHInParallel(std::vector<Node>& objects);
+    __host__ void CUDA_ClearBVH();
+    __host__ void CUDA_AllocateMemory(size_t currentObjCount);
+    __host__ void CUDA_FreeDeviceSpaceForBVH();
+    __host__ size_t CUDA_BuildHierarchyInParallel(Node* objects, size_t objectCount);
+    __host__ void CUDA_SortMortonCodes(size_t objectCount);
+    __host__ void CUDA_CopyComponentsFromHostToDevice(BVH::Node* objects);
+    __host__ void CUDA_CopyDeviceNodesToHost();
 
 };
 
-
+__host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
+__host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
+__global__ void CUDA_AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedMortonCodes, BVH::Node* d_ptr_collisionObjects,size_t objectCount, Vector3f minSceneBound, Vector3f maxSceneBound);
+__global__ void CUDA_BuildLeafNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, AABB* ptr_objectAABBs, size_t objectCount);
+__global__ void CUDA_BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes, BVH::Node* ptr_nodes, size_t objectCount);
 
 
 #endif

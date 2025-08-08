@@ -34,7 +34,7 @@ void BVH::OMP_AssignMortonCodes(size_t objectCount)
         float x = omp_AABBs[i].centroidPos.x;
         float y = omp_AABBs[i].centroidPos.y;
         float z = omp_AABBs[i].centroidPos.z;
-        omp_sortedMortonCodes[i].mortonCode = morton3D(x, y, z);
+        omp_sortedMortonCodes[i].mortonCode = morton3D(x, y, z, SceneSettings::minSceneBound, SceneSettings::maxSceneBound);
     }
     
 }
@@ -99,6 +99,7 @@ void BVH::OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount)
         ptr_nodes[idx + objectCount] = BVH::Node(indexA, indexB, internalNodeBox);  
     }
 }
+
 
 size_t BVH::OMP_BuildHierarchyInParallel(std::vector<Node>& objects, size_t objectCount)
 {
