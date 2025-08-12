@@ -6,19 +6,7 @@
 #include "../Utility/MortonCode.cuh"
 #include "../Utility/BitManipulation.cuh"
 
-//  members for CUDA parallelization
-namespace
-{
-    BVH::Node* d_ptr_nodes;
-    BVH::Node* d_ptr_collisionObjects;
-    BVH::MortonCodeEntry* h_ptr_sortedMortonCodes;
-    BVH::MortonCodeEntry* d_ptr_sortedMortonCodes;
-    AABB* d_ptr_objectAABBs;
-    
-    size_t nodeCount;
-    bool isNewValuesSet = true;
-    size_t objectCount = 0;
-}
+
 
 __host__ void BVH::CUDA_AllocateMemory(size_t currentObjCount)
 {

@@ -20,7 +20,7 @@ namespace SceneSettings
 struct Scene
 {
     //  vectors of primitives in the scene
-    std::vector<Sphere> spheres;
+    //std::vector<Sphere> spheres;
     std::vector<Vertex> vertices;   //  vertices with mesh local coordinates with no transforms 
     std::vector<Vertex> worldVertices; //   vertices that has world transforms applied
     std::vector<uint32_t> triangleVertexIndices;    //  every three index of a vertex represents a triangle in this list of indices

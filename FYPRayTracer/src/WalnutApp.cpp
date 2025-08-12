@@ -84,7 +84,7 @@ public:
 		//	BVH Construction
 		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
 		//m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
-		m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes);
+		m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes.data(), bvhObjectNodes.size());
 	}
 	
 	virtual void OnUpdate(float ts) override
@@ -119,14 +119,13 @@ public:
 		ImGui::End();
 
 		ImGui::Begin("Scene");
-		for(size_t i = 0; i < m_Scene.spheres.size(); i++)
+		for(size_t i = 0; i < m_Scene.meshes.size(); i++)
 		{
 			ImGui::PushID(i);
 
-			Sphere& sphere = m_Scene.spheres[i];
-			ImGui::DragFloat3("Position", glm::value_ptr(sphere.position), 0.1f);
-			ImGui::DragFloat("Radius", &sphere.radius, 0.1f);
-			ImGui::DragInt("Material Index", &sphere.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
+			Mesh& mesh = m_Scene.meshes[i];
+			ImGui::DragFloat3("Position", glm::value_ptr(mesh.position), 0.1f);
+			ImGui::DragInt("Material Index", &mesh.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
 			
 			ImGui::Separator();
 			

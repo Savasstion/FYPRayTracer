@@ -46,6 +46,9 @@ public:
 	const std::vector<glm::vec3>& GetRayDirections() const { return m_RayDirections; }
 
 	float GetRotationSpeed();
+	uint32_t GetViewportWidth() const { return m_ViewportWidth; }
+	uint32_t GetViewportHeight() const { return m_ViewportHeight; }
+
 private:
 
 

@@ -1,15 +1,17 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "RendererCUDA.cuh" // GPU-safe definitions
 #include "Walnut/Image.h"
 #include <memory>
 #include <vector>
+#include "../BaseClasses/RenderingSettings.h"
+#include "../BaseClasses/Scene.h"
+#include "../BaseClasses/Camera.h"
 
 class Renderer
 {
 private:
-    Settings m_Settings;
+    RenderingSettings m_Settings;
     std::shared_ptr<Walnut::Image> m_FinalRenderImage;
     uint32_t* m_RenderImageData = nullptr;
     glm::vec4* m_AccumulationData = nullptr;
@@ -26,7 +28,7 @@ public:
 
     std::shared_ptr<Walnut::Image> GetFinalRenderImage() const { return m_FinalRenderImage; }
     void ResetFrameIndex() { m_FrameIndex = 1; }
-    Settings& GetSettings() { return m_Settings; }
+    RenderingSettings& GetSettings() { return m_Settings; }
     uint32_t GetCurrentFrameIndex() const { return m_FrameIndex; }
     uint32_t* GetRenderImageDataPtr() const { return m_RenderImageData; }
 };

@@ -4,16 +4,17 @@
 #include <cuda.h>
 #include "cuda_runtime.h"
 #include <device_launch_parameters.h>
+#include <iostream>
 
 void Renderer::Render(const Scene& scene, const Camera& camera)
 {
     m_ActiveScene = &scene;
     m_ActiveCamera = &camera;
-
+    
     uint32_t width  = m_FinalRenderImage->GetWidth();
     uint32_t height = m_FinalRenderImage->GetHeight();
     size_t pixelCount = width * height;
-
+    
     constexpr size_t vec4Size = sizeof(glm::vec4);
     constexpr size_t uint32Size = sizeof(uint32_t);
 
@@ -25,48 +26,48 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
 
     // Initialize or copy accumulation buffer
     if (m_FrameIndex == 1)
-    {
         cudaMemset(d_accumulationData, 0, pixelCount * vec4Size);
-    }
     else
-    {
-        // Ensure m_AccumulationData is valid host pointer and initialized
         cudaMemcpy(d_accumulationData, m_AccumulationData, pixelCount * vec4Size, cudaMemcpyHostToDevice);
-    }
     
-    // For demonstration, pass host pointers as nullptr (avoid crash)
-    const Scene* d_scene = nullptr;
-    const Camera* d_camera = nullptr;
+    // Convert CPU scene & camera to GPU-friendly versions
+    Scene_GPU h_sceneGPU = SceneToGPU(scene);
+    Camera_GPU h_cameraGPU = CameraToGPU(camera);
 
-    // Copy settings to device (small struct, okay)
-    Settings h_settings = m_Settings;
-    Settings* d_settings;
-    cudaMalloc(&d_settings, sizeof(Settings));
-    cudaMemcpy(d_settings, &h_settings, sizeof(Settings), cudaMemcpyHostToDevice);
+    // Allocate device versions
+    Scene_GPU* d_sceneGPU;
+    Camera_GPU* d_cameraGPU;
+    cudaMalloc(&d_sceneGPU, sizeof(Scene_GPU));
+    cudaMalloc(&d_cameraGPU, sizeof(Camera_GPU));
+    
+    // Copy host-to-device
+    cudaMemcpy(d_sceneGPU, &h_sceneGPU, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_cameraGPU, &h_cameraGPU, sizeof(Camera_GPU), cudaMemcpyHostToDevice);
+    
 
-    // Correct thread/block sizes
+    // Configure kernel launch
     dim3 threadsPerBlock(16, 16);
     dim3 numBlocks(
         (width + threadsPerBlock.x - 1) / threadsPerBlock.x,
-        (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
-
-    // Launch kernel
+        (height + threadsPerBlock.y - 1) / threadsPerBlock.y
+    );
+    
     RenderKernel<<<numBlocks, threadsPerBlock>>>(
         d_accumulationData,
         d_renderImageData,
         width,
         height,
         m_FrameIndex,
-        *d_settings,
-        d_scene,
-        d_camera);
-    
+        m_Settings,
+        d_sceneGPU,
+        d_cameraGPU
+    );
+
     cudaDeviceSynchronize();
-    
-    // Copy results back (make sure host buffers are valid and allocated)
+
+    // Copy results back
     cudaMemcpy(m_AccumulationData, d_accumulationData, pixelCount * vec4Size, cudaMemcpyDeviceToHost);
     cudaMemcpy(m_RenderImageData, d_renderImageData, pixelCount * uint32Size, cudaMemcpyDeviceToHost);
-
     m_FinalRenderImage->SetData(m_RenderImageData);
 
     if (m_Settings.toAccumulate)
@@ -74,15 +75,17 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     else
         m_FrameIndex = 1;
 
+    // Free device memory
     cudaFree(d_accumulationData);
     cudaFree(d_renderImageData);
-    cudaFree(d_settings);
+    cudaFree(d_sceneGPU);
+    cudaFree(d_cameraGPU);
 }
 
 
-__host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray,const Scene* activeScene)   //  Project a ray per pixel to determine pixel output
+__host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Scene_GPU* activeScene)
 {
-    if (activeScene->triangles.empty())
+    if (activeScene->triangleCount == 0)
         return Miss(ray);
 
     int closestTriangle = -1;
@@ -90,14 +93,8 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray,const Sce
     float closestU = 0.0f;
     float closestV = 0.0f;
 
-    // Find closest triangle and draw it
-    // NOTE: BVH traversal must be __device__ too
-    //       or replaced with GPU-friendly logic.
-    // This call won't work in CUDA unless BVH is also GPU compatible.
-    // Placeholder: you’ll need a GPU BVH traversal here.
-    // activeScene->bvh.TraverseRayRecursiveGPU(...)
-
-    for (size_t objectIndex = 0; objectIndex < activeScene->triangles.size(); objectIndex++)
+    // Loop over GPU triangles
+    for (size_t objectIndex = 0; objectIndex < activeScene->triangleCount; objectIndex++)
     {
         const Triangle& triangle = activeScene->triangles[objectIndex];
 
@@ -137,6 +134,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray,const Sce
 
     return ClosestHit(ray, hitDistance, closestTriangle, closestU, closestV, activeScene);
 }
+
 
 //  //  PURE BRUTE-FORCE
 // glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
@@ -414,32 +412,37 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray,const Sce
 // }
 
 //  BRDF SAMPLING
-__host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint8_t maxBounces, uint8_t sampleCount, uint32_t frameIndex, const Settings& settings, const Scene* activeScene, const Camera* activeCamera, uint32_t imageWidth)
+__host__ __device__ glm::vec4 RendererGPU::PerPixel(
+    uint32_t x, uint32_t y,
+    uint8_t maxBounces, uint8_t sampleCount,
+    uint32_t frameIndex, const RenderingSettings& settings,
+    const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
 
-    glm::vec3 radiance{0.0f};   // Final color accumulated from all samples
+    glm::vec3 radiance{0.0f};
 
-    // == PRIMARY RAY ==
+    // PRIMARY RAY
     Ray primaryRay;
-    primaryRay.origin = activeCamera->GetPosition();
-    primaryRay.direction = activeCamera->GetRayDirections()[x + y * imageWidth];
+    primaryRay.origin = activeCamera->position;
+    primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
 
-    // Hit sky immediately
+    // Miss: hit sky
     if (primaryPayload.hitDistance < 0.0f)
         return glm::vec4(settings.skyColor, 1.0f);
 
     const Triangle& hitTri = activeScene->triangles[primaryPayload.objectIndex];
     const Material& hitMaterial = activeScene->materials[hitTri.materialIndex];
 
-    // Hit emissive object immediately
+    // Hit emissive surface
     if (glm::length(hitMaterial.GetEmission()) > 0.0f)
         return glm::vec4(hitMaterial.GetEmission(), 1.0f);
 
-    // == SAMPLE MULTIPLE LIGHT PATHS FROM FIRST HIT ==
+    // MULTI-SAMPLE LOOP
     for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
     {
         seed += (sampleIndex + 1) * 27;
@@ -447,7 +450,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint
         Ray sampleRay;
         RayHitPayload samplePayload = primaryPayload;
 
-        // Sample initial direction from first hit
+        // Sample initial bounce
         float pdf;
         glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
             primaryPayload.worldNormal,
@@ -468,20 +471,19 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint
             hitMaterial.roughness
         );
 
-        float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);  // Geometry Term
-        sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f)); // Rendering equation core
+        float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+        sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f));
 
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
         sampleRay.direction = newDir;
 
-        // Trace the path for maxBounces
+        // BOUNCE LOOP
         for (int bounce = 0; bounce < maxBounces; bounce++)
         {
             seed += sampleIndex + 31 * bounce;
-
             samplePayload = TraceRay(sampleRay, activeScene);
 
-            // Hit sky
+            // Miss: hit sky
             if (samplePayload.hitDistance < 0.0f)
             {
                 radiance += sampleThroughput * settings.skyColor;
@@ -491,7 +493,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint
             const Triangle& tri = activeScene->triangles[samplePayload.objectIndex];
             const Material& material = activeScene->materials[tri.materialIndex];
 
-            // Hit emissive light
+            // Hit emissive
             glm::vec3 emission = material.GetEmission();
             if (glm::length(emission) > 0.0f)
             {
@@ -499,7 +501,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint
                 break;
             }
 
-            // Sample next direction
+            // Next bounce
             float bouncePdf;
             glm::vec3 bounceDir = MathUtils::BRDFSampleHemisphere(
                 samplePayload.worldNormal,
@@ -528,34 +530,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(uint32_t x, uint32_t y, uint
         }
     }
 
-    radiance /= float(sampleCount); // Average across all sampled paths
+    radiance /= float(sampleCount);
     return glm::vec4(radiance, 1.0f);
 }
-
-__host__ __device__ RayHitPayload RendererGPU::ClosestHit(const Ray& ray, float hitDistance, int objectIndex, float u, float v, const Scene* activeScene)
+__host__ __device__ RayHitPayload RendererGPU::ClosestHit(
+    const Ray& ray, float hitDistance, int objectIndex,
+    float u, float v, const Scene_GPU* activeScene)
 {
     RayHitPayload payload;
     payload.hitDistance = hitDistance;
     payload.objectIndex = objectIndex;
 
-    // For Triangles
     const Triangle& tri = activeScene->triangles[objectIndex];
-
     payload.worldPosition = ray.origin + ray.direction * hitDistance;
 
-    // Interpolate normal using barycentric coordinates
+    // Interpolate normals
     float w = 1.0f - u - v;
     glm::vec3 n0 = activeScene->worldVertices[tri.v0].normal;
     glm::vec3 n1 = activeScene->worldVertices[tri.v1].normal;
     glm::vec3 n2 = activeScene->worldVertices[tri.v2].normal;
 
-    glm::vec3 interpolatedNormal = glm::normalize(
-        n0 * w +
-        n1 * u +
-        n2 * v
-    );
-
-    payload.worldNormal = interpolatedNormal;
+    payload.worldNormal = glm::normalize(n0 * w + n1 * u + n2 * v);
 
     return payload;
 }
@@ -603,7 +598,16 @@ __host__ __device__ glm::vec3 RendererGPU::CalculateBRDF(const glm::vec3& N, con
     return diffuse + specular;
 }
 
-__global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height, uint32_t frameIndex, Settings settings, const Scene* scene, const Camera* camera)
+__global__ void RenderKernel(
+    glm::vec4* accumulationData,
+    uint32_t* renderImageData,
+    uint32_t width,
+    uint32_t height,
+    uint32_t frameIndex,
+    RenderingSettings settings,
+    const Scene_GPU* scene,
+    const Camera_GPU* camera
+)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -612,14 +616,14 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         return;
     
     glm::vec4 pixelColor = RendererGPU::PerPixel(
-        x, 
-        y, 
-        (uint32_t)settings.lightBounces, 
-        (uint32_t)settings.sampleCount, 
-        frameIndex, 
-        settings, 
-        scene, 
-        camera, 
+        x,
+        y,
+        (uint32_t)settings.lightBounces,
+        (uint32_t)settings.sampleCount,
+        frameIndex,
+        settings,
+        scene,
+        camera,
         width
     );
 
@@ -637,6 +641,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
     // Convert to packed RGBA
     renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
 }
+
 
 // void Renderer::Render(const Scene& scene, const Camera& camera)
 // {

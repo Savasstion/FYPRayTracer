@@ -2,132 +2,105 @@
 #include <algorithm>
 #include "../Utility/MortonCode.cuh"
 
-//  OMP variable
-namespace 
+// OMP variable storage in anonymous namespace
+namespace
 {
-    std::vector<BVH::MortonCodeEntry>  omp_sortedMortonCodes;
+    std::vector<BVH::MortonCodeEntry> omp_sortedMortonCodes;
     std::vector<AABB> omp_AABBs;
 }
 
 void BVH::OMP_ClearBVH()
 {
-    nodes.clear();
+    FreeHostNodes();  // free the allocated nodes array
     omp_sortedMortonCodes.clear();
     omp_AABBs.clear();
-    rootIndex = -1;
+    rootIndex = static_cast<size_t>(-1);
 }
 
-void BVH::OMP_ConstructBVHInParallel(std::vector<Node>& objects)
+void BVH::OMP_ConstructBVHInParallel(Node* objects, size_t objectCount)
 {
     OMP_ClearBVH();
-    if (!objects.empty())
-        rootIndex = OMP_BuildHierarchyInParallel(objects, objects.size());
+    if (objectCount > 0)
+    {
+        // Allocate host nodes: total 2 * N - 1
+        AllocateHostNodes(2 * objectCount - 1);
+
+        rootIndex = OMP_BuildHierarchyInParallel(objects, objectCount);
+    }
 }
 
 void BVH::OMP_AssignMortonCodes(size_t objectCount)
 {
     #pragma omp parallel for
-    for(int i = 0 ; i < objectCount; i++)
+    for (int i = 0; i < static_cast<int>(objectCount); i++)
     {
         omp_sortedMortonCodes[i].objectIndex = i;
-    
+
         float x = omp_AABBs[i].centroidPos.x;
         float y = omp_AABBs[i].centroidPos.y;
         float z = omp_AABBs[i].centroidPos.z;
         omp_sortedMortonCodes[i].mortonCode = morton3D(x, y, z, SceneSettings::minSceneBound, SceneSettings::maxSceneBound);
     }
-    
 }
 
-void BVH::OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount)
+void BVH::OMP_BuildLeafNodes(Node* ptr_nodes, size_t objectCount)
 {
-    // first N indices will be leaf nodes
     #pragma omp parallel for
-    for (int idx = 0; idx < objectCount; idx++) // in parallel
+    for (int idx = 0; idx < static_cast<int>(objectCount); idx++)
     {
-        //leafNodes[idx].objectID = sortedObjectIDs[idx];
-        ptr_nodes[idx] = BVH::Node(omp_sortedMortonCodes[idx].objectIndex, omp_AABBs[omp_sortedMortonCodes[idx].objectIndex]);   //  Leaf node constructor
+        size_t objectIdx = omp_sortedMortonCodes[idx].objectIndex;
+        ptr_nodes[idx] = Node(objectIdx, omp_AABBs[objectIdx]);
     }
 }
 
-void BVH::OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount)
+void BVH::OMP_BuildInternalNodes(Node* ptr_nodes, size_t objectCount)
 {
     #pragma omp parallel for
-    for (int idx = 0; idx < objectCount - 1; idx++) // in parallel
+    for (int idx = 0; idx < static_cast<int>(objectCount) - 1; idx++)
     {
-        // Find out which range of objects the node corresponds to.
-
-        //  may need to convert idx to 32-bit int
-        int2 range = determineRange(omp_sortedMortonCodes.data(), objectCount, idx);
+        int2 range = determineRange(omp_sortedMortonCodes.data(), static_cast<int>(objectCount), idx);
         int first = range.x;
         int last = range.y;
-        
-        //  get all encompassing leaf node's AABBs within the range
-        AABB internalNodeBox = ptr_nodes[range.x].box;
-        for (int i = range.x + 1; i <= range.y; i++)
+
+        AABB internalNodeBox = ptr_nodes[first].box;
+        for (int i = first + 1; i <= last; i++)
         {
-            if(ptr_nodes[i].isLeaf)
+            if (ptr_nodes[i].isLeaf)
                 internalNodeBox = AABB::UnionAABB(internalNodeBox, ptr_nodes[i].box);
         }
 
-        // Determine where to split the range.
         int split = findSplit(omp_sortedMortonCodes.data(), first, last);
 
-        // Select childA.
-        size_t indexA;
-        if (split == first)
-        {
-            indexA = split;
-        }
-        else
-        {
-            indexA = objectCount + split;
-        }
-        
-        // Select childB.
-        size_t indexB;
-        if (split + 1 == last)
-        {
-            indexB = split + 1;
-        }
-        else
-        {
-            indexB = objectCount + split + 1;
-        }
-        
-        // Record parent-child relationships.
-        ptr_nodes[idx + objectCount] = BVH::Node(indexA, indexB, internalNodeBox);  
+        size_t indexA = (split == first) ? split : objectCount + split;
+        size_t indexB = (split + 1 == last) ? split + 1 : objectCount + split + 1;
+
+        ptr_nodes[objectCount + idx] = Node(indexA, indexB, internalNodeBox);
     }
 }
 
-
-size_t BVH::OMP_BuildHierarchyInParallel(std::vector<Node>& objects, size_t objectCount)
+size_t BVH::OMP_BuildHierarchyInParallel(Node* objects, size_t objectCount)
 {
-    //get all AABBs of all objects, need them for leaf node initialization later
-    omp_AABBs.assign(objectCount, AABB());
+    omp_AABBs.resize(objectCount);
     #pragma omp parallel for
-    for (int i = 0; i < objectCount; i++)
+    for (int i = 0; i < static_cast<int>(objectCount); i++)
     {
-        omp_AABBs[i] = (objects[i].box);
+        omp_AABBs[i] = objects[i].box;
     }
-    
-    // Assign Morton Codes
-    omp_sortedMortonCodes.assign(objectCount, MortonCodeEntry());
+
+    omp_sortedMortonCodes.resize(objectCount);
     OMP_AssignMortonCodes(objectCount);
 
-    //  Sort Morton Codes
-    std::sort(omp_sortedMortonCodes.data(), omp_sortedMortonCodes.data() + objectCount, [](const MortonCodeEntry& a, const MortonCodeEntry& b) {
-        return a.mortonCode < b.mortonCode;
-    });
+    std::sort(omp_sortedMortonCodes.begin(), omp_sortedMortonCodes.end(),
+        [](const MortonCodeEntry& a, const MortonCodeEntry& b) {
+            return a.mortonCode < b.mortonCode;
+        });
 
-    //  Total bvh nodes will always be 2 * N - 1
-    //  leaf node count = N
-    //  internal node count = N - 1 
-    nodes.assign(2 * objectCount - 1, Node());
-    //  first N nodes in p_ptr_nodes are leafs, the next N - 1 nodes will be internal nodes
-    OMP_BuildLeafNodes(nodes.data(), objectCount);
-    OMP_BuildInternalNodes(nodes.data(), objectCount);
+    // Build leaf nodes
+    OMP_BuildLeafNodes(nodes, objectCount);
 
-    
-    return objectCount; //root always N
+    // Build internal nodes
+    OMP_BuildInternalNodes(nodes, objectCount);
+
+    // root is at index 2*N - 2 = nodesCount - 1 (last internal node)
+    return 2 * objectCount - 2;
 }
