@@ -1,73 +1,71 @@
 #include "BVH.cuh"
 #include <iostream>
+#include <algorithm>
+#include <limits>
 
-void BVH::TraverseRecursive(std::vector<size_t>& collisionList, const AABB& queryAABB, size_t objectQueryIndex,
-                            size_t nodeIndex) const
+void BVH::TraverseRecursive(size_t*& collisionList, size_t& collisionCount,
+    const AABB& queryAABB, size_t objectQueryIndex,
+    size_t nodeIndex) const
 {
-    if (nodeIndex >= nodes.size()) {
-        std::cerr << "[ERROR] nodeIndex out of bounds: " << nodeIndex << " (size: " << nodes.size() << ")\n";
-        return;
-    }
-
-    const auto& node = nodes[nodeIndex];
-
-    // Check if overlap
-    if (!AABB::isIntersect(queryAABB, node.box))
-        return;
-
-    if (node.isLeaf)
-    {
-        if (node.objectIndex == objectQueryIndex)
-            return;
-
-        collisionList.emplace_back(node.objectIndex);
-    }
-    else
-    {
-        // Debug checks for child bounds
-        if (node.child1 >= nodes.size() || node.child2 >= nodes.size()) {
-            std::cerr << "[ERROR] Invalid child index at node " << nodeIndex
-                << " | child1: " << node.child1 << ", child2: " << node.child2
-                << ", s_nodes.size(): " << nodes.size() << "\n";
-            return;
-        }
-
-        TraverseRecursive(collisionList, queryAABB, objectQueryIndex, node.child1);
-        TraverseRecursive(collisionList, queryAABB, objectQueryIndex, node.child2);
-    }
-}
-
-void BVH::TraverseRayRecursive(std::vector<size_t>& collisionList, const Ray& ray, size_t nodeIndex) const
-{
-    if (nodeIndex >= nodes.size())
-    {
-        std::cerr << "[ERROR] nodeIndex out of bounds: " << nodeIndex << " (size: " << nodes.size() << ")\n";
+    if (nodeIndex >= nodeCount) {
+        std::cerr << "[ERROR] nodeIndex out of bounds: " << nodeIndex << " (nodeCount: " << nodeCount << ")\n";
         return;
     }
 
     const Node& node = nodes[nodeIndex];
 
-    // If ray misses this node's AABB, skip
-    if (!IntersectRayAABB(ray, node.box)) return;
+    // Check for AABB overlap
+    if (!AABB::isIntersect(queryAABB, node.box))
+        return;
 
     if (node.isLeaf)
     {
-        // if leaf node hit, add object index
-        collisionList.emplace_back(node.objectIndex);
+        if (node.objectIndex != objectQueryIndex)
+            collisionList[collisionCount++] = node.objectIndex;
     }
     else
     {
-        // Debug checks for child bounds
-        if (node.child1 >= nodes.size() || node.child2 >= nodes.size()) {
+        // Bounds check for children
+        if (node.child1 >= nodeCount || node.child2 >= nodeCount) {
             std::cerr << "[ERROR] Invalid child index at node " << nodeIndex
                 << " | child1: " << node.child1 << ", child2: " << node.child2
-                << ", s_nodes.size(): " << nodes.size() << "\n";
+                << ", nodeCount: " << nodeCount << "\n";
             return;
         }
-        
-        // Recurse both children
-        TraverseRayRecursive(collisionList, ray, node.child1);
-        TraverseRayRecursive(collisionList, ray, node.child2);
+
+        TraverseRecursive(collisionList, collisionCount, queryAABB, objectQueryIndex, node.child1);
+        TraverseRecursive(collisionList, collisionCount, queryAABB, objectQueryIndex, node.child2);
+    }
+}
+
+void BVH::TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
+    const Ray& ray, size_t nodeIndex) const
+{
+    if (nodeIndex >= nodeCount) {
+        std::cerr << "[ERROR] nodeIndex out of bounds: " << nodeIndex << " (nodeCount: " << nodeCount << ")\n";
+        return;
+    }
+
+    const Node& node = nodes[nodeIndex];
+
+    if (!IntersectRayAABB(ray, node.box))
+        return;
+
+    if (node.isLeaf)
+    {
+        collisionList[collisionCount++] = node.objectIndex;
+    }
+    else
+    {
+        if (node.child1 >= nodeCount || node.child2 >= nodeCount) {
+            std::cerr << "[ERROR] Invalid child index at node " << nodeIndex
+                << " | child1: " << node.child1 << ", child2: " << node.child2
+                << ", nodeCount: " << nodeCount << "\n";
+            return;
+        }
+
+        TraverseRayRecursive(collisionList, collisionCount, ray, node.child1);
+        TraverseRayRecursive(collisionList, collisionCount, ray, node.child2);
     }
 }
 
@@ -85,19 +83,15 @@ bool BVH::IntersectRayAABB(const Ray& ray, const AABB& box) const
         float t0 = (box.lowerBound[i] - origin) * invD;
         float t1 = (box.upperBound[i] - origin) * invD;
 
-        // Swap if direction is negative
         if (invD < 0.0f)
             std::swap(t0, t1);
 
         tMin = std::max(tMin, t0);
         tMax = std::min(tMax, t1);
 
-        // No intersection if slab range is invalid
         if (tMax < tMin)
             return false;
     }
 
     return true;
 }
-
-

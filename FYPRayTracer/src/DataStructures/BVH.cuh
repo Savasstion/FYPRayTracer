@@ -1,6 +1,6 @@
 #ifndef BVH_H
 #define BVH_H
-
+#include <cuda.h>
 #define GLM_FORCE_CUDA
 #include "../Classes/BaseClasses/AABB.cuh"
 #include <omp.h>
