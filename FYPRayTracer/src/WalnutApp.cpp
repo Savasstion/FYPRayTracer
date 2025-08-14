@@ -82,9 +82,9 @@ public:
 		}
 		
 		//	BVH Construction
-		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
+		//auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
 		//m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
-		m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes.data(), bvhObjectNodes.size());
+		//m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes.data(), bvhObjectNodes.size());
 	}
 	
 	virtual void OnUpdate(float ts) override

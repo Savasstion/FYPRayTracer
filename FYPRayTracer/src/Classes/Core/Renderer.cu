@@ -21,30 +21,38 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     // Allocate device buffers for accumulation and output image
     glm::vec4* d_accumulationData = nullptr;
     uint32_t* d_renderImageData = nullptr;
-    cudaMalloc(&d_accumulationData, pixelCount * vec4Size);
-    cudaMalloc(&d_renderImageData, pixelCount * uint32Size);
+
+    cudaError_t err;
+    
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
+    }
+    
+    err = cudaMalloc((void**)&d_accumulationData, pixelCount * vec4Size);
+    if (err != cudaSuccess) {
+        printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+    }
+    
+    err = cudaMalloc((void**)&d_renderImageData, pixelCount * uint32Size);
+    if (err != cudaSuccess) {
+        printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+    }
 
     // Initialize or copy accumulation buffer
     if (m_FrameIndex == 1)
-        cudaMemset(d_accumulationData, 0, pixelCount * vec4Size);
+        err = cudaMemset(d_accumulationData, 0, pixelCount * vec4Size);
     else
-        cudaMemcpy(d_accumulationData, m_AccumulationData, pixelCount * vec4Size, cudaMemcpyHostToDevice);
+        err = cudaMemcpy(d_accumulationData, m_AccumulationData, pixelCount * vec4Size, cudaMemcpyHostToDevice);
     
-    // Convert CPU scene & camera to GPU-friendly versions
-    Scene_GPU h_sceneGPU = SceneToGPU(scene);
-    Camera_GPU h_cameraGPU = CameraToGPU(camera);
-
+    if (err != cudaSuccess) {
+        printf("cuda copy failed: %s\n", cudaGetErrorString(err));
+    }
+    
     // Allocate device versions
-    Scene_GPU* d_sceneGPU;
-    Camera_GPU* d_cameraGPU;
-    cudaMalloc(&d_sceneGPU, sizeof(Scene_GPU));
-    cudaMalloc(&d_cameraGPU, sizeof(Camera_GPU));
+    Scene_GPU* d_sceneGPU = SceneToGPU(scene);   
+    Camera_GPU* d_cameraGPU = CameraToGPU(camera);
     
-    // Copy host-to-device
-    cudaMemcpy(d_sceneGPU, &h_sceneGPU, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_cameraGPU, &h_cameraGPU, sizeof(Camera_GPU), cudaMemcpyHostToDevice);
-    
-
     // Configure kernel launch
     dim3 threadsPerBlock(16, 16);
     dim3 numBlocks(
@@ -62,12 +70,23 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         d_sceneGPU,
         d_cameraGPU
     );
-
-    cudaDeviceSynchronize();
-
+    
+     err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+        std::cerr << "cudaDeviceSynchronize error: " << cudaGetErrorString(err) << std::endl;
+    }
+    
     // Copy results back
-    cudaMemcpy(m_AccumulationData, d_accumulationData, pixelCount * vec4Size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(m_RenderImageData, d_renderImageData, pixelCount * uint32Size, cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(m_AccumulationData, d_accumulationData, pixelCount * vec4Size, cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+        printf("cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+    }
+    
+    err = cudaMemcpy(m_RenderImageData, d_renderImageData, pixelCount * uint32Size, cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+        printf("cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+    }
+    
     m_FinalRenderImage->SetData(m_RenderImageData);
 
     if (m_Settings.toAccumulate)
@@ -75,11 +94,25 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     else
         m_FrameIndex = 1;
 
+    
     // Free device memory
-    cudaFree(d_accumulationData);
-    cudaFree(d_renderImageData);
-    cudaFree(d_sceneGPU);
-    cudaFree(d_cameraGPU);
+    err = cudaFree(d_accumulationData);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
+    }
+    
+    err = cudaFree(d_renderImageData);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
+    }
+    FreeSceneGPU(d_sceneGPU);
+    FreeCameraGPU(d_cameraGPU);
+    
 }
 
 
@@ -627,7 +660,7 @@ __global__ void RenderKernel(
         width
     );
 
-    int index = x + y * width;
+    size_t index = x + y * width;
 
     // Accumulate pixel color
     accumulationData[index] += pixelColor;

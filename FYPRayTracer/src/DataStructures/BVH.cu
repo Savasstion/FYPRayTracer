@@ -14,12 +14,28 @@ void BVH::CUDA_AllocateMemory(size_t currentObjCount)
     {
         nodeCount = 2 * currentObjCount - 1;
 
-        cudaMalloc((void**)&d_ptr_nodes, nodeCount * sizeof(Node));
-        cudaMalloc((void**)&d_ptr_collisionObjects, currentObjCount * sizeof(Node));
+        cudaError_t err;
 
+        err = cudaMalloc((void**)&d_ptr_nodes, nodeCount * sizeof(Node));
+        if (err != cudaSuccess) {
+            printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        }
+        
+        err = cudaMalloc((void**)&d_ptr_collisionObjects, currentObjCount * sizeof(Node));
+        if (err != cudaSuccess) {
+            printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        }
+        
         h_ptr_sortedMortonCodes = (MortonCodeEntry*)malloc(currentObjCount * sizeof(MortonCodeEntry));
-        cudaMalloc((void**)&d_ptr_sortedMortonCodes, currentObjCount * sizeof(MortonCodeEntry));
-        cudaMalloc((void**)&d_ptr_objectAABBs, currentObjCount * sizeof(AABB));
+        err = cudaMalloc((void**)&d_ptr_sortedMortonCodes, currentObjCount * sizeof(MortonCodeEntry));
+        if (err != cudaSuccess) {
+            printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        }
+        
+        err = cudaMalloc((void**)&d_ptr_objectAABBs, currentObjCount * sizeof(AABB));
+        if (err != cudaSuccess) {
+            printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        }
 
         objectCount = currentObjCount;
     }
@@ -87,6 +103,12 @@ size_t BVH::CUDA_BuildHierarchyInParallel(Node* objects, size_t objCount)
     cudaDeviceSynchronize();
 
     CUDA_CopyDeviceNodesToHost();
+
+    cudaError_t err;
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("cuda shit failed: %s\n", cudaGetErrorString(err));
+    }
 
     return objCount; // root always at index N
 }

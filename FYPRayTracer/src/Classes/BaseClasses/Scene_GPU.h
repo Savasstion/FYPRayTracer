@@ -1,7 +1,5 @@
-// Scene_GPU.h
-#pragma once
-#define GLM_FORCE_CUDA
-#include <cuda_runtime.h>
+#ifndef SCENE_GPU_H
+#define SCENE_GPU_H
 #include "Scene.h" 
 
 struct Scene_GPU
@@ -13,7 +11,7 @@ struct Scene_GPU
     Mesh* meshes;
     Material* materials;
 
-    BVH bvh; // CUDA-friendly BVH
+    //BVH* bvh; 
 
     uint32_t vertexCount;
     uint32_t worldVertexCount;
@@ -26,7 +24,11 @@ struct Scene_GPU
 
 
 // Convert CPU Scene to GPU Scene
-Scene_GPU SceneToGPU(const Scene& cpuScene);
+Scene_GPU* SceneToGPU(const Scene& cpuScene);
 
 // Free GPU Scene memory
-void FreeSceneGPU(Scene_GPU& scene);
+void FreeSceneGPU(Scene_GPU* d_scene);
+
+
+
+#endif
