@@ -37,7 +37,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     CopyVectorToDevice(cpuScene.materials, gpuScene.materials, gpuScene.materialCount);
 
     // Copy BVH to device
-    //gpuScene.bvh = BVHToGPU(cpuScene.bvh);
+    gpuScene.bvh = BVHToGPU(cpuScene.bvh);
     
 
     // Copy filled struct from host to device

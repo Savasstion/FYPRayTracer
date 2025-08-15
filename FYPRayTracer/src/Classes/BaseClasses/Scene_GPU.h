@@ -11,7 +11,7 @@ struct Scene_GPU
     Mesh* meshes;
     Material* materials;
 
-    //BVH* bvh; 
+    BVH* bvh; 
 
     uint32_t vertexCount;
     uint32_t worldVertexCount;
