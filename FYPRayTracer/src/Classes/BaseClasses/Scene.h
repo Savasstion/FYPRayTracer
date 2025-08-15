@@ -8,7 +8,7 @@
 #include "Triangle.h"
 #include "Vector3f.cuh"
 #include "Vertex.h"
-#include "../BaseClasses/Material.h"
+#include "../BaseClasses/Material.cuh"
 #include "../../DataStructures/BVH.cuh"
 
 namespace SceneSettings
