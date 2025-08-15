@@ -31,12 +31,12 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     
     err = cudaMalloc((void**)&d_accumulationData, pixelCount * vec4Size);
     if (err != cudaSuccess) {
-        printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        std::cerr << "cudaMalloc error: " << cudaGetErrorString(err) << std::endl;
     }
     
     err = cudaMalloc((void**)&d_renderImageData, pixelCount * uint32Size);
     if (err != cudaSuccess) {
-        printf("cudaMalloc failed: %s\n", cudaGetErrorString(err));
+        std::cerr << "cudaMalloc error: " << cudaGetErrorString(err) << std::endl;
     }
 
     // Initialize or copy accumulation buffer
@@ -46,7 +46,7 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         err = cudaMemcpy(d_accumulationData, m_AccumulationData, pixelCount * vec4Size, cudaMemcpyHostToDevice);
     
     if (err != cudaSuccess) {
-        printf("cuda copy failed: %s\n", cudaGetErrorString(err));
+        std::cerr << "cuda copy error: " << cudaGetErrorString(err) << std::endl;
     }
     
     // Allocate device versions
@@ -79,12 +79,12 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     // Copy results back
     err = cudaMemcpy(m_AccumulationData, d_accumulationData, pixelCount * vec4Size, cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
-        printf("cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+        std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
     }
     
     err = cudaMemcpy(m_RenderImageData, d_renderImageData, pixelCount * uint32Size, cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
-        printf("cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+        std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
     }
     
     m_FinalRenderImage->SetData(m_RenderImageData);
