@@ -207,37 +207,6 @@ __global__ void CUDA_BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMo
 //-----------------------------------
 // Utility functions
 //-----------------------------------
-__host__ __device__ bool IntersectRayAABB(const Ray& ray, const AABB& box)
-{
-    float tMin = 0.0f;
-    float tMax = FLT_MAX; 
-
-    //  loop through the 3 vector components (x, y, and z)
-    for (int i = 0; i < 3; ++i)
-    {
-        float origin = ray.origin[i];
-        float direction = ray.direction[i];
-        float invD = (direction != 0.0f) ? 1.0f / direction : FLT_MAX;
-
-        float t0 = (box.lowerBound[i] - origin) * invD;
-        float t1 = (box.upperBound[i] - origin) * invD;
-
-        if (invD < 0.0f) {
-            float tmp = t0;
-            t0 = t1;
-            t1 = tmp;
-        }
-
-        tMin = fmaxf(tMin, t0);
-        tMax = fminf(tMax, t1);
-
-        if (tMax < tMin)
-            return false;
-    }
-
-    return true;
-}
-
 int findSplit(BVH::MortonCodeEntry* morton, int first, int last)
 {
     unsigned int firstCode = morton[first].mortonCode;
@@ -297,7 +266,13 @@ __host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCode
     }
 
     int jdx = idx + l * direction;
-    if (direction < 0) std::swap(idx, jdx);
+    if (direction < 0)
+    {
+        //std::swap(idx, jdx);
+        auto tmp = idx;
+        idx = jdx;
+        jdx = tmp;
+    } 
 
     return make_int2(idx, jdx);
 }

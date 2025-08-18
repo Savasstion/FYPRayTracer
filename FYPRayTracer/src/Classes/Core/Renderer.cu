@@ -52,6 +52,11 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     // Allocate device versions
     Scene_GPU* d_sceneGPU = SceneToGPU(scene);   
     Camera_GPU* d_cameraGPU = CameraToGPU(camera);
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
+    }
     
     // Configure kernel launch
     dim3 threadsPerBlock(16, 16);
@@ -95,6 +100,11 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     else
         m_FrameIndex = 1;
 
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
+    }
     
     // Free device memory
     err = cudaFree(d_accumulationData);
@@ -106,11 +116,7 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     if (err != cudaSuccess) {
         std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
     }
-
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
-    }
+    
     FreeSceneGPU(d_sceneGPU);
     FreeCameraGPU(d_cameraGPU);
     
@@ -131,71 +137,71 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
     BVH* tlas = activeScene->tlas;
     if (!tlas || tlas->nodeCount == 0 || tlas->rootIndex == static_cast<size_t>(-1))
         return Miss(ray);
-
-    const int TLAS_STACK_SIZE = 256;
+    
+    const int TLAS_STACK_SIZE = 32;
     int tlasStack[TLAS_STACK_SIZE];
     int tlasStackTop = 0;
     tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
-
+    
     while (tlasStackTop > 0)
     {
         int nodeIndex = tlasStack[--tlasStackTop];
         if (nodeIndex < 0 || static_cast<size_t>(nodeIndex) >= tlas->nodeCount) continue;
-
+    
         const BVH::Node& node = tlas->nodes[nodeIndex];
         if (!IntersectRayAABB(ray, node.box)) continue;
-
+    
         if (node.isLeaf)
         {
             size_t blasIndex = node.objectIndex;
             if (blasIndex == static_cast<size_t>(-1)) continue;
             if (!activeScene->blasArray) continue;
-
+    
             BVH* blas = &activeScene->blasArray[blasIndex];
             if (!blas || blas->nodeCount == 0 || blas->rootIndex == static_cast<size_t>(-1)) continue;
-
-            const int BLAS_STACK_SIZE = 256;
+    
+            const int BLAS_STACK_SIZE = 32;
             int blasStack[BLAS_STACK_SIZE];
             int blasStackTop = 0;
             blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
-
+    
             while (blasStackTop > 0)
             {
                 int bnodeIndex = blasStack[--blasStackTop];
                 if (bnodeIndex < 0 || static_cast<size_t>(bnodeIndex) >= blas->nodeCount) continue;
-
+    
                 const BVH::Node& bnode = blas->nodes[bnodeIndex];
                 if (!IntersectRayAABB(ray, bnode.box)) continue;
-
+    
                 if (bnode.isLeaf)
                 {
                     size_t triangleIndex = bnode.objectIndex;
                     if (triangleIndex == static_cast<size_t>(-1)) continue;
                     if (triangleIndex >= activeScene->triangleCount) continue;
-
+    
                     const Triangle& tri = activeScene->triangles[triangleIndex];
                     const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
                     const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
                     const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
-
+    
                     glm::vec3 edge1 = v1 - v0;
                     glm::vec3 edge2 = v2 - v0;
                     glm::vec3 h = glm::cross(ray.direction, edge2);
                     float a = glm::dot(edge1, h);
                     float absA = a < 0.0f ? -a : a;
                     if (absA < 1e-8f) continue;
-
+    
                     float f = 1.0f / a;
                     glm::vec3 s = ray.origin - v0;
                     float u = f * glm::dot(s, h);
                     if (u < 0.0f || u > 1.0f) continue;
-
+    
                     glm::vec3 q = glm::cross(s, edge1);
                     float v = f * glm::dot(ray.direction, q);
                     if (v < 0.0f || (u + v) > 1.0f) continue;
-
+    
                     float t = f * glm::dot(edge2, q);
-
+    
                     if (t > 0.0001f && t < closestHitDistance)
                     {
                         closestHitDistance = t;
@@ -221,6 +227,42 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
                 tlasStack[tlasStackTop++] = static_cast<int>(node.child2);
         }
     }
+
+     //// Loop over GPU triangles
+     // for (size_t objectIndex = 0; objectIndex < activeScene->triangleCount; objectIndex++)
+     // {
+     //     const Triangle& triangle = activeScene->triangles[objectIndex];
+    
+     //     const glm::vec3& v0 = activeScene->worldVertices[triangle.v0].position;
+     //     const glm::vec3& v1 = activeScene->worldVertices[triangle.v1].position;
+     //     const glm::vec3& v2 = activeScene->worldVertices[triangle.v2].position;
+    
+     //     glm::vec3 edge1 = v1 - v0;
+     //     glm::vec3 edge2 = v2 - v0;
+     //     glm::vec3 h = glm::cross(ray.direction, edge2);
+     //     float a = glm::dot(edge1, h);
+    
+     //     float absoluteOfA = a < 0.0f ? -a : a;
+     //     if (absoluteOfA < 1e-8f) continue;
+    
+     //     float f = 1.0f / a;
+     //     glm::vec3 s = ray.origin - v0;
+     //     float u = f * glm::dot(s, h);
+     //     if (u < 0.0f || u > 1.0f) continue;
+    
+     //     glm::vec3 q = glm::cross(s, edge1);
+     //     float v = f * glm::dot(ray.direction, q);
+     //     if (v < 0.0f || u + v > 1.0f) continue;
+    
+     //     float t = f * glm::dot(edge2, q);
+     //     if (t > 0.0001f && t < closestHitDistance)
+     //     {
+     //         closestHitDistance = t;
+     //         closestTriangle = static_cast<int>(objectIndex);
+     //         closestU = u;
+     //         closestV = v;
+     //     }
+     // }
 
     if (closestTriangle < 0)
         return Miss(ray);

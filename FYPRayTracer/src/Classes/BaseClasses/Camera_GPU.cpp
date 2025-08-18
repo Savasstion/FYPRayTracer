@@ -66,12 +66,18 @@ void FreeCameraGPU(Camera_GPU* d_camera)
     
     // Copy the device struct to host
     Camera_GPU h_camera;
-    cudaMemcpy(&h_camera, d_camera, sizeof(Camera_GPU), cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(&h_camera, d_camera, sizeof(Camera_GPU), cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
+    }
     
     err = cudaFree(h_camera.rayDirections);
     if (err != cudaSuccess) {
         std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
     }
 
-    cudaFree(d_camera);
+    err = cudaFree(d_camera);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
+    }
 }

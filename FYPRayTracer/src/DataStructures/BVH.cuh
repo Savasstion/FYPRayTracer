@@ -100,7 +100,36 @@ public:
     
 };
 
-__host__ __device__ bool IntersectRayAABB(const Ray& ray, const AABB& box);
+__host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const AABB& box)
+{
+    float tMin = 0.0f;
+    float tMax = FLT_MAX; 
+
+    //  loop through the 3 vector components (x, y, and z)
+    for (int i = 0; i < 3; ++i)
+    {
+        float origin = ray.origin[i];
+        float direction = ray.direction[i];
+        float invD = (direction != 0.0f) ? 1.0f / direction : FLT_MAX;
+
+        float t0 = (box.lowerBound[i] - origin) * invD;
+        float t1 = (box.upperBound[i] - origin) * invD;
+
+        if (invD < 0.0f) {
+            float tmp = t0;
+            t0 = t1;
+            t1 = tmp;
+        }
+
+        tMin = fmaxf(tMin, t0);
+        tMax = fminf(tMax, t1);
+
+        if (tMax < tMin)
+            return false;
+    }
+
+    return true;
+}
 __host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
 __host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 

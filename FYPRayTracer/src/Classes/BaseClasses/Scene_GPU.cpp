@@ -52,14 +52,27 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
         }
 
         // Allocate array of BVH pointers on device
-        cudaMalloc(&gpuScene.blasArray, gpuScene.blasCount * sizeof(BVH));
-        cudaMemcpy(gpuScene.blasArray, blasPtrsHost.data(),
+        err = cudaMalloc(&gpuScene.blasArray, gpuScene.blasCount * sizeof(BVH));
+        if(err != cudaSuccess)
+        {
+            std::cerr << "cudaMalloc error: " << cudaGetErrorString(err) << std::endl;
+        }
+        
+        err = cudaMemcpy(gpuScene.blasArray, blasPtrsHost.data(),
                    gpuScene.blasCount * sizeof(BVH),
                    cudaMemcpyHostToDevice);
+        if(err != cudaSuccess)
+        {
+            std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
+        }
     }
     
     // Copy filled struct from host to device
-    cudaMemcpy(d_scene, &gpuScene, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
+    err = cudaMemcpy(d_scene, &gpuScene, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
+    if(err != cudaSuccess)
+    {
+        std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
+    }
 
     return d_scene;
 }
@@ -75,7 +88,10 @@ void FreeSceneGPU(Scene_GPU* d_scene)
     
     // Copy the device struct to host
     Scene_GPU h_scene;
-    cudaMemcpy(&h_scene, d_scene, sizeof(Scene_GPU), cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(&h_scene, d_scene, sizeof(Scene_GPU), cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMemcpy error: " << cudaGetErrorString(err) << std::endl;
+    }
     
     err = cudaFree(h_scene.vertices);
     if (err != cudaSuccess) {
@@ -109,5 +125,8 @@ void FreeSceneGPU(Scene_GPU* d_scene)
 
     //FreeBVH_GPU(scene.bvh); // free BVH GPU memory
 
-    cudaFree(d_scene);
+    err = cudaFree(d_scene);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
+    }
 }
