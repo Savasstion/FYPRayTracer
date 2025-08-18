@@ -137,3 +137,41 @@ void Mesh::UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector
 
     mesh.aabb = AABB(meshAABBLow, meshAABBHigh);
 }
+
+std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(const std::vector<Triangle>& sceneTriangles,
+    const std::vector<Vertex>& sceneWorldVertices) const
+{
+    size_t triCount = indexCount / 3;
+    std::vector<BVH::Node> leafNodes(triCount);
+
+#pragma omp parallel for
+    for (int triOffset = 0; triOffset < static_cast<int>(triCount); triOffset++)
+    {
+        uint32_t triIndex = (indexStart / 3) + triOffset;
+        const Triangle& tri = sceneTriangles[triIndex];
+
+        // Get vertex positions in world space
+        const glm::vec3& v0 = sceneWorldVertices[tri.v0].position;
+        const glm::vec3& v1 = sceneWorldVertices[tri.v1].position;
+        const glm::vec3& v2 = sceneWorldVertices[tri.v2].position;
+
+        // Build triangle AABB
+        Vector3f lower(
+            MathUtils::minFloat(v0.x, MathUtils::minFloat(v1.x, v2.x)),
+            MathUtils::minFloat(v0.y, MathUtils::minFloat(v1.y, v2.y)),
+            MathUtils::minFloat(v0.z, MathUtils::minFloat(v1.z, v2.z))
+        );
+        Vector3f upper(
+            MathUtils::maxFloat(v0.x, MathUtils::maxFloat(v1.x, v2.x)),
+            MathUtils::maxFloat(v0.y, MathUtils::maxFloat(v1.y, v2.y)),
+            MathUtils::maxFloat(v0.z, MathUtils::maxFloat(v1.z, v2.z))
+        );
+
+        AABB triBox(lower, upper);
+
+        // Store directly in pre-allocated vector
+        leafNodes[triOffset] = BVH::Node(triIndex, triBox);
+    }
+
+    return leafNodes;
+}

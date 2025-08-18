@@ -69,29 +69,3 @@ void BVH::TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
     }
 }
 
-bool BVH::IntersectRayAABB(const Ray& ray, const AABB& box) const
-{
-    float tMin = -std::numeric_limits<float>::infinity();
-    float tMax = std::numeric_limits<float>::infinity();
-
-    for (int i = 0; i < 3; ++i)
-    {
-        float origin = ray.origin[i];
-        float direction = ray.direction[i];
-        float invD = 1.0f / direction;
-
-        float t0 = (box.lowerBound[i] - origin) * invD;
-        float t1 = (box.upperBound[i] - origin) * invD;
-
-        if (invD < 0.0f)
-            std::swap(t0, t1);
-
-        tMin = std::max(tMin, t0);
-        tMax = std::min(tMax, t1);
-
-        if (tMax < tMin)
-            return false;
-    }
-
-    return true;
-}

@@ -27,6 +27,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     gpuScene.triangles = nullptr;
     gpuScene.meshes = nullptr;
     gpuScene.materials = nullptr;
+    gpuScene.blasArray = nullptr;
 
     // Copy geometry arrays
     CopyVectorToDevice(cpuScene.vertices, gpuScene.vertices, gpuScene.vertexCount);
@@ -36,10 +37,27 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     CopyVectorToDevice(cpuScene.meshes, gpuScene.meshes, gpuScene.meshCount);
     CopyVectorToDevice(cpuScene.materials, gpuScene.materials, gpuScene.materialCount);
 
-    // Copy BVH to device
-    gpuScene.bvh = BVHToGPU(cpuScene.bvh);
-    
+    // Copy TLAS to device
+    gpuScene.tlas = BVHToGPU(cpuScene.tlas);
 
+    // Copy BLAS array
+    gpuScene.blasCount = static_cast<uint32_t>(cpuScene.blasOfSceneMeshes.size());
+    if (gpuScene.blasCount > 0)
+    {
+        std::vector<BVH*> blasPtrsHost(gpuScene.blasCount);
+
+        for (uint32_t i = 0; i < gpuScene.blasCount; i++)
+        {
+            blasPtrsHost[i] = BVHToGPU(cpuScene.blasOfSceneMeshes[i]);
+        }
+
+        // Allocate array of BVH pointers on device
+        cudaMalloc(&gpuScene.blasArray, gpuScene.blasCount * sizeof(BVH));
+        cudaMemcpy(gpuScene.blasArray, blasPtrsHost.data(),
+                   gpuScene.blasCount * sizeof(BVH),
+                   cudaMemcpyHostToDevice);
+    }
+    
     // Copy filled struct from host to device
     cudaMemcpy(d_scene, &gpuScene, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
 

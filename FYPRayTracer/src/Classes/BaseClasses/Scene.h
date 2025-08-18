@@ -28,16 +28,17 @@ struct Scene
     std::vector<Mesh> meshes;
 
     //  Acceleration Structure
-    BVH bvh;    //  TODO: Make this a TLAS, Top Level Acceleration Structure
+    BVH tlas;
+    std::vector<BVH> blasOfSceneMeshes;
     
     std::vector<Material> materials;
 
-    void AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices,
+    Mesh* AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices,
         glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale, int materialIndex);
     void UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot, const glm::vec3& newScale);
     void UpdateAllTransformedSceneMeshes();
-    std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();
-    //std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes();
+    std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();  //obsolete now
+    std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes();
 };
 
 #endif

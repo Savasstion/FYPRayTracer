@@ -57,12 +57,17 @@ public:
 			glm::vec3 pos{0,-1,0};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{10,10,10};
-			m_Scene.AddNewMeshToScene(planeVertices,
-				planeIndices,
-				pos,
-				rot,
-				scale,
-				0);
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
+							planeIndices,
+							pos,
+							rot,
+							scale,
+							0);
+
+			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
+			m_Scene.blasOfSceneMeshes.emplace_back();
+			BVH* blasPtr = &m_Scene.blasOfSceneMeshes.back();
+			blasPtr->CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 
 		{
@@ -73,18 +78,23 @@ public:
 			glm::vec3 pos{0,1,0};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{1,1,1};
-			m_Scene.AddNewMeshToScene(sphereVertices,
-				sphereIndices,
-				pos,
-				rot,
-				scale,
-				0);
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
+							sphereIndices,
+							pos,
+							rot,
+							scale,
+							0);
+
+			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
+			m_Scene.blasOfSceneMeshes.emplace_back();
+			BVH* blasPtr = &m_Scene.blasOfSceneMeshes.back();
+			blasPtr->CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
+
+		//	Scene TLAS Construction
+		auto& tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
+		m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());
 		
-		//	BVH Construction
-		auto& bvhObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
-		//m_Scene.bvh.OMP_ConstructBVHInParallel(bvhObjectNodes);
-		m_Scene.bvh.CUDA_ConstructBVHInParallel(bvhObjectNodes.data(), bvhObjectNodes.size());
 	}
 	
 	virtual void OnUpdate(float ts) override

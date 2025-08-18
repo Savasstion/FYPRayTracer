@@ -11,7 +11,8 @@ struct Scene_GPU
     Mesh* meshes;
     Material* materials;
 
-    BVH* bvh; 
+    BVH* tlas;
+    BVH* blasArray;
 
     uint32_t vertexCount;
     uint32_t worldVertexCount;
@@ -19,6 +20,7 @@ struct Scene_GPU
     uint32_t triangleCount;
     uint32_t meshCount;
     uint32_t materialCount;
+    uint32_t blasCount;
 };
 
 

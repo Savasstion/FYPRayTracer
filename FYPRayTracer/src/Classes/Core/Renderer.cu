@@ -59,7 +59,8 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         (width + threadsPerBlock.x - 1) / threadsPerBlock.x,
         (height + threadsPerBlock.y - 1) / threadsPerBlock.y
     );
-    
+
+    //  Do per pixel rendering task in parallel for all pixels
     RenderKernel<<<numBlocks, threadsPerBlock>>>(
         d_accumulationData,
         d_renderImageData,
@@ -118,54 +119,113 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
 
 __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Scene_GPU* activeScene)
 {
-    if (activeScene->triangleCount == 0)
-        return Miss(ray);
+    if (!activeScene) return Miss(ray);
+    if (activeScene->triangleCount == 0) return Miss(ray);
+    if (!activeScene->tlas) return Miss(ray);
 
+    float closestHitDistance = FLT_MAX;
     int closestTriangle = -1;
-    float hitDistance = FLT_MAX;
     float closestU = 0.0f;
     float closestV = 0.0f;
 
-    // Loop over GPU triangles
-    for (size_t objectIndex = 0; objectIndex < activeScene->triangleCount; objectIndex++)
+    BVH* tlas = activeScene->tlas;
+    if (!tlas || tlas->nodeCount == 0 || tlas->rootIndex == static_cast<size_t>(-1))
+        return Miss(ray);
+
+    const int TLAS_STACK_SIZE = 256;
+    int tlasStack[TLAS_STACK_SIZE];
+    int tlasStackTop = 0;
+    tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
+
+    while (tlasStackTop > 0)
     {
-        const Triangle& triangle = activeScene->triangles[objectIndex];
+        int nodeIndex = tlasStack[--tlasStackTop];
+        if (nodeIndex < 0 || static_cast<size_t>(nodeIndex) >= tlas->nodeCount) continue;
 
-        const glm::vec3& v0 = activeScene->worldVertices[triangle.v0].position;
-        const glm::vec3& v1 = activeScene->worldVertices[triangle.v1].position;
-        const glm::vec3& v2 = activeScene->worldVertices[triangle.v2].position;
+        const BVH::Node& node = tlas->nodes[nodeIndex];
+        if (!IntersectRayAABB(ray, node.box)) continue;
 
-        glm::vec3 edge1 = v1 - v0;
-        glm::vec3 edge2 = v2 - v0;
-        glm::vec3 h = glm::cross(ray.direction, edge2);
-        float a = glm::dot(edge1, h);
-
-        float absoluteOfA = a < 0.0f ? -a : a;
-        if (absoluteOfA < 1e-8f) continue;
-
-        float f = 1.0f / a;
-        glm::vec3 s = ray.origin - v0;
-        float u = f * glm::dot(s, h);
-        if (u < 0.0f || u > 1.0f) continue;
-
-        glm::vec3 q = glm::cross(s, edge1);
-        float v = f * glm::dot(ray.direction, q);
-        if (v < 0.0f || u + v > 1.0f) continue;
-
-        float t = f * glm::dot(edge2, q);
-        if (t > 0.0001f && t < hitDistance)
+        if (node.isLeaf)
         {
-            hitDistance = t;
-            closestTriangle = static_cast<int>(objectIndex);
-            closestU = u;
-            closestV = v;
+            size_t blasIndex = node.objectIndex;
+            if (blasIndex == static_cast<size_t>(-1)) continue;
+            if (!activeScene->blasArray) continue;
+
+            BVH* blas = &activeScene->blasArray[blasIndex];
+            if (!blas || blas->nodeCount == 0 || blas->rootIndex == static_cast<size_t>(-1)) continue;
+
+            const int BLAS_STACK_SIZE = 256;
+            int blasStack[BLAS_STACK_SIZE];
+            int blasStackTop = 0;
+            blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
+
+            while (blasStackTop > 0)
+            {
+                int bnodeIndex = blasStack[--blasStackTop];
+                if (bnodeIndex < 0 || static_cast<size_t>(bnodeIndex) >= blas->nodeCount) continue;
+
+                const BVH::Node& bnode = blas->nodes[bnodeIndex];
+                if (!IntersectRayAABB(ray, bnode.box)) continue;
+
+                if (bnode.isLeaf)
+                {
+                    size_t triangleIndex = bnode.objectIndex;
+                    if (triangleIndex == static_cast<size_t>(-1)) continue;
+                    if (triangleIndex >= activeScene->triangleCount) continue;
+
+                    const Triangle& tri = activeScene->triangles[triangleIndex];
+                    const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
+                    const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
+                    const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
+
+                    glm::vec3 edge1 = v1 - v0;
+                    glm::vec3 edge2 = v2 - v0;
+                    glm::vec3 h = glm::cross(ray.direction, edge2);
+                    float a = glm::dot(edge1, h);
+                    float absA = a < 0.0f ? -a : a;
+                    if (absA < 1e-8f) continue;
+
+                    float f = 1.0f / a;
+                    glm::vec3 s = ray.origin - v0;
+                    float u = f * glm::dot(s, h);
+                    if (u < 0.0f || u > 1.0f) continue;
+
+                    glm::vec3 q = glm::cross(s, edge1);
+                    float v = f * glm::dot(ray.direction, q);
+                    if (v < 0.0f || (u + v) > 1.0f) continue;
+
+                    float t = f * glm::dot(edge2, q);
+
+                    if (t > 0.0001f && t < closestHitDistance)
+                    {
+                        closestHitDistance = t;
+                        closestTriangle = static_cast<int>(triangleIndex);
+                        closestU = u;
+                        closestV = v;
+                    }
+                }
+                else
+                {
+                    if (bnode.child1 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
+                        blasStack[blasStackTop++] = static_cast<int>(bnode.child1);
+                    if (bnode.child2 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
+                        blasStack[blasStackTop++] = static_cast<int>(bnode.child2);
+                }
+            }
+        }
+        else
+        {
+            if (node.child1 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
+                tlasStack[tlasStackTop++] = static_cast<int>(node.child1);
+            if (node.child2 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
+                tlasStack[tlasStackTop++] = static_cast<int>(node.child2);
         }
     }
 
     if (closestTriangle < 0)
         return Miss(ray);
 
-    return ClosestHit(ray, hitDistance, closestTriangle, closestU, closestV, activeScene);
+    return ClosestHit(ray, closestHitDistance, closestTriangle, closestU, closestV, activeScene);
 }
 
 
@@ -674,59 +734,3 @@ __global__ void RenderKernel(
     // Convert to packed RGBA
     renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
 }
-
-
-// void Renderer::Render(const Scene& scene, const Camera& camera)
-// {
-//     m_ActiveScene = &scene;
-//     m_ActiveCamera = &camera;
-//
-//     constexpr size_t vec4Size = sizeof(glm::vec4);
-//     if(m_FrameIndex == 1)
-//         memset(m_AccumulationData, 0, m_FinalRenderImage->GetWidth() * m_FinalRenderImage->GetHeight() * vec4Size);
-//     
-//     //  draw every pixel onto screen
-//
-//
-// #define MT 1    //  set to 1 if we want CPU multithreading
-// #if MT
-//     std::for_each(std::execution::par, m_ImageVerticalIter.begin(), m_ImageVerticalIter.end(),
-//         [this](uint32_t y)
-//         {
-//             std::for_each(std::execution::par, m_ImageHorizontalIter.begin(), m_ImageHorizontalIter.end(),
-//                 [this, y](uint32_t x)
-//                 {
-//                   glm::vec4 pixelColor = PerPixel(x, y, (uint8_t)m_Settings.lightBounces, (uint8_t)m_Settings.sampleCount, m_FrameIndex, m_Settings, m_ActiveScene, m_ActiveCamera, m_FinalRenderImage->GetWidth());
-//                   m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
-//
-//                   glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];
-//                   accumulatedColor /= (float)m_FrameIndex;
-//
-//                   accumulatedColor = glm::clamp(accumulatedColor, glm::vec4{0.0f}, glm::vec4{1.0f});
-//                   m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(accumulatedColor);
-//                 });
-//         });
-// #else
-//     for(uint32_t y = 0; y < m_FinalRenderImage->GetHeight(); y++)
-//     {
-//         for(uint32_t x = 0; x < m_FinalRenderImage->GetWidth(); x++)
-//         {
-//             glm::vec4 pixelColor = PerPixel(x, y);
-//             m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()] += pixelColor;
-//     
-//             glm::vec4 accumulatedColor = m_AccumulationData[x + y * m_FinalRenderImage->GetWidth()];
-//             accumulatedColor /= (float)m_FrameIndex;
-//             
-//             accumulatedColor = glm::clamp(accumulatedColor, glm::vec4{0.0f}, glm::vec4{1.0f});
-//             m_RenderImageData[x + y * m_FinalRenderImage->GetWidth()] = ColorUtils::ConvertToRGBA(accumulatedColor);
-//         }
-//     }
-// #endif
-//     
-//     m_FinalRenderImage->SetData(m_RenderImageData);	//upload the image data onto GPU
-//
-//     if(m_Settings.toAccumulate)
-//         m_FrameIndex++;
-//     else
-//         m_FrameIndex = 1;
-// }

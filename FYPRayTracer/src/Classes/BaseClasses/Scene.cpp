@@ -2,7 +2,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 
-void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
+Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     std::vector<uint32_t>& meshTriangleVertexIndices,
     glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale,
     int materialIndex)
@@ -77,6 +77,7 @@ void Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     mesh.aabb = AABB(meshAABBLow, meshAABBHigh);
 
     meshes.push_back(mesh);
+    return &meshes.back();
 }
 
 
@@ -130,6 +131,23 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles()
         const AABB& aabb = tri.aabb;
 
         // Create a leaf node for the triangle (objectIndex = i)
+        leafNodes.emplace_back(i, aabb);
+    }
+
+    return leafNodes;
+}
+
+std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
+{
+    std::vector<BVH::Node> leafNodes;
+    leafNodes.reserve(meshes.size());
+
+    for (size_t i = 0; i < meshes.size(); i++)
+    {
+        const Mesh& mesh = meshes[i];
+        const AABB& aabb = mesh.aabb;
+
+        // Create a leaf node for the mesh (objectIndex = i)
         leafNodes.emplace_back(i, aabb);
     }
 

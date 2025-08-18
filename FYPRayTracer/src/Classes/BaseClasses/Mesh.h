@@ -7,6 +7,7 @@
 #include "AABB.cuh"
 #include "Vertex.h"
 #include "Triangle.h"
+#include "../../DataStructures/BVH.cuh"
 
 
 struct Mesh
@@ -32,6 +33,9 @@ struct Mesh
     static void UpdateWorldTransform(Mesh& mesh);
     static void UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector<Vertex>& worldVertices, 
         std::vector<Triangle>& triangles, const std::vector<uint32_t>& triangleVertexIndices);
+    std::vector<BVH::Node> CreateBVHnodesFromMeshTriangles(
+        const std::vector<Triangle>& sceneTriangles,
+        const std::vector<Vertex>& sceneWorldVertices) const;
 };
 
 #endif

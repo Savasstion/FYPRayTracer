@@ -63,7 +63,6 @@ public:
                             const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex) const;
     void TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
                                const Ray& ray, size_t nodeIndex) const;
-    bool IntersectRayAABB(const Ray& ray, const AABB& box) const;
 
     // OMP
     void OMP_ClearBVH();
@@ -101,6 +100,7 @@ public:
     
 };
 
+__host__ __device__ bool IntersectRayAABB(const Ray& ray, const AABB& box);
 __host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
 __host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 
