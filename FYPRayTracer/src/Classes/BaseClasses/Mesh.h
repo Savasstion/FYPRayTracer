@@ -28,6 +28,7 @@ struct Mesh
     int materialIndex;
 
     AABB aabb;
+    BVH blas;
 
     static void GenerateSphereMesh(float radius, int n_stacks, int n_slices, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
     static void UpdateWorldTransform(Mesh& mesh);

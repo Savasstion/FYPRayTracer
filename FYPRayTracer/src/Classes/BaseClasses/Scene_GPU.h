@@ -1,5 +1,6 @@
 #ifndef SCENE_GPU_H
 #define SCENE_GPU_H
+#include "Mesh_GPU.h"
 #include "Scene.h" 
 
 struct Scene_GPU
@@ -8,11 +9,10 @@ struct Scene_GPU
     Vertex* worldVertices;
     uint32_t* triangleVertexIndices;
     Triangle* triangles;
-    Mesh* meshes;
+    Mesh_GPU* meshes;
     Material* materials;
 
     BVH* tlas;
-    BVH* blasArray;
 
     uint32_t vertexCount;
     uint32_t worldVertexCount;
@@ -20,7 +20,6 @@ struct Scene_GPU
     uint32_t triangleCount;
     uint32_t meshCount;
     uint32_t materialCount;
-    uint32_t blasCount;
 };
 
 

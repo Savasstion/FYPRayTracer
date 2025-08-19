@@ -2,6 +2,8 @@
 #define BVH_H
 #include <cuda.h>
 #define GLM_FORCE_CUDA
+#include <iostream>
+
 #include "../Classes/BaseClasses/AABB.cuh"
 #include <omp.h>
 #include "../Classes/BaseClasses/Vector3f.cuh"
@@ -149,32 +151,63 @@ __global__ void CUDA_BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMo
 
 __host__ __forceinline__ BVH* BVHToGPU(BVH h_bvh)
 {
-    BVH* d_bvh = nullptr;
+    cudaError_t err;
 
     // Allocate BVH struct on device
-    cudaMalloc(&d_bvh, sizeof(BVH));
+    BVH* d_bvh = nullptr;
+    err = cudaMalloc(&d_bvh, sizeof(BVH));
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMalloc BVH error: " << cudaGetErrorString(err) << std::endl;
+        return nullptr;
+    }
 
-    // Temporary copy on host to fix device pointers
-    BVH temp;
+    // Prepare temporary host copy, zero-initialized
+    BVH temp{};
+    
+    // Copy only the necessary fields
+    temp.nodeCount      = h_bvh.nodeCount;
+    temp.isNewValuesSet = h_bvh.isNewValuesSet;
+    temp.objectCount    = h_bvh.objectCount;
 
-    // Copy only the selected fields
-    temp.nodeCount       = h_bvh.nodeCount;
-    temp.isNewValuesSet  = h_bvh.isNewValuesSet;
-    temp.objectCount     = h_bvh.objectCount;
-    temp.rootIndex       = h_bvh.rootIndex;
+    // Safe rootIndex assignment
+    if (h_bvh.nodeCount > 0) {
+        // Use CPU rootIndex if valid, otherwise default to 0
+        temp.rootIndex = (h_bvh.rootIndex == static_cast<size_t>(-1)) ? 0 : h_bvh.rootIndex;
+    } else {
+        temp.rootIndex = static_cast<size_t>(-1);
+    }
 
     // Copy nodes array to device if available
     if (h_bvh.nodes && h_bvh.nodeCount > 0) {
         BVH::Node* d_nodes = nullptr;
-        cudaMalloc(&d_nodes, h_bvh.nodeCount * sizeof(BVH::Node));
-        cudaMemcpy(d_nodes, h_bvh.nodes, h_bvh.nodeCount * sizeof(BVH::Node), cudaMemcpyHostToDevice);
+        err = cudaMalloc(&d_nodes, h_bvh.nodeCount * sizeof(BVH::Node));
+        if (err != cudaSuccess) {
+            std::cerr << "cudaMalloc BVH nodes error: " << cudaGetErrorString(err) << std::endl;
+        } else {
+            err = cudaMemcpy(d_nodes, h_bvh.nodes,
+                             h_bvh.nodeCount * sizeof(BVH::Node),
+                             cudaMemcpyHostToDevice);
+            if (err != cudaSuccess) {
+                std::cerr << "cudaMemcpy BVH nodes error: " << cudaGetErrorString(err) << std::endl;
+            }
+        }
         temp.nodes = d_nodes;
     } else {
         temp.nodes = nullptr;
     }
 
-    // Copy patched struct to device
-    cudaMemcpy(d_bvh, &temp, sizeof(BVH), cudaMemcpyHostToDevice);
+    // Null out all unused GPU/host buffers
+    temp.d_ptr_nodes             = nullptr;
+    temp.d_ptr_collisionObjects  = nullptr;
+    temp.h_ptr_sortedMortonCodes = nullptr;
+    temp.d_ptr_sortedMortonCodes = nullptr;
+    temp.d_ptr_objectAABBs       = nullptr;
+
+    // Copy fully patched struct to device
+    err = cudaMemcpy(d_bvh, &temp, sizeof(BVH), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMemcpy BVH struct error: " << cudaGetErrorString(err) << std::endl;
+    }
 
     return d_bvh;
 }
