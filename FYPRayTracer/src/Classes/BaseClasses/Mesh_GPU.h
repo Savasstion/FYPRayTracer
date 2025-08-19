@@ -21,7 +21,7 @@ struct Mesh_GPU
     BVH* blas;
 };
 
-__host__ __forceinline__ Mesh_GPU* MeshToGPU(const Mesh& h_mesh)
+inline Mesh_GPU MeshToHostMeshGPU(const Mesh& h_mesh)
 {
     Mesh_GPU h_gpuMesh{};
 
@@ -43,14 +43,30 @@ __host__ __forceinline__ Mesh_GPU* MeshToGPU(const Mesh& h_mesh)
 
     if(h_mesh.blas.nodeCount > 0)
         h_gpuMesh.blas = BVHToGPU(h_mesh.blas);
+    
+    return h_gpuMesh;
+}
 
-    Mesh_GPU* d_gpuMesh = nullptr;
+inline void FreeMeshGPU(Mesh_GPU* d_mesh)
+{
+    if (!d_mesh) return;
 
     cudaError_t err;
-    err = cudaMalloc((void**)&d_gpuMesh, sizeof(Mesh_GPU));
-    err = cudaMemcpy(d_gpuMesh, &h_gpuMesh, sizeof(Mesh_GPU), cudaMemcpyHostToDevice);
 
-    return d_gpuMesh;
+    // Copy back to host to inspect BLAS pointer
+    Mesh_GPU h_mesh{};
+    err = cudaMemcpy(&h_mesh, d_mesh, sizeof(Mesh_GPU), cudaMemcpyDeviceToHost);
+    if(err != cudaSuccess)
+        std::cerr << "cudaMemcpy failed\n";
+
+    // Free BLAS
+    if (h_mesh.blas)
+        FreeBVH_GPU(h_mesh.blas);
+
+    // Free the mesh
+    err = cudaFree(d_mesh);
+    if(err != cudaSuccess)
+        std::cerr << "cudaFree failed\n";
 }
 
 
