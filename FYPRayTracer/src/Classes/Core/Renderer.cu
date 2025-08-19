@@ -155,16 +155,15 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
         {
             size_t blasIndex = node.objectIndex;
             if (blasIndex == static_cast<size_t>(-1)) continue;
-            if (!activeScene->blasArray) continue;
             
-            BVH* blas = activeScene->blasArray[blasIndex];
+            BVH* blas = activeScene->meshes[blasIndex].blas;
             if (!blas || blas->nodeCount == 0 || blas->rootIndex == static_cast<size_t>(-1)) continue;
     
             const int BLAS_STACK_SIZE = 512;
             int blasStack[BLAS_STACK_SIZE];
             int blasStackTop = 0;
             blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
-    
+            
             while (blasStackTop > 0)
             {
                 int bnodeIndex = blasStack[--blasStackTop];
@@ -183,6 +182,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
                     const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
                     const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
                     const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
+
     
                     glm::vec3 edge1 = v1 - v0;
                     glm::vec3 edge2 = v2 - v0;

@@ -31,7 +31,7 @@ public:
 		matPinkSphere.metallic = 0.45f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
-		matBlueSphere.albedo = {1,1,1};//{0.2f,0.3f,1.0f};
+		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
 		matBlueSphere.roughness = 0.7f;
 		matBlueSphere.metallic = 0.0f;
 		
@@ -53,21 +53,20 @@ public:
 				0, 1, 2,  // First triangle
 				0, 2, 3   // Second triangle
 			};
-			
-			glm::vec3 pos{0,-1,0};
-			glm::vec3 rot{0,0,0};
-			glm::vec3 scale{10,10,10};
+
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 10,10,10 };
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
-							planeIndices,
-							pos,
-							rot,
-							scale,
-							0);
+				planeIndices,
+				pos,
+				rot,
+				scale,
+				0);
 
 			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
 			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
-
 		{
 			std::vector<Vertex> sphereVertices;
 			std::vector<uint32_t> sphereIndices;
@@ -81,12 +80,30 @@ public:
 							pos,
 							rot,
 							scale,
-							0);
-
+							1);
+		
 			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
 			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
-
+		// {
+		// 	std::vector<Vertex> sphereVertices;
+		// 	std::vector<uint32_t> sphereIndices;
+		//
+		// 	Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
+		// 	glm::vec3 pos{1,1,0};
+		// 	glm::vec3 rot{0,0,0};
+		// 	glm::vec3 scale{1,1,1};
+		// 	Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
+		// 					sphereIndices,
+		// 					pos,
+		// 					rot,
+		// 					scale,
+		// 					0);
+		//
+		// 	auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
+		// 	meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+		// }
+		
 		//	Scene TLAS Construction
 		auto& tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
 		m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());

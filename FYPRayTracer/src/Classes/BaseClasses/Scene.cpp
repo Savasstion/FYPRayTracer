@@ -7,6 +7,8 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale,
     int materialIndex)
 {
+    uint32_t triangleStart = static_cast<uint32_t>(triangles.size());
+    
     glm::vec3 rotationRadians = glm::radians(rotation);
     glm::quat q = glm::quat(rotationRadians);
     glm::mat4 R = glm::toMat4(q);
@@ -59,10 +61,9 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         meshAABBHigh = meshAABBHigh.max(triHigh);
 
         triangles.push_back(tri);
-    }
 
-    for (uint32_t idx : meshTriangleVertexIndices)
-        triangleVertexIndices.push_back(vertexStart + idx);
+        triangleVertexIndices.push_back(triangleStart + (i / 3));
+    }
 
     Mesh mesh;
     mesh.position = pos;
