@@ -11,21 +11,31 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
     outVertices.clear();
     outIndices.clear();
 
+    // Preallocate
+    size_t vertexCount = 2 + (n_stacks - 1) * n_slices;
+    size_t indexCount  = 6 * (n_stacks - 2) * n_slices + 3 * 2 * n_slices;
+    outVertices.resize(vertexCount);
+    outIndices.resize(indexCount);
+
     // --- Top pole ---
-    outVertices.push_back(Vertex{ glm::vec3(0, radius, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 1.0f) });
+    outVertices[0] = Vertex{ glm::vec3(0, radius, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 1.0f) };
     uint32_t topIndex = 0;
 
-    // --- Generate ring vertices ---
+    // --- Bottom pole ---
+    uint32_t bottomIndex = static_cast<uint32_t>(vertexCount - 1);
+    outVertices[bottomIndex] = Vertex{ glm::vec3(0, -radius, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.0f) };
+
+    // --- Generate ring vertices (parallelized outer loop) ---
+    #pragma omp parallel for
     for (int i = 0; i < n_stacks - 1; ++i)
     {
-        float phi = MathUtils::pi * float(i + 1) / float(n_stacks);  // from (0,pi)
+        float phi = MathUtils::pi * float(i + 1) / float(n_stacks);
         float y = std::cos(phi);
         float r = std::sin(phi);
 
         for (int j = 0; j < n_slices; ++j)
         {
-            float theta = 2.0f * MathUtils::pi * float(j) / float(n_slices); // from (0,2pi)
-
+            float theta = 2.0f * MathUtils::pi * float(j) / float(n_slices);
             float x = r * std::cos(theta);
             float z = r * std::sin(theta);
 
@@ -33,36 +43,24 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
             glm::vec3 normal = glm::normalize(pos);
             glm::vec2 uv = glm::vec2(float(j) / n_slices, 1.0f - float(i + 1) / n_stacks);
 
-            outVertices.push_back(Vertex{ pos, normal, uv });
+            outVertices[1 + i * n_slices + j] = Vertex{ pos, normal, uv };
         }
     }
 
-    // --- Bottom pole ---
-    outVertices.push_back(Vertex{ glm::vec3(0, -radius, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.0f) });
-    uint32_t bottomIndex = static_cast<uint32_t>(outVertices.size() - 1);
+    // --- Fill indices (can also parallelize by rings) ---
+    uint32_t idx = 0;
 
-    // --- Top cap triangles ---
+    // Top cap
     for (int j = 0; j < n_slices; ++j)
     {
         uint32_t i0 = j + 1;
         uint32_t i1 = (j + 1) % n_slices + 1;
-        outIndices.push_back(topIndex);
-        outIndices.push_back(i1);
-        outIndices.push_back(i0);
+        outIndices[idx++] = topIndex;
+        outIndices[idx++] = i1;
+        outIndices[idx++] = i0;
     }
 
-    // --- Bottom cap triangles ---
-    int baseIndex = 1 + (n_stacks - 2) * n_slices;
-    for (int j = 0; j < n_slices; ++j)
-    {
-        uint32_t i0 = baseIndex + j;
-        uint32_t i1 = baseIndex + (j + 1) % n_slices;
-        outIndices.push_back(bottomIndex);
-        outIndices.push_back(i0);
-        outIndices.push_back(i1);
-    }
-
-    // --- Middle quads (split into 2 triangles) ---
+    // Middle quads
     for (int i = 0; i < n_stacks - 2; ++i)
     {
         int ringStart0 = 1 + i * n_slices;
@@ -75,16 +73,25 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
             uint32_t i2 = ringStart1 + (j + 1) % n_slices;
             uint32_t i3 = ringStart1 + j;
 
-            // First triangle
-            outIndices.push_back(i0);
-            outIndices.push_back(i1);
-            outIndices.push_back(i2);
+            outIndices[idx++] = i0;
+            outIndices[idx++] = i1;
+            outIndices[idx++] = i2;
 
-            // Second triangle
-            outIndices.push_back(i0);
-            outIndices.push_back(i2);
-            outIndices.push_back(i3);
+            outIndices[idx++] = i0;
+            outIndices[idx++] = i2;
+            outIndices[idx++] = i3;
         }
+    }
+
+    // Bottom cap
+    int baseIndex = 1 + (n_stacks - 2) * n_slices;
+    for (int j = 0; j < n_slices; ++j)
+    {
+        uint32_t i0 = baseIndex + j;
+        uint32_t i1 = baseIndex + (j + 1) % n_slices;
+        outIndices[idx++] = bottomIndex;
+        outIndices[idx++] = i0;
+        outIndices[idx++] = i1;
     }
 }
 

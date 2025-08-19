@@ -138,7 +138,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
     if (!tlas || tlas->nodeCount == 0 || tlas->rootIndex == static_cast<size_t>(-1))
         return Miss(ray);
     
-    const int TLAS_STACK_SIZE = 512;
+    const int TLAS_STACK_SIZE = 1024;
     int tlasStack[TLAS_STACK_SIZE];
     int tlasStackTop = 0;
     tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
@@ -159,7 +159,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
             BVH* blas = activeScene->meshes[blasIndex].blas;
             if (!blas || blas->nodeCount == 0 || blas->rootIndex == static_cast<size_t>(-1)) continue;
     
-            const int BLAS_STACK_SIZE = 512;
+            const int BLAS_STACK_SIZE = 2048;
             int blasStack[BLAS_STACK_SIZE];
             int blasStackTop = 0;
             blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
