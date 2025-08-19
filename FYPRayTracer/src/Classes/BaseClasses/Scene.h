@@ -29,6 +29,7 @@ struct Scene
 
     //  Acceleration Structure
     BVH tlas;
+    std::vector<BVH> blasOfSceneMeshes;
     
     std::vector<Material> materials;
 

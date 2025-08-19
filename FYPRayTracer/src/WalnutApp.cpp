@@ -65,7 +65,9 @@ public:
 							0);
 
 			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			m_Scene.blasOfSceneMeshes.emplace_back();
+			BVH* blasPtr = &m_Scene.blasOfSceneMeshes.back();
+			blasPtr->CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 
 		{
@@ -84,7 +86,9 @@ public:
 							0);
 
 			auto& blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, m_Scene.worldVertices);
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			m_Scene.blasOfSceneMeshes.emplace_back();
+			BVH* blasPtr = &m_Scene.blasOfSceneMeshes.back();
+			blasPtr->CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 
 		//	Scene TLAS Construction
