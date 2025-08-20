@@ -105,23 +105,35 @@ public:
 __host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const AABB& box)
 {
     float tMin = 0.0f;
-    float tMax = FLT_MAX; 
+    float tMax = FLT_MAX;
 
-    //  loop through the 3 vector components (x, y, and z)
     for (int i = 0; i < 3; ++i)
     {
         float origin = ray.origin[i];
         float direction = ray.direction[i];
-        float invD = (direction != 0.0f) ? 1.0f / direction : FLT_MAX;
 
+        if (direction == 0.0f)
+        {
+            // Ray is parallel to this slab; if origin not within bounds, no intersection
+            if (origin < box.lowerBound[i] || origin > box.upperBound[i])
+                return false;
+            
+            // Parallel and inside slab; t0/t1 are unbounded
+            continue;
+        }
+
+        float invD = 1.0f / direction;
         float t0 = (box.lowerBound[i] - origin) * invD;
         float t1 = (box.upperBound[i] - origin) * invD;
 
-        if (invD < 0.0f) {
-            float tmp = t0;
+        if (invD < 0.0f)
+        {
+            //swap(t0, t1);
+            auto tmp = t0;
             t0 = t1;
             t1 = tmp;
         }
+            
 
         tMin = fmaxf(tMin, t0);
         tMax = fminf(tMax, t1);

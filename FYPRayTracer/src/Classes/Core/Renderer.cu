@@ -58,6 +58,7 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         std::cerr << "cuda shit error: " << cudaGetErrorString(err) << std::endl;
     }
     
+    
     // Configure kernel launch
     dim3 threadsPerBlock(16, 16);
     dim3 numBlocks(
@@ -125,108 +126,206 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
 
 __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Scene_GPU* activeScene)
 {
-    if (!activeScene) return Miss(ray);
     if (activeScene->triangleCount == 0) return Miss(ray);
-    if (!activeScene->tlas) return Miss(ray);
 
     float closestHitDistance = FLT_MAX;
     int closestTriangle = -1;
     float closestU = 0.0f;
     float closestV = 0.0f;
 
-    BVH* tlas = activeScene->tlas;
-    if (!tlas || tlas->nodeCount == 0 || tlas->rootIndex == static_cast<size_t>(-1))
-        return Miss(ray);
-    
-    const int TLAS_STACK_SIZE = 1024;
-    int tlasStack[TLAS_STACK_SIZE];
-    int tlasStackTop = 0;
-    tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
-    
-    while (tlasStackTop > 0)
-    {
-        int nodeIndex = tlasStack[--tlasStackTop];
-        if (nodeIndex < 0 || static_cast<size_t>(nodeIndex) >= tlas->nodeCount) continue;
-    
-        const BVH::Node& node = tlas->nodes[nodeIndex];
-        if (!IntersectRayAABB(ray, node.box)) continue;
-    
-        if (node.isLeaf)
-        {
-            size_t blasIndex = node.objectIndex;
-            if (blasIndex == static_cast<size_t>(-1)) continue;
-            
-            BVH* blas = activeScene->meshes[blasIndex].blas;
-            if (!blas || blas->nodeCount == 0 || blas->rootIndex == static_cast<size_t>(-1)) continue;
-    
-            const int BLAS_STACK_SIZE = 2048;
-            int blasStack[BLAS_STACK_SIZE];
-            int blasStackTop = 0;
-            blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
-            
-            while (blasStackTop > 0)
-            {
-                int bnodeIndex = blasStack[--blasStackTop];
-                if (bnodeIndex < 0 || static_cast<size_t>(bnodeIndex) >= blas->nodeCount) continue;
-    
-                const BVH::Node& bnode = blas->nodes[bnodeIndex];
-                if (!IntersectRayAABB(ray, bnode.box)) continue;
-    
-                if (bnode.isLeaf)
-                {
-                    size_t triangleIndex = bnode.objectIndex;
-                    if (triangleIndex == static_cast<size_t>(-1)) continue;
-                    if (triangleIndex >= activeScene->triangleCount) continue;
-    
-                    const Triangle& tri = activeScene->triangles[triangleIndex];
-                    const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
-                    const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
-                    const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
+     // // Loop over GPU triangles (old way to do ray triangle intersect)
+     //  for (size_t objectIndex = 0; objectIndex < activeScene->triangleCount; objectIndex++)
+     //  {
+     //      const Triangle& triangle = activeScene->triangles[objectIndex];
+     //
+     //      const glm::vec3& v0 = activeScene->worldVertices[triangle.v0].position;
+     //      const glm::vec3& v1 = activeScene->worldVertices[triangle.v1].position;
+     //      const glm::vec3& v2 = activeScene->worldVertices[triangle.v2].position;
+     //
+     //      glm::vec3 edge1 = v1 - v0;
+     //      glm::vec3 edge2 = v2 - v0;
+     //      glm::vec3 h = glm::cross(ray.direction, edge2);
+     //      float a = glm::dot(edge1, h);
+     //
+     //      float absoluteOfA = a < 0.0f ? -a : a;
+     //      if (absoluteOfA < 1e-8f) continue;
+     //
+     //      float f = 1.0f / a;
+     //      glm::vec3 s = ray.origin - v0;
+     //      float u = f * glm::dot(s, h);
+     //      if (u < 0.0f || u > 1.0f) continue;
+     //
+     //      glm::vec3 q = glm::cross(s, edge1);
+     //      float v = f * glm::dot(ray.direction, q);
+     //      if (v < 0.0f || u + v > 1.0f) continue;
+     //
+     //      float t = f * glm::dot(edge2, q);
+     //      if (t > 0.0001f && t < closestHitDistance)
+     //      {
+     //          closestHitDistance = t;
+     //          closestTriangle = static_cast<int>(objectIndex);
+     //          closestU = u;
+     //          closestV = v;
+     //      }
+     //  }
 
+    // //BVH Traversal
+    // BVH* tlas = activeScene->tlas;
+    //
+    // const int TLAS_STACK_SIZE = 1024;
+    // int tlasStack[TLAS_STACK_SIZE];
+    // int tlasPointer = 0;
+    // tlasStack[tlasPointer++] = tlas->rootIndex;
+    //
+    // while (tlasPointer > 0)
+    // {
+    //     int nodeIndex = tlasStack[--tlasPointer];
+    //     
+    //     if (!IntersectRayAABB(ray, tlas->nodes[nodeIndex].box))
+    //         continue;
+    //
+    //     if (tlas->nodes[nodeIndex].isLeaf)
+    //     {
+    //         const Triangle& triangle = activeScene->triangles[tlas->nodes[nodeIndex].objectIndex];
+    //         
+    //         const glm::vec3& v0 = activeScene->worldVertices[triangle.v0].position;
+    //         const glm::vec3& v1 = activeScene->worldVertices[triangle.v1].position;
+    //         const glm::vec3& v2 = activeScene->worldVertices[triangle.v2].position;
+    //         
+    //         glm::vec3 edge1 = v1 - v0;
+    //         glm::vec3 edge2 = v2 - v0;
+    //         glm::vec3 h = glm::cross(ray.direction, edge2);
+    //         float a = glm::dot(edge1, h);
+    //         
+    //         float absoluteOfA = a < 0.0f ? -a : a;
+    //         if (absoluteOfA < 1e-8f) continue;
+    //         
+    //         float f = 1.0f / a;
+    //         glm::vec3 s = ray.origin - v0;
+    //         float u = f * glm::dot(s, h);
+    //         if (u < 0.0f || u > 1.0f) continue;
+    //         
+    //         glm::vec3 q = glm::cross(s, edge1);
+    //         float v = f * glm::dot(ray.direction, q);
+    //         if (v < 0.0f || u + v > 1.0f) continue;
+    //         
+    //         float t = f * glm::dot(edge2, q);
+    //         if (t > 0.0001f && t < closestHitDistance)
+    //         {
+    //             closestHitDistance = t;
+    //             closestTriangle = static_cast<int>(tlas->nodes[nodeIndex].objectIndex);
+    //             closestU = u;
+    //             closestV = v;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         tlasStack[tlasPointer++] = tlas->nodes[nodeIndex].child1;
+    //         tlasStack[tlasPointer++] = tlas->nodes[nodeIndex].child2;
+    //     }
+    // }
+
+    //TLAS - BLAS Traversal
+     BVH* tlas = activeScene->tlas;
     
-                    glm::vec3 edge1 = v1 - v0;
-                    glm::vec3 edge2 = v2 - v0;
-                    glm::vec3 h = glm::cross(ray.direction, edge2);
-                    float a = glm::dot(edge1, h);
-                    float absA = a < 0.0f ? -a : a;
-                    if (absA < 1e-8f) continue;
+     const int TLAS_STACK_SIZE = 1024;
+     int tlasStack[TLAS_STACK_SIZE];
+     int tlasStackTop = 0;
+     tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
     
-                    float f = 1.0f / a;
-                    glm::vec3 s = ray.origin - v0;
-                    float u = f * glm::dot(s, h);
-                    if (u < 0.0f || u > 1.0f) continue;
+     while (tlasStackTop > 0)
+     {
+         int nodeIndex = tlasStack[--tlasStackTop];
     
-                    glm::vec3 q = glm::cross(s, edge1);
-                    float v = f * glm::dot(ray.direction, q);
-                    if (v < 0.0f || (u + v) > 1.0f) continue;
+         const BVH::Node& node = tlas->nodes[nodeIndex];
+         if (!IntersectRayAABB(ray, node.box)) continue;
+
+         // test
+         if (nodeIndex == 1)
+         {
+             nodeIndex = 1;
+         }
     
-                    float t = f * glm::dot(edge2, q);
+         if (node.isLeaf)
+         {
+             size_t meshIndex = node.objectIndex;
+             
+             BVH* blas = activeScene->meshes[meshIndex].blas;
+
+             //debug check
+             //auto n0 = blas->nodes[0];
+             //auto n1 = blas->nodes[1];
+             //auto n2 = blas->nodes[2];
+             //auto n3 = blas->nodes[3];
+             //auto n4 = blas->nodes[4];
+             //auto n5 = blas->nodes[5];
+             //auto n6 = blas->nodes[6];
     
-                    if (t > 0.0001f && t < closestHitDistance)
-                    {
-                        closestHitDistance = t;
-                        closestTriangle = static_cast<int>(triangleIndex);
-                        closestU = u;
-                        closestV = v;
-                    }
-                }
-                else
-                {
-                    if (bnode.child1 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
-                        blasStack[blasStackTop++] = static_cast<int>(bnode.child1);
-                    if (bnode.child2 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
-                        blasStack[blasStackTop++] = static_cast<int>(bnode.child2);
-                }
-            }
-        }
-        else
-        {
-            if (node.child1 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
-                tlasStack[tlasStackTop++] = static_cast<int>(node.child1);
-            if (node.child2 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
-                tlasStack[tlasStackTop++] = static_cast<int>(node.child2);
-        }
-    }
+             const int BLAS_STACK_SIZE = 2048;
+             int blasStack[BLAS_STACK_SIZE];
+             int blasStackTop = 0;
+             blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
+             
+             while (blasStackTop > 0)
+             {
+                 int bnodeIndex = blasStack[--blasStackTop];
+    
+                 const BVH::Node& bnode = blas->nodes[bnodeIndex];
+                 if (!IntersectRayAABB(ray, bnode.box)) continue;
+    
+                 if (bnode.isLeaf)
+                 {
+                     size_t triangleIndex = bnode.objectIndex;
+    
+                     const Triangle& tri = activeScene->triangles[triangleIndex];
+                     const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
+                     const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
+                     const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
+    
+    
+                     glm::vec3 edge1 = v1 - v0;
+                     glm::vec3 edge2 = v2 - v0;
+                     glm::vec3 h = glm::cross(ray.direction, edge2);
+                     float a = glm::dot(edge1, h);
+                     float absA = a < 0.0f ? -a : a;
+                     if (absA < 1e-8f) continue;
+    
+                     float f = 1.0f / a;
+                     glm::vec3 s = ray.origin - v0;
+                     float u = f * glm::dot(s, h);
+                     if (u < 0.0f || u > 1.0f) continue;
+    
+                     glm::vec3 q = glm::cross(s, edge1);
+                     float v = f * glm::dot(ray.direction, q);
+                     if (v < 0.0f || (u + v) > 1.0f) continue;
+    
+                     float t = f * glm::dot(edge2, q);
+    
+                     if (t > 0.0001f && t < closestHitDistance)
+                     {
+                         closestHitDistance = t;
+                         closestTriangle = static_cast<int>(triangleIndex);
+                         closestU = u;
+                         closestV = v;
+                     }
+                 }
+                 else
+                 {
+                     if (bnode.child1 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
+                         blasStack[blasStackTop++] = static_cast<int>(bnode.child1);
+                     if (bnode.child2 != static_cast<size_t>(-1) && blasStackTop < BLAS_STACK_SIZE)
+                         blasStack[blasStackTop++] = static_cast<int>(bnode.child2);
+                 }
+             }
+         }
+         else
+         {
+             if (node.child1 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
+                 tlasStack[tlasStackTop++] = static_cast<int>(node.child1);
+             if (node.child2 != static_cast<size_t>(-1) && tlasStackTop < TLAS_STACK_SIZE)
+                 tlasStack[tlasStackTop++] = static_cast<int>(node.child2);
+         }
+     }
 
     if (closestTriangle < 0)
         return Miss(ray);
@@ -234,41 +333,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
     return ClosestHit(ray, closestHitDistance, closestTriangle, closestU, closestV, activeScene);
 }
 
-//// Loop over GPU triangles (old way to do ray triangle intersect)
-// for (size_t objectIndex = 0; objectIndex < activeScene->triangleCount; objectIndex++)
-// {
-//     const Triangle& triangle = activeScene->triangles[objectIndex];
-    
-//     const glm::vec3& v0 = activeScene->worldVertices[triangle.v0].position;
-//     const glm::vec3& v1 = activeScene->worldVertices[triangle.v1].position;
-//     const glm::vec3& v2 = activeScene->worldVertices[triangle.v2].position;
-    
-//     glm::vec3 edge1 = v1 - v0;
-//     glm::vec3 edge2 = v2 - v0;
-//     glm::vec3 h = glm::cross(ray.direction, edge2);
-//     float a = glm::dot(edge1, h);
-    
-//     float absoluteOfA = a < 0.0f ? -a : a;
-//     if (absoluteOfA < 1e-8f) continue;
-    
-//     float f = 1.0f / a;
-//     glm::vec3 s = ray.origin - v0;
-//     float u = f * glm::dot(s, h);
-//     if (u < 0.0f || u > 1.0f) continue;
-    
-//     glm::vec3 q = glm::cross(s, edge1);
-//     float v = f * glm::dot(ray.direction, q);
-//     if (v < 0.0f || u + v > 1.0f) continue;
-    
-//     float t = f * glm::dot(edge2, q);
-//     if (t > 0.0001f && t < closestHitDistance)
-//     {
-//         closestHitDistance = t;
-//         closestTriangle = static_cast<int>(objectIndex);
-//         closestU = u;
-//         closestV = v;
-//     }
-// }
+
 
 
 //  //  PURE BRUTE-FORCE

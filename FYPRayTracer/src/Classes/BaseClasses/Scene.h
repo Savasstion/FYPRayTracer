@@ -32,8 +32,12 @@ struct Scene
     
     std::vector<Material> materials;
 
-    Mesh* AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices,
-        glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale, int materialIndex);
+    Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
+                                   std::vector<uint32_t>& meshTriangleVertexIndices,
+                                   const glm::vec3& pos,
+                                   const glm::vec3& rotation,
+                                   const glm::vec3& scale,
+                                   int materialIndex);
     void UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot, const glm::vec3& newScale);
     void UpdateAllTransformedSceneMeshes();
     std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();  //obsolete now

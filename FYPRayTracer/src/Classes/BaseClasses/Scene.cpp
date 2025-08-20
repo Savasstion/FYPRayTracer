@@ -1,85 +1,92 @@
 #include "Scene.h"
-#include <glm/gtx/quaternion.hpp>
-
+#include <glm/gtx/euler_angles.hpp>
 
 Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
-    std::vector<uint32_t>& meshTriangleVertexIndices,
-    glm::vec3& pos, glm::vec3& rotation, glm::vec3& scale,
-    int materialIndex)
+                               std::vector<uint32_t>& meshTriangleVertexIndices,
+                               const glm::vec3& pos,
+                               const glm::vec3& rotation,
+                               const glm::vec3& scale,
+                               int materialIndex)
 {
-    uint32_t triangleStart = static_cast<uint32_t>(triangles.size());
-    
-    glm::vec3 rotationRadians = glm::radians(rotation);
-    glm::quat q = glm::quat(rotationRadians);
-    glm::mat4 R = glm::toMat4(q);
-    glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
-    glm::mat4 T = glm::translate(glm::mat4(1.0f), pos);
-    glm::mat4 worldMatrix = T * R * S;
-
-    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(worldMatrix)));
-
-    uint32_t vertexStart = static_cast<uint32_t>(vertices.size());
-    uint32_t indexStart = static_cast<uint32_t>(triangleVertexIndices.size());
-
-    Vector3f meshAABBLow(FLT_MAX, FLT_MAX, FLT_MAX);
-    Vector3f meshAABBHigh(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-    // Transform and store each vertex
-    for (const auto& v : meshVertices)
-    {
-        Vertex transformed;
-        transformed.position = glm::vec3(worldMatrix * glm::vec4(v.position, 1.0f));
-        transformed.normal = glm::normalize(normalMatrix * v.normal);
-        transformed.uv = v.uv;
-
-        vertices.push_back(transformed);
-        worldVertices.push_back(transformed);
-
-        meshAABBLow = meshAABBLow.min(transformed.position);
-        meshAABBHigh = meshAABBHigh.max(transformed.position);
-    }
-
-    // Create triangles and calculate their AABBs
-    for (size_t i = 0; i < meshTriangleVertexIndices.size(); i += 3)
-    {
-        Triangle tri;
-        tri.v0 = vertexStart + meshTriangleVertexIndices[i + 0];
-        tri.v1 = vertexStart + meshTriangleVertexIndices[i + 1];
-        tri.v2 = vertexStart + meshTriangleVertexIndices[i + 2];
-        tri.materialIndex = materialIndex;
-
-        const Vector3f& p0 = worldVertices[tri.v0].position;
-        const Vector3f& p1 = worldVertices[tri.v1].position;
-        const Vector3f& p2 = worldVertices[tri.v2].position;
-
-        Vector3f triLow = p0.min(p1).min(p2);
-        Vector3f triHigh = p0.max(p1).max(p2);
-        tri.aabb = AABB(triLow, triHigh);
-
-        //  Update mesh AABB
-        meshAABBLow = meshAABBLow.min(triLow);
-        meshAABBHigh = meshAABBHigh.max(triHigh);
-
-        triangles.push_back(tri);
-
-        triangleVertexIndices.push_back(triangleStart + (i / 3));
-    }
-
     Mesh mesh;
     mesh.position = pos;
     mesh.rotation = rotation;
-    mesh.scale = scale;
-    mesh.worldTransformMatrix = worldMatrix;
-    mesh.vertexStart = vertexStart;
-    mesh.vertexCount = static_cast<uint32_t>(meshVertices.size());
-    mesh.indexStart = indexStart;
-    mesh.indexCount = static_cast<uint32_t>(meshTriangleVertexIndices.size());
+    mesh.scale    = scale;
     mesh.materialIndex = materialIndex;
-    mesh.aabb = AABB(meshAABBLow, meshAABBHigh);
+
+    // --- offsets into scene global buffers ---
+    mesh.vertexStart = static_cast<uint32_t>(vertices.size());
+    mesh.vertexCount = static_cast<uint32_t>(meshVertices.size());
+    mesh.indexStart  = static_cast<uint32_t>(triangleVertexIndices.size());
+    mesh.indexCount  = static_cast<uint32_t>(meshTriangleVertexIndices.size());
+
+    // append local vertices
+    vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
+
+    // build transform
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), pos);
+    glm::mat4 rotationMat = glm::yawPitchRoll(
+        glm::radians(rotation.y),
+        glm::radians(rotation.x),
+        glm::radians(rotation.z));
+    glm::mat4 scaling = glm::scale(glm::mat4(1.0f), scale);
+
+    mesh.worldTransformMatrix = translation * rotationMat * scaling;
+    mesh.isTransformed = true;
+
+    // append world vertices (transformed)
+    for (const auto& v : meshVertices)
+    {
+        Vertex worldV = v;
+        glm::vec4 p = mesh.worldTransformMatrix * glm::vec4(v.position, 1.0f);
+        glm::vec4 n = mesh.worldTransformMatrix * glm::vec4(v.normal, 0.0f);
+
+        worldV.position = glm::vec3(p) / p.w;
+        worldV.normal   = glm::normalize(glm::vec3(n));
+        worldVertices.push_back(worldV);
+    }
+
+    // append indices (offset by vertexStart)
+    for (uint32_t idx : meshTriangleVertexIndices)
+        triangleVertexIndices.push_back(mesh.vertexStart + idx);
+
+    // generate triangles (store indices only)
+    for (size_t i = 0; i < meshTriangleVertexIndices.size(); i += 3)
+    {
+        Triangle tri;
+        tri.v0 = mesh.vertexStart + meshTriangleVertexIndices[i + 0];
+        tri.v1 = mesh.vertexStart + meshTriangleVertexIndices[i + 1];
+        tri.v2 = mesh.vertexStart + meshTriangleVertexIndices[i + 2];
+        tri.materialIndex = materialIndex;
+
+        // compute triangle AABB right here
+        const glm::vec3& p0 = worldVertices[tri.v0].position;
+        const glm::vec3& p1 = worldVertices[tri.v1].position;
+        const glm::vec3& p2 = worldVertices[tri.v2].position;
+
+        tri.aabb.lowerBound = glm::min(glm::min(p0, p1), p2);
+        tri.aabb.upperBound = glm::max(glm::max(p0, p1), p2);
+
+        tri.aabb.centroidPos = AABB::FindCentroid(tri.aabb);
+
+        triangles.push_back(tri);
+    }
+
+    // compute mesh AABB by merging its triangles’ AABBs
+    if (!triangles.empty())
+    {
+        AABB meshBounds = triangles.back().aabb; // start with last added
+        for (size_t i = triangles.size() - (mesh.indexCount / 3); i < triangles.size(); i++)
+            meshBounds = AABB::UnionAABB(meshBounds, triangles[i].aabb);
+        mesh.aabb = meshBounds;
+        mesh.aabb.centroidPos = AABB::FindCentroid(mesh.aabb);
+    }
+    
 
     meshes.push_back(mesh);
     return &meshes.back();
 }
+
 
 
 void Scene::UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot,
@@ -155,6 +162,3 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
     return leafNodes;
 }
 
-// std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
-// {
-// }

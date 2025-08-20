@@ -54,6 +54,48 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
         std::cerr << "cudaMemcpy Scene_GPU error: " << cudaGetErrorString(err) << std::endl;
     }
 
+//// Debug: Copy back first mesh BLAS from device
+// if (!cpuScene.meshes.empty())
+// {
+//     // Step 1: Copy first mesh struct from device
+//     Mesh_GPU debugMesh{};
+//     err = cudaMemcpy(&debugMesh, gpuScene.meshes, sizeof(Mesh_GPU), cudaMemcpyDeviceToHost);
+//     if (err != cudaSuccess) {
+//         std::cerr << "cudaMemcpy (device->host) Mesh_GPU failed: " << cudaGetErrorString(err) << std::endl;
+//     } else if (debugMesh.blas) {
+//         // Step 2: Copy BVH struct from device
+//         BVH h_bvh{};
+//         err = cudaMemcpy(&h_bvh, debugMesh.blas, sizeof(BVH), cudaMemcpyDeviceToHost);
+//         if (err != cudaSuccess) {
+//             std::cerr << "cudaMemcpy (device->host) BVH failed: " << cudaGetErrorString(err) << std::endl;
+//         } else {
+//             std::cout << "Debug BVH: nodeCount=" << h_bvh.nodeCount
+//                       << ", objectCount=" << h_bvh.objectCount
+//                       << ", rootIndex=" << h_bvh.rootIndex << std::endl;
+//
+//             // Step 3: Copy nodes array if it exists
+//             if (h_bvh.nodes && h_bvh.nodeCount > 0) {
+//                 std::vector<BVH::Node> hostNodes(h_bvh.nodeCount);
+//                 err = cudaMemcpy(hostNodes.data(), h_bvh.nodes,
+//                                  h_bvh.nodeCount * sizeof(BVH::Node),
+//                                  cudaMemcpyDeviceToHost);
+//                 if (err != cudaSuccess) {
+//                     std::cerr << "cudaMemcpy (device->host) BVH nodes failed: "
+//                               << cudaGetErrorString(err) << std::endl;
+//                 }
+//                 auto n0 = hostNodes[0];
+//                 auto n1 = hostNodes[1];
+//                 auto n2 = hostNodes[2];
+//                 auto n3 = hostNodes[3];
+//                 auto n4 = hostNodes[4];
+//                 auto n5 = hostNodes[5];
+//                 auto n6 = hostNodes[6];
+//                 
+//             }
+//         }
+//     }
+// }
+    
     return d_scene;
 }
 
