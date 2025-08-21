@@ -231,6 +231,10 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
      const int TLAS_STACK_SIZE = 1024;
      int tlasStack[TLAS_STACK_SIZE];
      int tlasStackTop = 0;
+    
+    const int BLAS_STACK_SIZE = 2048;
+    int blasStack[BLAS_STACK_SIZE];
+    
      tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
     
      while (tlasStackTop > 0)
@@ -239,30 +243,13 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
     
          const BVH::Node& node = tlas->nodes[nodeIndex];
          if (!IntersectRayAABB(ray, node.box)) continue;
-
-         // test
-         if (nodeIndex == 1)
-         {
-             nodeIndex = 1;
-         }
     
          if (node.isLeaf)
          {
              size_t meshIndex = node.objectIndex;
              
              BVH* blas = activeScene->meshes[meshIndex].blas;
-
-             //debug check
-             auto n0 = blas->nodes[0];
-             auto n1 = blas->nodes[1];
-             auto n2 = blas->nodes[2];
-             //auto n3 = blas->nodes[3];
-             //auto n4 = blas->nodes[4];
-             //auto n5 = blas->nodes[5];
-             //auto n6 = blas->nodes[6];
-    
-             const int BLAS_STACK_SIZE = 2048;
-             int blasStack[BLAS_STACK_SIZE];
+             
              int blasStackTop = 0;
              blasStack[blasStackTop++] = static_cast<int>(blas->rootIndex);
              

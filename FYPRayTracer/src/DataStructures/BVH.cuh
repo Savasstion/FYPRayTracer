@@ -2,6 +2,7 @@
 #define BVH_H
 #include <cuda.h>
 #define GLM_FORCE_CUDA
+#include <algorithm>
 #include <iostream>
 
 #include "../Classes/BaseClasses/AABB.cuh"
@@ -66,6 +67,13 @@ public:
                             const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex) const;
     void TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
                                const Ray& ray, size_t nodeIndex) const;
+
+    //  Serial
+    void ConstructBVH(Node* objects, size_t objCount);
+    void ClearBVH();
+    int LargestExtentAxis(const AABB& b);    // choose axis with largest extent
+    AABB RangeBounds(BVH::Node* arr, size_t first, size_t last);    // compute bounds of a range [first,last)
+    size_t BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created
 
     // OMP
     void OMP_ClearBVH();

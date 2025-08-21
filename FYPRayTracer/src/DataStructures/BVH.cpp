@@ -69,3 +69,86 @@ void BVH::TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
     }
 }
 
+void BVH::ConstructBVH(Node* objects, size_t objCount)
+{
+    FreeHostNodes();
+    objectCount = objCount;
+
+    if (objectCount > 0)
+    {
+        // Allocate host nodes: total 2 * N - 1
+        AllocateHostNodes(2 * objectCount - 1);
+
+        Node* work = new Node[objectCount];
+        for (size_t i = 0; i < objectCount; ++i) {
+            work[i] = Node(objects[i].objectIndex, objects[i].box);
+        }
+
+        size_t outCount = 0;
+
+        rootIndex = BuildHierarchyRecursively(nodes, outCount, work, 0, objectCount);
+
+        delete[] work;
+        nodeCount = outCount;
+
+    }
+}
+
+void BVH::ClearBVH()
+{
+    FreeHostNodes();  // free the allocated nodes array
+    rootIndex = static_cast<size_t>(-1);
+}
+
+int BVH::LargestExtentAxis(const AABB& b)
+{
+    const float ex = b.upperBound.x - b.lowerBound.x;
+    const float ey = b.upperBound.y - b.lowerBound.y;
+    const float ez = b.upperBound.z - b.lowerBound.z;
+
+    if (ex > ey && ex > ez) return 0; // x
+    if (ey > ez)             return 1; // y
+    return 2;                          // z
+}
+
+AABB BVH::RangeBounds(BVH::Node* arr, size_t first, size_t last)
+{
+    AABB out = arr[first].box;
+    for (size_t i = first + 1; i < last; ++i) {
+        out = AABB::UnionAABB(out, arr[i].box);
+    }
+    return out;
+}
+
+size_t BVH::BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last)
+{
+    const size_t count = last - first;
+
+    // leaf node
+    if (count == 1) {
+        outNodes[outCount] = BVH::Node(work[first].objectIndex, work[first].box);
+        return outCount++;
+    }
+
+    // bounds + split axis
+    AABB bounds = RangeBounds(work, first, last);
+    const int axis = LargestExtentAxis(bounds);
+
+    // median split by centroid
+    const size_t mid = (first + last) / 2;
+    std::nth_element(work + first, work + mid, work + last,
+                     [axis](const BVH::Node& a, const BVH::Node& b) {
+                         auto aabbA = a.box;
+                         auto aabbB = b.box;
+                         return AABB::FindCentroid(aabbA)[axis] < AABB::FindCentroid(aabbB)[axis];
+                     });
+
+    // build children
+    const size_t leftIndex  = BuildHierarchyRecursively(outNodes, outCount, work, first, mid);
+    const size_t rightIndex = BuildHierarchyRecursively(outNodes, outCount, work, mid,   last);
+
+    // parent
+    const AABB parentBox = AABB::UnionAABB(outNodes[leftIndex].box, outNodes[rightIndex].box);
+    outNodes[outCount] = BVH::Node(leftIndex, rightIndex, parentBox);
+    return outCount++;
+}

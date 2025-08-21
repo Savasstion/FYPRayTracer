@@ -42,12 +42,13 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
+		for(int i = -1; i < 5 ; i++)
 		{
 			std::vector<Vertex> sphereVertices;
 			std::vector<uint32_t> sphereIndices;
 		
 			Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
-			glm::vec3 pos{0,1,0};
+			glm::vec3 pos{i,i, i};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{1,1,1};
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
@@ -56,31 +57,12 @@ public:
 							rot,
 							scale,
 							1);
-
-			size_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
-			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
-		}
-		{
-			std::vector<Vertex> sphereVertices;
-			std::vector<uint32_t> sphereIndices;
 		
-			Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
-			glm::vec3 pos{2,1,0};
-			glm::vec3 rot{0,0,0};
-			glm::vec3 scale{1,1,1};
-			Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
-							sphereIndices,
-							pos,
-							rot,
-							scale,
-							0);
-
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
 			std::vector<Vertex> planeVertices = {
@@ -93,7 +75,7 @@ public:
 				0, 1, 2,  // First triangle
 				0, 2, 3   // Second triangle
 			};
-
+		
 			glm::vec3 pos{ 0,5,0 };
 			glm::vec3 rot{ 180,0,0 };
 			glm::vec3 scale{ 10,10,10 };
@@ -103,11 +85,12 @@ public:
 				rot,
 				scale,
 				1);
-
+		
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
 			std::vector<Vertex> planeVertices = {
@@ -130,32 +113,19 @@ public:
 				rot,
 				scale,
 				0);
-
+		
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
+			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
+		
 		//	Scene TLAS Construction
 		auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
 		//auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
-		m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());
-
-		// auto n0 = m_Scene.tlas.nodes[0];
-		// auto n1 = m_Scene.tlas.nodes[1];
-		// auto n2 = m_Scene.tlas.nodes[2];
-		//
-		// auto a0 = m_Scene.meshes[0].blas.nodes[0];
-		// auto a1 = m_Scene.meshes[0].blas.nodes[1];
-		// auto a2 = m_Scene.meshes[0].blas.nodes[2];
-		//
-		// auto b0 = m_Scene.meshes[1].blas.nodes[0];
-		// auto b1 = m_Scene.meshes[1].blas.nodes[1];
-		// auto b2 = m_Scene.meshes[1].blas.nodes[2];
-		//
-		// auto c0 = m_Scene.meshes[2].blas.nodes[0];
-		// auto c1 = m_Scene.meshes[2].blas.nodes[1];
-		// auto c2 = m_Scene.meshes[2].blas.nodes[2];
+		//m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());
+		//m_Scene.tlas.ConstructBVH(tlasObjectNodes.data(), tlasObjectNodes.size());
 		
 	}
 	
@@ -177,6 +147,7 @@ public:
 		ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
 		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
+		ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
 		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
 		ImGui::DragFloat("Total Time to Render(min)", &m_TimeToRender, 0.1f);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
