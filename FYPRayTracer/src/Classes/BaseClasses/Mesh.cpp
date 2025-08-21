@@ -148,8 +148,11 @@ void Mesh::UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector
 std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
     const std::vector<Triangle>& triangles,
     size_t meshTriangleStart,
-    size_t meshTriangleCount)
+    size_t meshTriangleCount,
+    size_t* outObjectOffset)
 {
+    *outObjectOffset = meshTriangleStart;   //  make sure BVH knows how much to offset to first triangle
+    
     std::vector<BVH::Node> leafNodes;
     leafNodes.reserve(meshTriangleCount);
 
@@ -161,6 +164,7 @@ std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
         // Create a leaf node for this triangle
         BVH::Node node(triIndex, tri.aabb);
         leafNodes.push_back(node);
+        
     }
 
     return leafNodes;

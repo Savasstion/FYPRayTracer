@@ -253,9 +253,9 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
              BVH* blas = activeScene->meshes[meshIndex].blas;
 
              //debug check
-             //auto n0 = blas->nodes[0];
-             //auto n1 = blas->nodes[1];
-             //auto n2 = blas->nodes[2];
+             auto n0 = blas->nodes[0];
+             auto n1 = blas->nodes[1];
+             auto n2 = blas->nodes[2];
              //auto n3 = blas->nodes[3];
              //auto n4 = blas->nodes[4];
              //auto n5 = blas->nodes[5];
@@ -276,7 +276,12 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
                  if (bnode.isLeaf)
                  {
                      size_t triangleIndex = bnode.objectIndex;
+                     if (static_cast<int>(triangleIndex) < 4 && static_cast<int>(triangleIndex) > 1)
+                     {
+                         triangleIndex = triangleIndex;
+                     }
     
+
                      const Triangle& tri = activeScene->triangles[triangleIndex];
                      const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
                      const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;

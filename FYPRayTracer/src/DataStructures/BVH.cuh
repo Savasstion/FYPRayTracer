@@ -50,6 +50,7 @@ public:
     size_t nodeCount = 0;
     bool isNewValuesSet = true;
     size_t objectCount = 0;
+    size_t objectOffset = 0;    //  when building BLASes, nodes may not start from 0 first
     size_t rootIndex = static_cast<size_t>(-1);
 
     // buffers for CUDA parallelization, not needed to copy 
@@ -155,13 +156,14 @@ __global__ void CUDA_AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedM
 __global__ void CUDA_BuildLeafNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes,
                                           BVH::Node* ptr_nodes,
                                           AABB* ptr_objectAABBs,
-                                          size_t objectCount);
+                                          size_t objectCount,
+                                          size_t objectOffset);
 
 __global__ void CUDA_BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes,
                                               BVH::Node* ptr_nodes,
                                               size_t objectCount);
 
-__host__ __forceinline__ BVH* BVHToGPU(BVH h_bvh)
+__host__ __forceinline__ BVH* BVHToGPU(const BVH& h_bvh)
 {
     cudaError_t err;
 

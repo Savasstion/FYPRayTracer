@@ -37,7 +37,8 @@ struct Mesh
     static std::vector<BVH::Node> CreateBVHnodesFromMeshTriangles(
         const std::vector<Triangle>& triangles,
         size_t meshTriangleStart,
-        size_t meshTriangleCount);
+        size_t meshTriangleCount,
+        size_t* outObjectOffset);
 };
 
 #endif

@@ -96,7 +96,7 @@ size_t BVH::CUDA_BuildHierarchyInParallel(Node* objects, size_t objCount)
     CUDA_SortMortonCodes(objCount);
 
     CUDA_BuildLeafNodesKernel<<<leafBlocks, threadsPerBlock>>> (
-        d_ptr_sortedMortonCodes, d_ptr_nodes, d_ptr_objectAABBs, objCount);
+        d_ptr_sortedMortonCodes, d_ptr_nodes, d_ptr_objectAABBs, objCount, objectOffset);
     cudaDeviceSynchronize();
 
     CUDA_BuildInternalNodesKernel<<<internalBlocks, threadsPerBlock>>> (
@@ -161,7 +161,7 @@ __global__ void CUDA_AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedM
     size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= objectCount) return;
 
-    d_ptr_sortedMortonCodes[idx].objectIndex = idx;
+    d_ptr_sortedMortonCodes[idx].objectIndex = d_ptr_collisionObjects[idx].objectIndex;
     Vector3f pos = d_ptr_collisionObjects[idx].box.centroidPos;
     d_ptr_sortedMortonCodes[idx].mortonCode = morton3D(pos.x, pos.y, pos.z, minSceneBound, maxSceneBound);
 }
@@ -169,13 +169,14 @@ __global__ void CUDA_AssignMortonCodesKernel(BVH::MortonCodeEntry* d_ptr_sortedM
 __global__ void CUDA_BuildLeafNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes,
     BVH::Node* ptr_nodes,
     AABB* ptr_objectAABBs,
-    size_t objectCount)
+    size_t objectCount,
+    size_t objectOffset)
 {
     size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= objectCount) return;
 
     size_t objIndex = ptr_sortedMortonCodes[idx].objectIndex;
-    ptr_nodes[idx] = BVH::Node(objIndex, ptr_objectAABBs[objIndex]);
+    ptr_nodes[idx] = BVH::Node(objIndex, ptr_objectAABBs[objIndex - objectOffset]);
 }
 
 __global__ void CUDA_BuildInternalNodesKernel(BVH::MortonCodeEntry* ptr_sortedMortonCodes,
