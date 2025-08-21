@@ -136,12 +136,12 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
     //TLAS - BLAS Traversal
      BVH* tlas = activeScene->tlas;
     
-     const int TLAS_STACK_SIZE = 1024;
+     const int TLAS_STACK_SIZE = 256;
      int tlasStack[TLAS_STACK_SIZE];
      int tlasStackTop = 0;
     
-    const int BLAS_STACK_SIZE = 2048;
-    int blasStack[BLAS_STACK_SIZE];
+     const int BLAS_STACK_SIZE = 1024;
+     int blasStack[BLAS_STACK_SIZE];
     
      tlasStack[tlasStackTop++] = static_cast<int>(tlas->rootIndex);
     
@@ -171,24 +171,17 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
                  if (bnode.isLeaf)
                  {
                      size_t triangleIndex = bnode.objectIndex;
-                     if (static_cast<int>(triangleIndex) < 4 && static_cast<int>(triangleIndex) > 1)
-                     {
-                         triangleIndex = triangleIndex;
-                     }
-    
 
                      const Triangle& tri = activeScene->triangles[triangleIndex];
                      const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
                      const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
                      const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
-    
-    
+                     
                      glm::vec3 edge1 = v1 - v0;
                      glm::vec3 edge2 = v2 - v0;
                      glm::vec3 h = glm::cross(ray.direction, edge2);
                      float a = glm::dot(edge1, h);
-                     float absA = a < 0.0f ? -a : a;
-                     if (absA < 1e-8f) continue;
+                     if (fabsf(a) < 1e-8f) continue;
     
                      float f = 1.0f / a;
                      glm::vec3 s = ray.origin - v0;
