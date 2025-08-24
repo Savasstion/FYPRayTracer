@@ -62,7 +62,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
-			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
+			meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
 			std::vector<Vertex> planeVertices = {
@@ -90,7 +90,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
-			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
+			meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
 			std::vector<Vertex> planeVertices = {
@@ -118,14 +118,14 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
-			//meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
+			meshPtr->blas.ConstructBVH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		
 		//	Scene TLAS Construction
 		auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
 		//auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
 		//m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());
-		//m_Scene.tlas.ConstructBVH(tlasObjectNodes.data(), tlasObjectNodes.size());
+		m_Scene.tlas.ConstructBVH(tlasObjectNodes.data(), tlasObjectNodes.size());
 		
 	}
 	

@@ -55,11 +55,11 @@ public:
     size_t rootIndex = static_cast<size_t>(-1);
 
     // buffers for CUDA parallelization, not needed to copy 
-    BVH::Node* d_ptr_nodes = nullptr;
-    BVH::Node* d_ptr_collisionObjects = nullptr;
-    BVH::MortonCodeEntry* h_ptr_sortedMortonCodes = nullptr;
-    BVH::MortonCodeEntry* d_ptr_sortedMortonCodes = nullptr;
-    AABB* d_ptr_objectAABBs = nullptr;
+    // BVH::Node* d_ptr_nodes = nullptr;
+    // BVH::Node* d_ptr_collisionObjects = nullptr;
+    // BVH::MortonCodeEntry* h_ptr_sortedMortonCodes = nullptr;
+    // BVH::MortonCodeEntry* d_ptr_sortedMortonCodes = nullptr;
+    // AABB* d_ptr_objectAABBs = nullptr;
 
 
     // Traversal
@@ -76,22 +76,22 @@ public:
     size_t BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created
 
     // OMP
-    void OMP_ClearBVH();
-    void OMP_ConstructBVHInParallel(Node* objects, size_t objectCount);
-    size_t OMP_BuildHierarchyInParallel(Node* objects, size_t objectCount);
-    void OMP_AssignMortonCodes(size_t objectCount);
-    void OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount);
-    void OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount);
-
-    // CUDA
-    __host__ void CUDA_ConstructBVHInParallel(Node* objects, size_t objectCount);
-    __host__ void CUDA_ClearBVH();
-    __host__ void CUDA_AllocateMemory(size_t currentObjCount);
-    __host__ void CUDA_FreeDeviceSpaceForBVH();
-    __host__ size_t CUDA_BuildHierarchyInParallel(Node* objects, size_t objectCount);
-    __host__ void CUDA_SortMortonCodes(size_t objectCount);
-    __host__ void CUDA_CopyComponentsFromHostToDevice(BVH::Node* objects);
-    __host__ void CUDA_CopyDeviceNodesToHost();
+    // void OMP_ClearBVH();
+    // void OMP_ConstructBVHInParallel(Node* objects, size_t objectCount);
+    // size_t OMP_BuildHierarchyInParallel(Node* objects, size_t objectCount);
+    // void OMP_AssignMortonCodes(size_t objectCount);
+    // void OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount);
+    // void OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount);
+    //
+    // // CUDA
+    // __host__ void CUDA_ConstructBVHInParallel(Node* objects, size_t objectCount);
+    // __host__ void CUDA_ClearBVH();
+    // __host__ void CUDA_AllocateMemory(size_t currentObjCount);
+    // __host__ void CUDA_FreeDeviceSpaceForBVH();
+    // __host__ size_t CUDA_BuildHierarchyInParallel(Node* objects, size_t objectCount);
+    // __host__ void CUDA_SortMortonCodes(size_t objectCount);
+    // __host__ void CUDA_CopyComponentsFromHostToDevice(BVH::Node* objects);
+    // __host__ void CUDA_CopyDeviceNodesToHost();
 
     // Utility to allocate host-side nodes
     void AllocateHostNodes(size_t count) {
@@ -219,11 +219,11 @@ __host__ __forceinline__ BVH* BVHToGPU(const BVH& h_bvh)
     }
 
     // Null out all unused GPU/host buffers
-    temp.d_ptr_nodes             = nullptr;
-    temp.d_ptr_collisionObjects  = nullptr;
-    temp.h_ptr_sortedMortonCodes = nullptr;
-    temp.d_ptr_sortedMortonCodes = nullptr;
-    temp.d_ptr_objectAABBs       = nullptr;
+    // temp.d_ptr_nodes             = nullptr;
+    // temp.d_ptr_collisionObjects  = nullptr;
+    // temp.h_ptr_sortedMortonCodes = nullptr;
+    // temp.d_ptr_sortedMortonCodes = nullptr;
+    // temp.d_ptr_objectAABBs       = nullptr;
 
     // Copy fully patched struct to device
     err = cudaMemcpy(d_bvh, &temp, sizeof(BVH), cudaMemcpyHostToDevice);
@@ -245,7 +245,7 @@ __host__ __forceinline__ void FreeBVH_GPU(BVH* d_bvh)
     // Free all pointers
     if (h_bvh.nodes)
         cudaFree(h_bvh.nodes);
-    if (h_bvh.d_ptr_nodes)
+    /*if (h_bvh.d_ptr_nodes)
         cudaFree(h_bvh.d_ptr_nodes);
     if (h_bvh.d_ptr_collisionObjects)
         cudaFree(h_bvh.d_ptr_collisionObjects);
@@ -254,7 +254,7 @@ __host__ __forceinline__ void FreeBVH_GPU(BVH* d_bvh)
     if (h_bvh.d_ptr_sortedMortonCodes)
         cudaFree(h_bvh.d_ptr_sortedMortonCodes);
     if (h_bvh.d_ptr_objectAABBs)
-        cudaFree(h_bvh.d_ptr_objectAABBs);
+        cudaFree(h_bvh.d_ptr_objectAABBs);*/
 
     // Free BVH struct itself
     cudaFree(d_bvh);
