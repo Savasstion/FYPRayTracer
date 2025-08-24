@@ -44,6 +44,8 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
         if(err != cudaSuccess)
             std::cerr << "cudaMemcpy failed\n";
     }
+    gpuScene.meshCount = cpuScene.meshes.size();
+    
 
     // Copy TLAS
     gpuScene.tlas = BVHToGPU(cpuScene.tlas);
@@ -112,24 +114,29 @@ void FreeSceneGPU(Scene_GPU* d_scene)
     }
 
     // Free all meshes
-    if (h_scene.meshes) 
+    if (h_scene.meshes)
     {
-        // Copy whole array of meshes back to host
-        std::vector<Mesh_GPU> h_meshes(h_scene.meshCount);
-        err = cudaMemcpy(h_meshes.data(), h_scene.meshes, 
-                         h_scene.meshCount * sizeof(Mesh_GPU), cudaMemcpyDeviceToHost);
+        // Copy mesh array back to host so we can inspect blas pointers
+        std::vector<Mesh_GPU> hostMeshes(h_scene.meshCount);
+        err = cudaMemcpy(hostMeshes.data(), h_scene.meshes,
+            sizeof(Mesh_GPU) * h_scene.meshCount,
+            cudaMemcpyDeviceToHost);
         if (err != cudaSuccess) {
-            std::cerr << "cudaMemcpy error (meshes array): " << cudaGetErrorString(err) << std::endl;
+            std::cerr << "cudaMemcpy meshes error: " << cudaGetErrorString(err) << std::endl;
         }
 
-        for (size_t i = 0; i < h_scene.meshCount; i++)
-        {
-            if (h_meshes[i].blas)
-                FreeBVH_GPU(h_meshes[i].blas);
+        // Free each BLAS
+        for (size_t i = 0; i < h_scene.meshCount; i++) {
+            if (hostMeshes[i].blas) {
+                FreeBVH_GPU(hostMeshes[i].blas);
+            }
         }
 
-        // free mesh array itself
-        cudaFree(h_scene.meshes);
+        // Now free the device mesh array itself
+        err = cudaFree(h_scene.meshes);
+        if (err != cudaSuccess) {
+            std::cerr << "cudaFree mesh array error: " << cudaGetErrorString(err) << std::endl;
+        }
     }
 
     // Free other arrays
