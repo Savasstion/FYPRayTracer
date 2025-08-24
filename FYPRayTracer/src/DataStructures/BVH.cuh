@@ -69,11 +69,13 @@ public:
                                const Ray& ray, size_t nodeIndex) const;
 
     //  Serial
-    void ConstructBVH(Node* objects, size_t objCount);
+    void ConstructBVH_MedianSplit(Node* objects, size_t objCount);
+    void ConstructBVH_SAH(Node* objects, size_t objCount);
     void ClearBVH();
     int LargestExtentAxis(const AABB& b);    // choose axis with largest extent
-    AABB RangeBounds(BVH::Node* arr, size_t first, size_t last);    // compute bounds of a range [first,last)
-    size_t BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created
+    AABB RangeBounds(BVH::Node* arr, size_t first, size_t last);    // compute bounds of a range [first,last) 
+    size_t BuildHierarchyRecursively_MedianSplit(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created (median split BVH construction)
+    size_t BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last); 
 
     // OMP
     // void OMP_ClearBVH();

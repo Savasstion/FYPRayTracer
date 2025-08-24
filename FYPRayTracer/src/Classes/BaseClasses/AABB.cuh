@@ -60,6 +60,14 @@ struct AABB
     {
         return AABB::isIntersect(*this, other);
     }
+
+    __host__ __device__ __forceinline__ float GetSurfaceArea() const
+    {
+        float dx = upperBound.x - lowerBound.x;
+        float dy = upperBound.y - lowerBound.y;
+        float dz = upperBound.z - lowerBound.z;
+        return 2.0f * (dx * dy + dy * dz + dz * dx);
+    }
 };
 
 #endif

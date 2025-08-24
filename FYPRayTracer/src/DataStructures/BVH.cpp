@@ -69,7 +69,7 @@ void BVH::TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
     }
 }
 
-void BVH::ConstructBVH(Node* objects, size_t objCount)
+void BVH::ConstructBVH_MedianSplit(Node* objects, size_t objCount)
 {
     FreeHostNodes();
     objectCount = objCount;
@@ -86,7 +86,32 @@ void BVH::ConstructBVH(Node* objects, size_t objCount)
 
         size_t outCount = 0;
 
-        rootIndex = BuildHierarchyRecursively(nodes, outCount, work, 0, objectCount);
+        rootIndex = BuildHierarchyRecursively_MedianSplit(nodes, outCount, work, 0, objectCount);
+
+        delete[] work;
+        nodeCount = outCount;
+
+    }
+}
+
+void BVH::ConstructBVH_SAH(Node* objects, size_t objCount)
+{
+    FreeHostNodes();
+    objectCount = objCount;
+
+    if (objectCount > 0)
+    {
+        // Allocate host nodes: total 2 * N - 1
+        AllocateHostNodes(2 * objectCount - 1);
+
+        Node* work = new Node[objectCount];
+        for (size_t i = 0; i < objectCount; ++i) {
+            work[i] = Node(objects[i].objectIndex, objects[i].box);
+        }
+
+        size_t outCount = 0;
+
+        rootIndex = BuildHierarchyRecursively_SAH(nodes, outCount, work, 0, objectCount);
 
         delete[] work;
         nodeCount = outCount;
@@ -120,7 +145,7 @@ AABB BVH::RangeBounds(BVH::Node* arr, size_t first, size_t last)
     return out;
 }
 
-size_t BVH::BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last)
+size_t BVH::BuildHierarchyRecursively_MedianSplit(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last)
 {
     const size_t count = last - first;
 
@@ -144,11 +169,150 @@ size_t BVH::BuildHierarchyRecursively(BVH::Node* outNodes, size_t& outCount, BVH
                      });
 
     // build children
-    const size_t leftIndex  = BuildHierarchyRecursively(outNodes, outCount, work, first, mid);
-    const size_t rightIndex = BuildHierarchyRecursively(outNodes, outCount, work, mid,   last);
+    const size_t leftIndex  = BuildHierarchyRecursively_MedianSplit(outNodes, outCount, work, first, mid);
+    const size_t rightIndex = BuildHierarchyRecursively_MedianSplit(outNodes, outCount, work, mid,   last);
 
     // parent
     const AABB parentBox = AABB::UnionAABB(outNodes[leftIndex].box, outNodes[rightIndex].box);
+    outNodes[outCount] = BVH::Node(leftIndex, rightIndex, parentBox);
+    return outCount++;
+}
+
+size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first,
+    size_t last)
+{
+    const size_t count = last - first;
+
+    // Leaf node
+    if (count == 1) {
+        outNodes[outCount] = BVH::Node(work[first].objectIndex, work[first].box);
+        return outCount++;
+    }
+
+    // Compute bounds for current range
+    AABB bounds = RangeBounds(work, first, last);
+
+    // SAH parameters
+    const int numBins = 8;   // usually 8–32 bins give good results
+    float bestCost = FLT_MAX;
+    int bestAxis = -1;
+    int bestSplitBin = -1;
+
+    // Try splitting along each axis
+    for (int axis = 0; axis < 3; axis++) {
+        // Find centroid bounds along this axis
+        AABB centroidBounds;
+        centroidBounds.lowerBound = Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
+        centroidBounds.upperBound = Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+        for (size_t i = first; i < last; i++) {
+            Vector3f c = AABB::FindCentroid(work[i].box);
+            centroidBounds.lowerBound[axis] = MathUtils::minFloat(centroidBounds.lowerBound[axis], c[axis]);
+            centroidBounds.upperBound[axis] = MathUtils::maxFloat(centroidBounds.upperBound[axis], c[axis]);
+        }
+
+        float cmin = centroidBounds.lowerBound[axis];
+        float cmax = centroidBounds.upperBound[axis];
+        if (cmin == cmax) continue; // Degenerate axis → skip
+
+        // Define bins
+        struct Bin { AABB box; size_t count = 0; };
+        Bin bins[numBins];
+
+        // Fill bins
+        for (size_t i = first; i < last; i++) {
+            Vector3f c = AABB::FindCentroid(work[i].box);
+            int binIdx = (int)(((c[axis] - cmin) / (cmax - cmin)) * (numBins - 1));
+            bins[binIdx].count++;
+            bins[binIdx].box = AABB::UnionAABB(bins[binIdx].box, work[i].box);
+        }
+
+        // Prefix sums (left to right)
+        AABB leftBoxes[numBins - 1];
+        size_t leftCounts[numBins - 1];
+        {
+            AABB cur;
+            cur.lowerBound = Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
+            cur.upperBound = Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+            size_t cnt = 0;
+            for (int i = 0; i < numBins - 1; i++) {
+                cur = AABB::UnionAABB(cur, bins[i].box);
+                cnt += bins[i].count;
+                leftBoxes[i] = cur;
+                leftCounts[i] = cnt;
+            }
+        }
+
+        // Suffix sums (right to left)
+        AABB rightBoxes[numBins - 1];
+        size_t rightCounts[numBins - 1];
+        {
+            AABB cur;
+            cur.lowerBound = Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
+            cur.upperBound = Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+            size_t cnt = 0;
+            for (int i = numBins - 1; i > 0; i--) {
+                cur = AABB::UnionAABB(cur, bins[i].box);
+                cnt += bins[i].count;
+                rightBoxes[i - 1] = cur;
+                rightCounts[i - 1] = cnt;
+            }
+        }
+
+        // Evaluate costs
+        float parentArea = bounds.GetSurfaceArea();
+        for (int i = 0; i < numBins - 1; i++) {
+            if (leftCounts[i] == 0 || rightCounts[i] == 0) continue;
+
+            float cost =
+                0.125f + // traversal cost (Ct) — arbitrary scaling
+                (leftCounts[i] * leftBoxes[i].GetSurfaceArea() +
+                 rightCounts[i] * rightBoxes[i].GetSurfaceArea()) / parentArea;
+
+            if (cost < bestCost) {
+                bestCost = cost;
+                bestAxis = axis;
+                bestSplitBin = i;
+            }
+        }
+    }
+
+    // If SAH failed (all centroids collapsed), fallback to median split
+    if (bestAxis == -1) {
+        const size_t mid = (first + last) / 2;
+        std::nth_element(work + first, work + mid, work + last,
+            [](const BVH::Node& a, const BVH::Node& b) {
+                AABB boxA = a.box;
+                AABB boxB = b.box;
+                return AABB::FindCentroid(boxA).x < AABB::FindCentroid(boxB).x;
+            });
+        const size_t leftIndex  = BuildHierarchyRecursively_SAH(outNodes, outCount, work, first, mid);
+        const size_t rightIndex = BuildHierarchyRecursively_SAH(outNodes, outCount, work, mid,   last);
+        AABB parentBox = AABB::UnionAABB(outNodes[leftIndex].box, outNodes[rightIndex].box);
+        outNodes[outCount] = BVH::Node(leftIndex, rightIndex, parentBox);
+        return outCount++;
+    }
+
+    // Partition primitives according to best split
+    float cmin = bounds.lowerBound[bestAxis];
+    float cmax = bounds.upperBound[bestAxis];
+    float splitPos = cmin + (bestSplitBin + 1) * (cmax - cmin) / (float)numBins;
+
+    auto midIter = std::partition(work + first, work + last,
+        [bestAxis, splitPos](const BVH::Node& n) {
+            AABB boxN = n.box;
+            return AABB::FindCentroid(boxN)[bestAxis] < splitPos;
+        });
+
+    size_t mid = midIter - work;
+    if (mid == first || mid == last) mid = (first + last) / 2; // Safety fallback
+
+    // Recursively build children
+    const size_t leftIndex  = BuildHierarchyRecursively_SAH(outNodes, outCount, work, first, mid);
+    const size_t rightIndex = BuildHierarchyRecursively_SAH(outNodes, outCount, work, mid,   last);
+
+    // Create parent node
+    AABB parentBox = AABB::UnionAABB(outNodes[leftIndex].box, outNodes[rightIndex].box);
     outNodes[outCount] = BVH::Node(leftIndex, rightIndex, parentBox);
     return outCount++;
 }
