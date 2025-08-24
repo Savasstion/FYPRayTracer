@@ -148,6 +148,7 @@ public:
 		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
 		ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
+		ImGui::Text("Vertices Count : %d", static_cast<uint32_t>(m_Scene.vertices.size()));
 		ImGui::Text("Frame Time : %.3fms", m_CurrentFrameTime);
 		ImGui::DragFloat("Total Time to Render(min)", &m_TimeToRender, 0.1f);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
