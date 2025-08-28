@@ -1,6 +1,6 @@
 # Final Year Project (Ray Tracing Sampling Techniques Benchmarker) [Work in Progress]
 
-This project uses an app template from [Walnut](https://github.com/TheCherno/Walnut).
+This project uses [Walnut](https://github.com/TheCherno/Walnut) as a template.
 
 ## Requirements
 - CUDA Toolkit
