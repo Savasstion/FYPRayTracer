@@ -2,6 +2,12 @@
 
 This project uses [Walnut](https://github.com/TheCherno/Walnut) as a template.
 
+## Overview
+This project implements many ray tracing sampling techniques to be benchmarked and performance logged for comparison purposes. This project is done as my Final Year Project for my Bachelor of Computer Science (Honours) in Interactive Software Technology from Tunku Abdul Rahman University of Management and Technology (TAR UMT).
+
+![fypDemoOutdated](https://github.com/user-attachments/assets/ebddfeca-2ab2-4a86-b452-181881879834)
+(A ray traced image of spheres [To be updated])
+
 ## Requirements
 - CUDA Toolkit
 - NVIDIA Graphics Card (for CUDA)
