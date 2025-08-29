@@ -1,7 +1,6 @@
 #ifndef MESH_H
 #define MESH_H
 #include <cstdint>
-#include "../../Utility/MathUtils.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <vector>
 #include "AABB.cuh"
