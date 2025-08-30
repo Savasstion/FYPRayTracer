@@ -1,1 +1,0 @@
-#include "EmmisiveTriangle.h"
