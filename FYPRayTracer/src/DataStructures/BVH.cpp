@@ -187,7 +187,7 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
     AABB bounds = RangeBounds(work, first, last);
 
     // SAH parameters
-    const int numBins = 8;   // usually 8–32 bins give good results
+    const int numBins = 16;   // usually 8–32 bins give good results
     float bestCost = FLT_MAX;
     int bestAxis = -1;
     int bestSplitBin = -1;
