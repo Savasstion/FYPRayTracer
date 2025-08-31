@@ -657,6 +657,8 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 
 __host__ __device__ glm::vec3 RendererGPU::CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
 {
+    constexpr float invPI = 1 / MathUtils::pi;
+    
     glm::vec3 H = glm::normalize(V + L);
     float NdotL = glm::max(glm::dot(N, L), 0.0f);
     float NdotV = glm::max(glm::dot(N, V), 0.0f);
@@ -675,13 +677,13 @@ __host__ __device__ glm::vec3 RendererGPU::CalculateBRDF(const glm::vec3& N, con
     
     // Lambertian diffuse (non-metallic only)
     glm::vec3 kD = (1.0f - F) * (1.0f - metallic);
-    glm::vec3 diffuse = kD * albedo / MathUtils::pi;
+    glm::vec3 diffuse = kD * albedo * invPI;
 
     // Normal Distribution (GGX / Trowbridge-Reitz)
     float a = roughness * roughness;
     float a2 = a * a;
     float denominator = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
-    float D = a2 / (MathUtils::pi * denominator * denominator);
+    float D = a2 * invPI / (denominator * denominator);
 
     
     //  Cook-Torrance specular
