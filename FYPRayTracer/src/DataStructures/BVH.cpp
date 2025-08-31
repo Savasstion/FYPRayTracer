@@ -103,17 +103,11 @@ void BVH::ConstructBVH_SAH(Node* objects, size_t objCount)
     {
         // Allocate host nodes: total 2 * N - 1
         AllocateHostNodes(2 * objectCount - 1);
-
-        Node* work = new Node[objectCount];
-        for (size_t i = 0; i < objectCount; ++i) {
-            work[i] = Node(objects[i].objectIndex, objects[i].box);
-        }
+        
 
         size_t outCount = 0;
 
-        rootIndex = BuildHierarchyRecursively_SAH(nodes, outCount, work, 0, objectCount);
-
-        delete[] work;
+        rootIndex = BuildHierarchyRecursively_SAH(nodes, outCount, objects, 0, objectCount);
         nodeCount = outCount;
 
     }
@@ -265,7 +259,7 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
             if (leftCounts[i] == 0 || rightCounts[i] == 0) continue;
 
             float cost =
-                0.125f + // traversal cost (Ct) — arbitrary scaling
+                0.125f + // traversal cost (Ct) - arbitrary scaling
                 (leftCounts[i] * leftBoxes[i].GetSurfaceArea() +
                  rightCounts[i] * rightBoxes[i].GetSurfaceArea()) / parentArea;
 
