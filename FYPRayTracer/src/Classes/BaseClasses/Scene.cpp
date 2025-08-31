@@ -181,7 +181,7 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmmisiveTriangles()
             
             uint32_t triIndex = triangles[i].v0 / 3;
             glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
-            LightTree::Node::OrientationBounds bounds_o;
+            ConeBounds bounds_o;
             bounds_o.theta_e = PIhalf;
             bounds_o.theta_o = 0.0f;
             bounds_o.axis = Triangle::GetTriangleNormal(v0.normal, v1.normal, v2.normal);
