@@ -10,6 +10,7 @@ struct Material
     float emissionPower = 0.0f;
 
     __host__ __device__ glm::vec3 GetEmission() const {return emissionColor * emissionPower;}
+    __host__ __device__ float GetEmissionRadiance() const {return glm::length(emissionColor * emissionPower);}
     __host__ __device__ float GetEmissionPower() const {return emissionPower;}
 };
 

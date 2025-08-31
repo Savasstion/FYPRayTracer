@@ -2,7 +2,6 @@
 #define SCENE_H
 
 #include <vector>
-
 #include "Mesh.h"
 #include "Sphere.h"
 #include "Triangle.h"
@@ -10,6 +9,7 @@
 #include "Vertex.h"
 #include "../BaseClasses/Material.cuh"
 #include "../../DataStructures/BVH.cuh"
+#include "../../DataStructures/LightTree.h"
 
 namespace SceneSettings
 {
@@ -42,6 +42,7 @@ struct Scene
     void UpdateAllTransformedSceneMeshes();
     std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();  //obsolete now
     std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes();
+    std::vector<LightTree::Node> CreateLightTreeNodesFromEmmisiveTriangles();
 };
 
 #endif

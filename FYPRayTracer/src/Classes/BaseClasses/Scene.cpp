@@ -1,5 +1,6 @@
 #include "Scene.h"
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/norm.hpp>
 
 Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
                                std::vector<uint32_t>& meshTriangleVertexIndices,
@@ -157,6 +158,38 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
 
         // Create a leaf node for the mesh (objectIndex = i)
         leafNodes.emplace_back(i, aabb);
+    }
+
+    return leafNodes;
+}
+
+std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmmisiveTriangles()
+{
+    std::vector<LightTree::Node> leafNodes;
+    leafNodes.reserve(triangles.size() / 4);    //  allocated a quarter's worth first before needing to increase capacity automatically
+    
+    for(uint32_t i = 0; i < triangles.size(); i++)
+    {
+
+        if(glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
+        {
+            auto& v0 = vertices[triangles[i].v0];
+            auto& v1 = vertices[triangles[i].v1];
+            auto& v2 = vertices[triangles[i].v2];
+            constexpr float PIhalf = MathUtils::pi / 2.0f;
+            float emmisiveRadiance = materials[triangles[i].materialIndex].GetEmissionRadiance();
+            
+            uint32_t triIndex = triangles[i].v0 / 3;
+            glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
+            LightTree::Node::OrientationBounds bounds_o;
+            bounds_o.theta_e = PIhalf;
+            bounds_o.theta_o = 0.0f;
+            bounds_o.axis = Triangle::GetTriangleNormal(v0.normal, v1.normal, v2.normal);
+            float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
+            float energy = area * emmisiveRadiance * MathUtils::pi;
+            
+            leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[i].aabb, bounds_o, energy);
+        }
     }
 
     return leafNodes;
