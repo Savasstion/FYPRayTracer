@@ -6,6 +6,8 @@
 #include <device_launch_parameters.h>
 #include <iostream>
 
+Scene_GPU* RendererGPU::d_currentScene = nullptr;
+
 void Renderer::Render(const Scene& scene, const Camera& camera)
 {
     m_ActiveScene = &scene;
@@ -50,7 +52,15 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
     }
     
     // Allocate device versions
-    Scene_GPU* d_sceneGPU = SceneToGPU(scene);   
+    Scene_GPU* d_sceneGPU = RendererGPU::d_currentScene;
+    if(isSceneUpdated)
+    {
+        if(d_sceneGPU != nullptr)
+            FreeSceneGPU(d_sceneGPU);
+        d_sceneGPU = SceneToGPU(scene);
+        RendererGPU::d_currentScene = d_sceneGPU;
+        isSceneUpdated = false;
+    }
     Camera_GPU* d_cameraGPU = CameraToGPU(camera);
 
     err = cudaGetLastError();
@@ -118,7 +128,6 @@ void Renderer::Render(const Scene& scene, const Camera& camera)
         std::cerr << "cudaFree error: " << cudaGetErrorString(err) << std::endl;
     }
     
-    FreeSceneGPU(d_sceneGPU);
     FreeCameraGPU(d_cameraGPU);
     
 }

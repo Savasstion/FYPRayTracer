@@ -18,6 +18,7 @@ private:
     const Scene* m_ActiveScene = nullptr;
     const Camera* m_ActiveCamera = nullptr;
     uint32_t m_FrameIndex = 1;
+    bool isSceneUpdated = true;
 
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 

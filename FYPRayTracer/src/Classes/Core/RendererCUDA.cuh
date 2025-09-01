@@ -6,7 +6,6 @@
 #include "../BaseClasses/Camera_GPU.h"
 #include "../BaseClasses/RenderingSettings.h"
 
-
 struct RendererGPU
 {
     __host__ __device__ static glm::vec4 PerPixel(
@@ -29,6 +28,8 @@ struct RendererGPU
     __host__ __device__ static glm::vec3 CalculateBRDF(
         const glm::vec3& N, const glm::vec3& V, const glm::vec3& L,
         const glm::vec3& albedo, float metallic, float roughness);
+
+    static Scene_GPU* d_currentScene;
 };
 
 __global__ void RenderKernel(
