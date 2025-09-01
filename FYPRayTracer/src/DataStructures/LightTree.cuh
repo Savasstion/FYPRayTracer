@@ -29,15 +29,39 @@ public:
         Node() = default;
         
     };
+    struct Bin
+    {
+        AABB bounds_w;           // spatial bounds of emitters in this bin
+        ConeBounds bounds_o;     // orientation cone of emitters
+        float energy = 0.0f;     // total emitted energy (flux)
+        uint32_t numEmitters = 0;
 
-    std::vector<Node> nodes;
-    uint32_t leafThreshold = 1;
-    std::vector<uint32_t> emitterNodeIndices;
+        void Reset()
+        {
+            bounds_w = AABB();
+            bounds_o = ConeBounds();
+            energy = 0.0f;
+            numEmitters = 0;
+        }
+
+        void AddEmitter(const Node& emitter)
+        {
+            bounds_w = AABB::UnionAABB(bounds_w, emitter.bounds_w);
+            bounds_o = ConeBounds::UnionCone(bounds_o, emitter.bounds_o);
+            energy += emitter.energy;
+            numEmitters++;
+        }
+    };
+
+    Node* nodes = nullptr;
+    uint32_t nodeCount = 0;
+    uint32_t rootIndex = static_cast<uint32_t>(-1);
     
 
-    void ConstructLightTree(Node* objects, size_t objCount);
+    void ConstructLightTree(Node* objects, uint32_t objCount);
+    uint32_t BuildHierarchyRecursively_SAOH(Node* outNodes, uint32_t& outCount, Node* work, uint32_t first, uint32_t last);
     void ClearLightTree();
-    void AllocateNodes(size_t count);
+    void AllocateNodes(uint32_t count);
     void FreeNodes();
     float GetOrientationBoundsAreaMeasure(const float& theta_o, const float& theta_e);
     float GetProbabilityOfSamplingCluster(float area, float orientBoundAreaMeasure, float energy);
