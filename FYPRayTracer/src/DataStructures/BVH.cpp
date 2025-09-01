@@ -3,40 +3,6 @@
 #include <algorithm>
 #include <limits>
 
-void BVH::TraverseRecursive(size_t*& collisionList, size_t& collisionCount,
-    const AABB& queryAABB, size_t objectQueryIndex,
-    size_t nodeIndex) const
-{
-    if (nodeIndex >= nodeCount) {
-        std::cerr << "[ERROR] nodeIndex out of bounds: " << nodeIndex << " (nodeCount: " << nodeCount << ")\n";
-        return;
-    }
-
-    const Node& node = nodes[nodeIndex];
-
-    // Check for AABB overlap
-    if (!AABB::isIntersect(queryAABB, node.box))
-        return;
-
-    if (node.isLeaf)
-    {
-        if (node.objectIndex != objectQueryIndex)
-            collisionList[collisionCount++] = node.objectIndex;
-    }
-    else
-    {
-        // Bounds check for children
-        if (node.child1 >= nodeCount || node.child2 >= nodeCount) {
-            std::cerr << "[ERROR] Invalid child index at node " << nodeIndex
-                << " | child1: " << node.child1 << ", child2: " << node.child2
-                << ", nodeCount: " << nodeCount << "\n";
-            return;
-        }
-
-        TraverseRecursive(collisionList, collisionCount, queryAABB, objectQueryIndex, node.child1);
-        TraverseRecursive(collisionList, collisionCount, queryAABB, objectQueryIndex, node.child2);
-    }
-}
 
 void BVH::TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
     const Ray& ray, size_t nodeIndex) const
@@ -193,7 +159,12 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
     int bestSplitBin = -1;
 
     // Try splitting along each axis
+    #pragma omp parallel for
     for (int axis = 0; axis < 3; axis++) {
+        //  thread params
+        float threadBestCost = FLT_MAX;
+        int threadBestAxis = -1, threadBestSplit = -1;
+        
         // Find centroid bounds along this axis
         AABB centroidBounds;
         centroidBounds.lowerBound = Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
@@ -262,13 +233,23 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
                 (leftCounts[i] * leftBoxes[i].GetSurfaceArea() +
                  rightCounts[i] * rightBoxes[i].GetSurfaceArea()) / parentArea;
 
-            if (cost < bestCost) {
-                bestCost = cost;
-                bestAxis = axis;
-                bestSplitBin = i;
+            if (cost < threadBestCost) {
+                threadBestCost = cost;
+                threadBestAxis = axis;
+                threadBestSplit = i;
+            }
+        }
+
+        #pragma omp critical
+        {
+            if (threadBestCost < bestCost) {
+                bestCost = threadBestCost;
+                bestAxis = threadBestAxis;
+                bestSplitBin = threadBestSplit;
             }
         }
     }
+    
 
     // If SAH failed (all centroids collapsed), fallback to median split
     if (bestAxis == -1) {

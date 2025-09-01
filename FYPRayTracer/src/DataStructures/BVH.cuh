@@ -63,12 +63,9 @@ public:
 
 
     // Traversal
-    void TraverseRecursive(size_t*& collisionList, size_t& collisionCount,
-                            const AABB& queryAABB, size_t objectQueryIndex, size_t nodeIndex) const;
     void TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
                                const Ray& ray, size_t nodeIndex) const;
-
-    //  Serial
+    
     void ConstructBVH_MedianSplit(Node* objects, size_t objCount);
     void ConstructBVH_SAH(Node* objects, size_t objCount);
     void ClearBVH();
@@ -76,15 +73,7 @@ public:
     AABB RangeBounds(BVH::Node* arr, size_t first, size_t last);    // compute bounds of a range [first,last) 
     size_t BuildHierarchyRecursively_MedianSplit(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created (median split BVH construction)
     size_t BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last); 
-
-    // OMP
-    // void OMP_ClearBVH();
-    // void OMP_ConstructBVHInParallel(Node* objects, size_t objectCount);
-    // size_t OMP_BuildHierarchyInParallel(Node* objects, size_t objectCount);
-    // void OMP_AssignMortonCodes(size_t objectCount);
-    // void OMP_BuildLeafNodes(BVH::Node* ptr_nodes, size_t objectCount);
-    // void OMP_BuildInternalNodes(BVH::Node* ptr_nodes, size_t objectCount);
-    //
+    
     // // CUDA
     // __host__ void CUDA_ConstructBVHInParallel(Node* objects, size_t objectCount);
     // __host__ void CUDA_ClearBVH();
