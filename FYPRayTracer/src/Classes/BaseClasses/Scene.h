@@ -9,7 +9,7 @@
 #include "Vertex.h"
 #include "../BaseClasses/Material.cuh"
 #include "../../DataStructures/BVH.cuh"
-#include "../../DataStructures/LightTree.h"
+#include "../../DataStructures/LightTree.cuh"
 
 namespace SceneSettings
 {

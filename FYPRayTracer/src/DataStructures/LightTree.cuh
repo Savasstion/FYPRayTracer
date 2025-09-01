@@ -1,5 +1,7 @@
-#ifndef LIGHT_TREE_H
-#define LIGHT_TREE_H
+#ifndef LIGHT_TREE_CUH
+#define LIGHT_TREE_CUH
+#include <cuda.h>
+#define GLM_FORCE_CUDA
 #include <vector>
 #include "../Classes/BaseClasses/AABB.cuh"
 #include "../Classes/BaseClasses/ConeBounds.h"
@@ -32,7 +34,11 @@ public:
     uint32_t leafThreshold = 1;
     std::vector<uint32_t> emitterNodeIndices;
     
-    
+
+    void ConstructLightTree(Node* objects, size_t objCount);
+    void ClearLightTree();
+    void AllocateNodes(size_t count);
+    void FreeNodes();
 };
 
 #endif
