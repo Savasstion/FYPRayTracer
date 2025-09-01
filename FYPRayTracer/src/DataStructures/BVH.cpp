@@ -210,7 +210,6 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
         if (cmin == cmax) continue; // Degenerate axis → skip
 
         // Define bins
-        struct Bin { AABB box; size_t count = 0; };
         Bin bins[numBins];
 
         // Fill bins
@@ -259,7 +258,7 @@ size_t BVH::BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount,
             if (leftCounts[i] == 0 || rightCounts[i] == 0) continue;
 
             float cost =
-                0.125f + // traversal cost (Ct) - arbitrary scaling
+                1.0f + // traversal cost (Ct) - arbitrary scaling
                 (leftCounts[i] * leftBoxes[i].GetSurfaceArea() +
                  rightCounts[i] * rightBoxes[i].GetSurfaceArea()) / parentArea;
 

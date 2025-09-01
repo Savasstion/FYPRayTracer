@@ -18,7 +18,7 @@ public:
         unsigned int mortonCode;
         size_t objectIndex;
     };
-
+    struct Bin { AABB box; size_t count = 0; }; //  for Surface Area Heuristic (SAH)
     struct Node
     {
         AABB box;
