@@ -11,7 +11,6 @@ class LightTree
 {
 public:
     struct SampledLight { uint32_t emitterIndex; float pmf; };
-    struct SplitCandidate { int axis; float pos; float cost; };
     struct Node
     {
         float energy = 0.0f;
@@ -22,10 +21,10 @@ public:
         glm::vec3 position{0.0f};
 
         bool isLeaf = false;
-        uint32_t triangleIndex = static_cast<uint32_t>(-1);
+        uint32_t emmiterIndex = static_cast<uint32_t>(-1);  //  if leaf, this stores the index of actual emmisive triangle. If internal node, then this stores the right child index
 
         Node(uint32_t triIndex, const glm::vec3& barycentricCoord, const AABB& box, const ConeBounds& orient, float emittedEnergy)
-        : energy(emittedEnergy), numEmitters(1), offset(0), bounds_o(orient), bounds_w(box), position(barycentricCoord), isLeaf(true), triangleIndex(triIndex)
+        : energy(emittedEnergy), numEmitters(1), offset(0), bounds_o(orient), bounds_w(box), position(barycentricCoord), isLeaf(true), emmiterIndex(triIndex)
         {}
         Node() = default;
         
@@ -57,6 +56,7 @@ public:
     Node* nodes = nullptr;
     uint32_t nodeCount = 0;
     uint32_t rootIndex = static_cast<uint32_t>(-1);
+    uint32_t leafThreshold = 1;
     
 
     void ConstructLightTree(Node* objects, uint32_t objCount);
@@ -86,6 +86,7 @@ __host__ __forceinline__ LightTree* LightTreeToGPU(const LightTree& h_lightTree)
     
     // Copy only the necessary fields
     temp.nodeCount      = h_lightTree.nodeCount;
+    temp.leafThreshold  = h_lightTree.leafThreshold;
 
     // Safe rootIndex assignment
     if (h_lightTree.nodeCount > 0) {

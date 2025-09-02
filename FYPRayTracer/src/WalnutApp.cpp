@@ -110,7 +110,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				2);
 		
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
@@ -125,6 +125,11 @@ public:
 		//	Scene Light Tree Construction
 		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmmisiveTriangles();
 		m_Scene.lightTree.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+
+		//	test
+		auto n0 = m_Scene.lightTree.nodes[0];
+		auto n1 = m_Scene.lightTree.nodes[1];
+		auto n2 = m_Scene.lightTree.nodes[2];
 		
 	}
 	
