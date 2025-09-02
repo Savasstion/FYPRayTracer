@@ -61,7 +61,6 @@ public:
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
@@ -89,7 +88,6 @@ public:
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		{
@@ -117,15 +115,16 @@ public:
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
-			//meshPtr->blas.CUDA_ConstructBVHInParallel(blasObjectNodes.data(), blasObjectNodes.size());
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
 		}
 		
 		//	Scene TLAS Construction
 		auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
-		//auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneTriangles();
-		//m_Scene.tlas.CUDA_ConstructBVHInParallel(tlasObjectNodes.data(), tlasObjectNodes.size());
 		m_Scene.tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
+
+		//	Scene Light Tree Construction
+		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmmisiveTriangles();
+		m_Scene.lightTree.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		
 	}
 	

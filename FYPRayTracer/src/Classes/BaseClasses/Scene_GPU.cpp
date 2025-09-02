@@ -24,6 +24,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     gpuScene.meshes = nullptr;
     gpuScene.materials = nullptr;
     gpuScene.tlas = nullptr;
+    gpuScene.lightTree = nullptr;
 
     // Copy CPU vectors to GPU arrays
     CopyVectorToDevice(cpuScene.vertices, gpuScene.vertices, gpuScene.vertexCount);
@@ -49,54 +50,14 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
 
     // Copy TLAS
     gpuScene.tlas = BVHToGPU(cpuScene.tlas);
+    // Copy Light Tree
+    gpuScene.lightTree = LightTreeToGPU(cpuScene.lightTree);
 
     // Copy filled Scene_GPU struct to device
     err = cudaMemcpy(d_scene, &gpuScene, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         std::cerr << "cudaMemcpy Scene_GPU error: " << cudaGetErrorString(err) << std::endl;
     }
-
-//// Debug: Copy back first mesh BLAS from device
-// if (!cpuScene.meshes.empty())
-// {
-//     // Step 1: Copy first mesh struct from device
-//     Mesh_GPU debugMesh{};
-//     err = cudaMemcpy(&debugMesh, gpuScene.meshes, sizeof(Mesh_GPU), cudaMemcpyDeviceToHost);
-//     if (err != cudaSuccess) {
-//         std::cerr << "cudaMemcpy (device->host) Mesh_GPU failed: " << cudaGetErrorString(err) << std::endl;
-//     } else if (debugMesh.blas) {
-//         // Step 2: Copy BVH struct from device
-//         BVH h_bvh{};
-//         err = cudaMemcpy(&h_bvh, debugMesh.blas, sizeof(BVH), cudaMemcpyDeviceToHost);
-//         if (err != cudaSuccess) {
-//             std::cerr << "cudaMemcpy (device->host) BVH failed: " << cudaGetErrorString(err) << std::endl;
-//         } else {
-//             std::cout << "Debug BVH: nodeCount=" << h_bvh.nodeCount
-//                       << ", objectCount=" << h_bvh.objectCount
-//                       << ", rootIndex=" << h_bvh.rootIndex << std::endl;
-//
-//             // Step 3: Copy nodes array if it exists
-//             if (h_bvh.nodes && h_bvh.nodeCount > 0) {
-//                 std::vector<BVH::Node> hostNodes(h_bvh.nodeCount);
-//                 err = cudaMemcpy(hostNodes.data(), h_bvh.nodes,
-//                                  h_bvh.nodeCount * sizeof(BVH::Node),
-//                                  cudaMemcpyDeviceToHost);
-//                 if (err != cudaSuccess) {
-//                     std::cerr << "cudaMemcpy (device->host) BVH nodes failed: "
-//                               << cudaGetErrorString(err) << std::endl;
-//                 }
-//                 auto n0 = hostNodes[0];
-//                 auto n1 = hostNodes[1];
-//                 auto n2 = hostNodes[2];
-//                 auto n3 = hostNodes[3];
-//                 auto n4 = hostNodes[4];
-//                 auto n5 = hostNodes[5];
-//                 auto n6 = hostNodes[6];
-//                 
-//             }
-//         }
-//     }
-// }
     
     return d_scene;
 }
@@ -148,6 +109,8 @@ void FreeSceneGPU(Scene_GPU* d_scene)
 
     // Free TLAS
     if (h_scene.tlas) FreeBVH_GPU(h_scene.tlas);
+    // Free Light Tree
+    if (h_scene.lightTree) FreeLightTree_GPU(h_scene.lightTree);
 
     // Finally free the Scene_GPU struct itself
     cudaFree(d_scene);

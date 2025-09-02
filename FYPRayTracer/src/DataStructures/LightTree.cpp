@@ -3,7 +3,7 @@
 
 void LightTree::ConstructLightTree(Node* objects, uint32_t objCount)
 {
-    FreeNodes();
+    ClearLightTree();
     nodeCount = objCount;
 
     if (nodeCount > 0)

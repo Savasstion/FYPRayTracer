@@ -13,6 +13,7 @@ struct Scene_GPU
     Material* materials;
 
     BVH* tlas;
+    LightTree* lightTree;
 
     uint32_t vertexCount;
     uint32_t worldVertexCount;

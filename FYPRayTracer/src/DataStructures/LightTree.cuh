@@ -2,6 +2,7 @@
 #define LIGHT_TREE_CUH
 #include <cuda.h>
 #define GLM_FORCE_CUDA
+#include <iostream>
 #include <vector>
 #include "../Classes/BaseClasses/AABB.cuh"
 #include "../Classes/BaseClasses/ConeBounds.h"
@@ -67,5 +68,75 @@ public:
     float GetProbabilityOfSamplingCluster(float area, float orientBoundAreaMeasure, float energy);
     float GetSplitCost(float probLeftCluster, float probRightCluster, float probCluster);
 };
+
+__host__ __forceinline__ LightTree* LightTreeToGPU(const LightTree& h_lightTree)
+{
+    cudaError_t err;
+
+    // Allocate BVH struct on device
+    LightTree* d_lightTree = nullptr;
+    err = cudaMalloc(&d_lightTree, sizeof(LightTree));
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMalloc BVH error: " << cudaGetErrorString(err) << std::endl;
+        return nullptr;
+    }
+
+    // Prepare temporary host copy, zero-initialized
+    LightTree temp{};
+    
+    // Copy only the necessary fields
+    temp.nodeCount      = h_lightTree.nodeCount;
+
+    // Safe rootIndex assignment
+    if (h_lightTree.nodeCount > 0) {
+        // Use CPU rootIndex if valid, otherwise default to 0
+        temp.rootIndex = (h_lightTree.rootIndex == static_cast<uint32_t>(-1)) ? 0 : h_lightTree.rootIndex;
+    } else {
+        temp.rootIndex = static_cast<uint32_t>(-1);
+    }
+
+    // Copy nodes array to device if available
+    if (h_lightTree.nodes && h_lightTree.nodeCount > 0) {
+        LightTree::Node* d_nodes = nullptr;
+        err = cudaMalloc(&d_nodes, h_lightTree.nodeCount * sizeof(LightTree::Node));
+        if (err != cudaSuccess) {
+            std::cerr << "cudaMalloc BVH nodes error: " << cudaGetErrorString(err) << std::endl;
+        } else {
+            err = cudaMemcpy(d_nodes, h_lightTree.nodes,
+                             h_lightTree.nodeCount * sizeof(LightTree::Node),
+                             cudaMemcpyHostToDevice);
+            if (err != cudaSuccess) {
+                std::cerr << "cudaMemcpy BVH nodes error: " << cudaGetErrorString(err) << std::endl;
+            }
+        }
+        temp.nodes = d_nodes;
+    } else {
+        temp.nodes = nullptr;
+    }
+    
+    // Copy fully patched struct to device
+    err = cudaMemcpy(d_lightTree, &temp, sizeof(LightTree), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        std::cerr << "cudaMemcpy BVH struct error: " << cudaGetErrorString(err) << std::endl;
+    }
+
+    return d_lightTree;
+}
+
+__host__ __forceinline__ void FreeLightTree_GPU(LightTree* d_lightTree)
+{
+    if (!d_lightTree) return;
+
+    // Copy BVH struct from device to host so we can access its pointers
+    LightTree h_lightTree;
+    cudaMemcpy(&h_lightTree, d_lightTree, sizeof(LightTree), cudaMemcpyDeviceToHost);
+
+    // Free all pointers
+    if (h_lightTree.nodes)
+        cudaFree(h_lightTree.nodes);
+
+    // Free BVH struct itself
+    cudaFree(d_lightTree);
+}
 
 #endif
