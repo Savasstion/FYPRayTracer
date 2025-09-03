@@ -127,9 +127,9 @@ public:
 		m_Scene.lightTree.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 
 		//	test
-		auto n0 = m_Scene.lightTree.nodes[0];
-		auto n1 = m_Scene.lightTree.nodes[1];
-		auto n2 = m_Scene.lightTree.nodes[2];
+		// auto n0 = m_Scene.lightTree.nodes[0];
+		// auto n1 = m_Scene.lightTree.nodes[1];
+		// auto n2 = m_Scene.lightTree.nodes[2];
 		
 	}
 	

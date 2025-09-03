@@ -76,10 +76,7 @@ LightTree::SampledLight PickLight(const LightTree* tree, const LightTree::Shadin
         float p_left = I_left / sum;
         // Clamp to avoid exact 0/1 which would break the interval mapping
         p_left = glm::clamp(p_left, 1e-6f, 1.0f - 1e-6f);
-
-        // Decide branch using u, and remap u to conditional u' for the chosen branch:
-        // if u < p_left -> go left and u' = u / p_left
-        // else -> go right and u' = (u - p_left) / (1 - p_left)
+        
         if (randFloat < p_left) {
             // choose left
             pmfAcc *= p_left;
