@@ -35,3 +35,43 @@ ConeBounds ConeBounds::UnionCone(ConeBounds a, ConeBounds b)
     return {axis, theta_o, theta_e};
     
 }
+
+ConeBounds ConeBounds::FindConeThatEnvelopsAABBFromPoint(const AABB& aabb, glm::vec3 pointPos)
+{
+    glm::vec3 centroid{0};
+    centroid.x = aabb.centroidPos.x;
+    centroid.y = aabb.centroidPos.y;
+    centroid.z = aabb.centroidPos.z;
+    //  define cone's axis
+    glm::vec3 axis = glm::normalize(centroid - pointPos);
+
+    //  define corner positions of the AABB
+    glm::vec3 corners[8] = {
+        {aabb.lowerBound.x, aabb.lowerBound.y, aabb.lowerBound.z},
+        {aabb.lowerBound.x, aabb.lowerBound.y, aabb.upperBound.z},
+        {aabb.lowerBound.x, aabb.upperBound.y, aabb.lowerBound.z},
+        {aabb.lowerBound.x, aabb.upperBound.y, aabb.upperBound.z},
+        {aabb.upperBound.x, aabb.lowerBound.y, aabb.lowerBound.z},
+        {aabb.upperBound.x, aabb.lowerBound.y, aabb.upperBound.z},
+        {aabb.upperBound.x, aabb.upperBound.y, aabb.lowerBound.z},
+        {aabb.upperBound.x, aabb.upperBound.y, aabb.upperBound.z}
+    };
+
+    //   for every corner, get the biggest angle that encompasses all corners 
+    float maxTheta = 0.0f;
+    for (int i = 0; i < 8; i++) {
+        glm::vec3 dir = glm::normalize(glm::vec3(corners[i] - pointPos));
+        float cosTheta = glm::dot(axis, dir);
+        cosTheta = glm::clamp(cosTheta, -1.0f, 1.0f); // safety against float errors
+        float theta = acosf(cosTheta);
+        maxTheta = fmaxf(maxTheta, theta);
+    }
+
+    //  use theta_o to store the cone's angle
+    ConeBounds result;
+    result.axis = axis;
+    result.theta_o = maxTheta;
+    result.theta_e = 0.0f;
+
+    return result;
+}

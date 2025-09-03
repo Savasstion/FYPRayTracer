@@ -10,6 +10,7 @@
 class LightTree
 {
 public:
+    struct ShadingPointQuery{ glm::vec3 position; glm::vec3 normal; };
     struct SampledLight { uint32_t emitterIndex; float pmf; };
     struct Node
     {
@@ -68,6 +69,7 @@ public:
     float GetProbabilityOfSamplingCluster(float area, float orientBoundAreaMeasure, float energy);
     float GetSplitCost(float probLeftCluster, float probRightCluster, float probCluster);
 };
+__host__ __device__ float ComputeClusterImportance(const LightTree::ShadingPointQuery& shadingPoint, const LightTree::Node& cluster);
 
 __host__ __forceinline__ LightTree* LightTreeToGPU(const LightTree& h_lightTree)
 {
@@ -139,5 +141,7 @@ __host__ __forceinline__ void FreeLightTree_GPU(LightTree* d_lightTree)
     // Free BVH struct itself
     cudaFree(d_lightTree);
 }
+
+__host__ __device__ LightTree::SampledLight PickLight(const LightTree* tree, const LightTree::ShadingPointQuery& sp, uint32_t& randSeed);
 
 #endif

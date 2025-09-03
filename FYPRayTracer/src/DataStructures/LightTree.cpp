@@ -313,3 +313,4 @@ float LightTree::GetSplitCost(float probLeftCluster, float probRightCluster, flo
 {
     return (probLeftCluster + probRightCluster) / probCluster;
 }
+
