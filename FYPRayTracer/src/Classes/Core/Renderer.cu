@@ -642,8 +642,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
     uint8_t maxBounces, uint8_t sampleCount,
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-    uint32_t imageWidth)
-{
+    uint32_t imageWidth){
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
 
@@ -681,12 +680,16 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         sp.position = primaryPayload.worldPosition;
         LightTree::SampledLight sampledLight = PickLight(activeScene->lightTree, sp, seed);
 
-        //  get new ray direction towards selected light source
+        //  get emmisive triangle data
         glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;
         glm::vec3 p1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].position;
         glm::vec3 p2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].position;
-        //glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
-        glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
+        glm::vec3 n0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].normal;
+        glm::vec3 n1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].normal;
+        glm::vec3 n2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].normal;
+
+        //  get new ray direction towards selected light source
+        glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
         glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
         float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
         newDir = newDir / distance;
@@ -701,9 +704,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         );
 
         //  rendering equation
-        float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);  //  geometry term
-        float inverseSquare = glm::max((1.0f / (distance * distance)), 1e-4f); //  inverse square law
-        sampleThroughput *= (brdf * cosTheta / glm::max(sampledLight.pmf, 1e-4f));
+        float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+        float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
+        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);
+        float pdf_omega  = triAreaPDF * (distance * distance) / glm::max(cosTheta_y, 1e-4f);
+        sampleThroughput *= brdf * cosTheta_x / glm::max(sampledLight.pmf * pdf_omega, 1e-4f);
         
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
         sampleRay.direction = newDir;
@@ -714,15 +719,12 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         if (samplePayload.hitDistance < 0.0f)
         {
             radiance += sampleThroughput * settings.skyColor;
-            break;
+            continue;
         }
 
         //  check if ray actually hits light source
         if(static_cast<uint32_t>(samplePayload.objectIndex) != sampledLight.emitterIndex)
-        {
-            //  if not visible then return no radiance
-            break;
-        }
+            continue;   //  if not visible then return no radiance
 
         const Triangle& tri = activeScene->triangles[sampledLight.emitterIndex];
         const Material& material = activeScene->materials[tri.materialIndex];
@@ -733,10 +735,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
 
 
         if (emmisiveRadiance > 0.0f)
-        {
             radiance += sampleThroughput * emission;
-            break;
-        }
     }
 
     radiance /= float(sampleCount);

@@ -110,7 +110,7 @@ public:
 				pos,
 				rot,
 				scale,
-				1);
+				0);
 		
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
