@@ -355,7 +355,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 //         float pdf = MathUtils::UniformHemispherePDF();
 //         sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f)); // Rendering equation core
 //
-//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
+//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
 //         sampleRay.direction = newDir;
 //
 //         // Trace the path for maxBounces
@@ -460,7 +460,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 //         float pdf = MathUtils::CosineHemispherePDF(cosTheta);
 //         sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f)); // Rendering equation core
 //
-//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
+//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
 //         sampleRay.direction = newDir;
 //
 //         // Trace the path for maxBounces
@@ -576,7 +576,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 //         float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
 //         sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f));
 //
-//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
+//         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
 //         sampleRay.direction = newDir;
 //
 //         // BOUNCE LOOP
@@ -710,7 +710,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         float pdf_omega  = triAreaPDF * (distance * distance) / glm::max(cosTheta_y, 1e-4f);
         sampleThroughput *= brdf * cosTheta_x / glm::max(sampledLight.pmf * pdf_omega, 1e-4f);
         
-        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-3f;
+        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;
         
         samplePayload = TraceRay(sampleRay, activeScene);
