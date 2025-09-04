@@ -42,6 +42,7 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
+		for(int i = 0; i < 1 ; i++)
 		{
 			std::vector<Vertex> planeVertices = {
 				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
@@ -54,9 +55,9 @@ public:
 				0, 2, 3   // Second triangle
 			};
 		
-			glm::vec3 pos{ 0,25,0 };
+			glm::vec3 pos{ i * 20,25,0 };
 			glm::vec3 rot{ 180,0,0 };
-			glm::vec3 scale{ 10,10,10 };
+			glm::vec3 scale{ 20,20,20 };
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
 				planeIndices,
 				pos,
