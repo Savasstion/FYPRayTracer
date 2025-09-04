@@ -42,6 +42,33 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
+		{
+			std::vector<Vertex> planeVertices = {
+				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
+				{{ 0.5f, 0.0f, -0.5f}, {0, 1, 0}, {1, 0}}, // 1: Bottom Right
+				{{ 0.5f, 0.0f,  0.5f}, {0, 1, 0}, {1, 1}}, // 2: Top Right
+				{{-0.5f, 0.0f,  0.5f}, {0, 1, 0}, {0, 1}}, // 3: Top Left
+			};
+			std::vector<uint32_t> planeIndices = {
+				0, 1, 2,  // First triangle
+				0, 2, 3   // Second triangle
+			};
+		
+			glm::vec3 pos{ 0,25,0 };
+			glm::vec3 rot{ 180,0,0 };
+			glm::vec3 scale{ 10,10,10 };
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
+				planeIndices,
+				pos,
+				rot,
+				scale,
+				2);
+		
+			size_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+		}
 		for(int i = -50; i < 50 ; i++)
 		{
 			std::vector<Vertex> sphereVertices;
@@ -75,33 +102,6 @@ public:
 				0, 2, 3   // Second triangle
 			};
 		
-			glm::vec3 pos{ 0,5,0 };
-			glm::vec3 rot{ 180,0,0 };
-			glm::vec3 scale{ 10,10,10 };
-			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
-				planeIndices,
-				pos,
-				rot,
-				scale,
-				1);
-		
-			size_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
-			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-		}
-		{
-			std::vector<Vertex> planeVertices = {
-				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
-				{{ 0.5f, 0.0f, -0.5f}, {0, 1, 0}, {1, 0}}, // 1: Bottom Right
-				{{ 0.5f, 0.0f,  0.5f}, {0, 1, 0}, {1, 1}}, // 2: Top Right
-				{{-0.5f, 0.0f,  0.5f}, {0, 1, 0}, {0, 1}}, // 3: Top Left
-			};
-			std::vector<uint32_t> planeIndices = {
-				0, 1, 2,  // First triangle
-				0, 2, 3   // Second triangle
-			};
-		
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
 			glm::vec3 scale{ 10,10,10 };
@@ -110,7 +110,7 @@ public:
 				pos,
 				rot,
 				scale,
-				2);
+				1);
 		
 			size_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
@@ -127,9 +127,9 @@ public:
 		m_Scene.lightTree.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 
 		//	test
-		// auto n0 = m_Scene.lightTree.nodes[0];
-		// auto n1 = m_Scene.lightTree.nodes[1];
-		// auto n2 = m_Scene.lightTree.nodes[2];
+		 auto n0 = m_Scene.lightTree.nodes[0];
+		 auto n1 = m_Scene.lightTree.nodes[1];
+		 auto n2 = m_Scene.lightTree.nodes[2];
 		
 	}
 	

@@ -173,9 +173,9 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmmisiveTriangles()
 
         if(glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
         {
-            auto& v0 = vertices[triangles[i].v0];
-            auto& v1 = vertices[triangles[i].v1];
-            auto& v2 = vertices[triangles[i].v2];
+            auto& v0 = worldVertices[triangles[i].v0];
+            auto& v1 = worldVertices[triangles[i].v1];
+            auto& v2 = worldVertices[triangles[i].v2];
             constexpr float PIhalf = MathUtils::pi / 2.0f;
             float emmisiveRadiance = materials[triangles[i].materialIndex].GetEmissionRadiance();
             

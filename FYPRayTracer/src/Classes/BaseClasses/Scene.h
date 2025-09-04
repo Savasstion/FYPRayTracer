@@ -4,7 +4,7 @@
 #include <vector>
 #include "Mesh.h"
 #include "Sphere.h"
-#include "Triangle.h"
+#include "Triangle.cuh"
 #include "Vector3f.cuh"
 #include "Vertex.h"
 #include "../BaseClasses/Material.cuh"

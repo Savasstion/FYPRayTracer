@@ -5,7 +5,7 @@
 #include <vector>
 #include "AABB.cuh"
 #include "Vertex.h"
-#include "Triangle.h"
+#include "Triangle.cuh"
 #include "../../DataStructures/BVH.cuh"
 
 
