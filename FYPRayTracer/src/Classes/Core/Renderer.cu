@@ -706,7 +706,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         //  rendering equation
         float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
         float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
-        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, memory cost and time to copy to gpu prob aint worth it.
+        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
         float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance);
         
         sampleThroughput *= brdf * cosTheta_x * cosTheta_y / glm::max(totalPDF, 1e-12f);
