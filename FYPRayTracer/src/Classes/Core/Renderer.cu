@@ -574,7 +574,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 //         );
 //
 //         float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-//         sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f));
+//         sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-12f));
 //
 //         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
 //         sampleRay.direction = newDir;
@@ -691,7 +691,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         //  get new ray direction towards selected light source
         glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
         glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
-        float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+        float distance = glm::max(glm::distance(emmisivePoint, primaryPayload.worldPosition), 1e-12f);
         newDir = newDir / distance;
         
         glm::vec3 brdf = CalculateBRDF(
@@ -706,9 +706,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         //  rendering equation
         float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
         float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
-        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);
-        float pdf_omega  = triAreaPDF * (distance * distance) / glm::max(cosTheta_y, 1e-4f);
-        sampleThroughput *= brdf * cosTheta_x / glm::max(sampledLight.pmf * pdf_omega, 1e-4f);
+        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, memory cost and time to copy to gpu prob aint worth it.
+        float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance);
+        
+        sampleThroughput *= brdf * cosTheta_x * cosTheta_y / glm::max(totalPDF, 1e-12f);
         
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;
@@ -725,15 +726,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         //  check if ray actually hits light source
         if(static_cast<uint32_t>(samplePayload.objectIndex) != sampledLight.emitterIndex)
             continue;   //  if not visible then return no radiance
-
+        
         const Triangle& tri = activeScene->triangles[sampledLight.emitterIndex];
         const Material& material = activeScene->materials[tri.materialIndex];
 
         // Hit emissive
         glm::vec3 emission = material.GetEmission();
         float emmisiveRadiance = material.GetEmissionRadiance();
-
-
         if (emmisiveRadiance > 0.0f)
             radiance += sampleThroughput * emission;
     }
