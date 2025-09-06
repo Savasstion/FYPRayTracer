@@ -14,7 +14,7 @@ private:
 	Renderer m_Renderer;
 	float m_CurrentFrameTime = 0.0f;
 	float m_AverageFrameTime = 0.0f;
-	float m_TimeToRender = 30.f;
+	float m_TimeToRender = 60.f;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
@@ -158,6 +158,7 @@ public:
 
 		//	Scene Light Tree TLAS Construction
 		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromBLASLightTrees();
+		//auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmissiveTriangles();
 		m_Scene.lightTree_tlas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		
 	}

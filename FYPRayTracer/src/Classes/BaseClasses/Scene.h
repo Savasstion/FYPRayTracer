@@ -37,8 +37,8 @@ struct Scene
     void UpdateAllTransformedSceneMeshes();
     std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles() const;  //    obsolete now that we have a level system : TLAS/BLAS 
     std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes() const;
-    std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();   //  obsolete now that we have a level system : TLAS/BLAS 
-    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
+    std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();  
+    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;    //  TODO : Fix the too little pmf issue for  2 level light tree traversal 
 };
 
 #endif

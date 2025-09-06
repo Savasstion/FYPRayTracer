@@ -679,6 +679,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         sp.normal = primaryPayload.worldNormal;
         sp.position = primaryPayload.worldPosition;
         LightTree::SampledLight sampledLight = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+        //LightTree::SampledLight sampledLight = PickLight(activeScene->lightTree_tlas, sp, seed);
 
         //  get emmisive triangle data
         glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;

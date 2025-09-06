@@ -27,7 +27,7 @@ uint32_t LightTree::BuildHierarchyRecursively_SAOH(Node* outNodes, uint32_t& out
     // Leaf node
     if (count == 1) {
         // copy emitter as leaf
-        outNodes[outCount] = Node(work[first].emmiterIndex, work[first].position, work[first].bounds_w, work[first].bounds_o, work[first].energy);
+        outNodes[outCount] = Node(work[first].emitterIndex, work[first].position, work[first].bounds_w, work[first].bounds_o, work[first].energy);
         return outCount++;
     }
 
@@ -222,7 +222,7 @@ uint32_t LightTree::BuildHierarchyRecursively_SAOH(Node* outNodes, uint32_t& out
         outNodes[outCount] = Node();
         outNodes[outCount].isLeaf = false;
         outNodes[outCount].offset = leftIndex;
-        outNodes[outCount].emmiterIndex = rightIndex;
+        outNodes[outCount].emitterIndex = rightIndex;
         outNodes[outCount].bounds_w = parentBox;
         outNodes[outCount].bounds_o = parentNodeCone;
         outNodes[outCount].energy = parentNodeEnergy;
@@ -261,7 +261,7 @@ uint32_t LightTree::BuildHierarchyRecursively_SAOH(Node* outNodes, uint32_t& out
     outNodes[outCount] = Node();
     outNodes[outCount].isLeaf = false;
     outNodes[outCount].offset = leftIndex;
-    outNodes[outCount].emmiterIndex = rightIndex;
+    outNodes[outCount].emitterIndex = rightIndex;
     outNodes[outCount].bounds_w = parentBox;
     outNodes[outCount].bounds_o = parentNodeCone;
     outNodes[outCount].energy = parentNodeEnergy;

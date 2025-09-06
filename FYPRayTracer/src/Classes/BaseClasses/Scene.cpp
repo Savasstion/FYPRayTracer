@@ -207,7 +207,7 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() con
         {
             // get parent root node and convert it to a leaf node for the TLAS
             LightTree::Node node = meshes[i].lightTree_blas.nodes[meshes[i].lightTree_blas.rootIndex];
-            node.emmiterIndex = i;  //  emmiterIndex will now refer to which mesh's lightTree_blas this node refers to
+            node.emitterIndex = i;  //  emmiterIndex will now refer to which mesh's lightTree_blas this node refers to
             node.offset = 0;
             //  since no barycentric coords of a triangle, substitute with AABB centroid pos instead
             node.position.x = node.bounds_w.centroidPos.x;

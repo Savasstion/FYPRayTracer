@@ -1,18 +1,20 @@
 #include "LightTree.cuh"
 #include "../Classes/BaseClasses/Mesh_GPU.h"
 
-__host__ __device__ LightTree::SampledLight PickLight_BLAS(const LightTree* blas_tree, const LightTree::ShadingPointQuery& sp, uint32_t& randSeed, LightTree::SampledLight currentSampledLight)
+__host__ __device__ LightTree::SampledLight PickLight_BLAS(const LightTree* blas_tree, const LightTree::ShadingPointQuery& sp, float randFloat, float currentPMF)
 {
-    float randFloat = MathUtils::randomFloat(randSeed);
-
+    LightTree::SampledLight out;
+    out.pmf = 0.0f;
+    out.emitterIndex = -1;
+    
     if (!blas_tree || blas_tree->nodeCount == 0 || blas_tree->rootIndex == static_cast<uint32_t>(-1)) {
-        return currentSampledLight; // empty tree
+        return out; // empty tree
     }
 
     // start at root
     uint32_t nodeIdx = blas_tree->rootIndex;
     // accumulator of probability (product of branch choices)
-    float pmfAcc = currentSampledLight.pmf;
+    float pmfAcc = 1.0f;
 
     // Safety clamp u, prevent invalid array index
     randFloat = glm::clamp(randFloat, 0.0f, 0.9999999f);
@@ -22,14 +24,14 @@ __host__ __device__ LightTree::SampledLight PickLight_BLAS(const LightTree* blas
 
         // Leaf: sample emitter from leaf
         if (node.isLeaf) {
-            currentSampledLight.emitterIndex = node.emmiterIndex;   //  index to actual emmisive triangle
-            currentSampledLight.pmf = pmfAcc;
-            return currentSampledLight;
+            out.emitterIndex = node.emitterIndex;   //  index to actual emissive triangle
+            out.pmf = currentPMF * pmfAcc;
+            return out;
         }
 
-        // Internal node: left child index is in offset, right child index stored in emmiterIndex
+        // Internal node: left child index is in offset, right child index stored in emitterIndex
         uint32_t leftIdx  = node.offset;
-        uint32_t rightIdx = node.emmiterIndex;
+        uint32_t rightIdx = node.emitterIndex;
         
         // Compute importances of left and right child
         float I_left  = ComputeClusterImportance(sp, blas_tree->nodes[leftIdx]);
@@ -91,16 +93,14 @@ __host__ __device__ LightTree::SampledLight PickLight_TLAS(const Mesh_GPU* meshe
 
         // Leaf: sample emitter from leaf
         if (node.isLeaf) {
-            uint32_t blasIndex = node.emmiterIndex;   //  index to actual emmisive triangle
-            out.pmf = pmfAcc;
-            
-            out = PickLight_BLAS(meshes[blasIndex].lightTree_blas, sp, randSeed, out);
+            uint32_t blasIndex = node.emitterIndex;   //  index to actual emmisive triangle
+            out = PickLight_BLAS(meshes[blasIndex].lightTree_blas, sp, randFloat, pmfAcc);
             return out;
         }
 
         // Internal node: left child index is in offset, right child index stored in emmiterIndex
         uint32_t leftIdx  = node.offset;
-        uint32_t rightIdx = node.emmiterIndex;
+        uint32_t rightIdx = node.emitterIndex;
         
         // Compute importances of left and right child
         float I_left  = ComputeClusterImportance(sp, tlas_tree->nodes[leftIdx]);
