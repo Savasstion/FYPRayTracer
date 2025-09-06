@@ -24,7 +24,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     gpuScene.meshes = nullptr;
     gpuScene.materials = nullptr;
     gpuScene.tlas = nullptr;
-    gpuScene.lightTree = nullptr;
+    gpuScene.lightTree_tlas = nullptr;
 
     // Copy CPU vectors to GPU arrays
     CopyVectorToDevice(cpuScene.vertices, gpuScene.vertices, gpuScene.vertexCount);
@@ -51,7 +51,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     // Copy TLAS
     gpuScene.tlas = BVHToGPU(cpuScene.tlas);
     // Copy Light Tree
-    gpuScene.lightTree = LightTreeToGPU(cpuScene.lightTree);
+    gpuScene.lightTree_tlas = LightTreeToGPU(cpuScene.lightTree_tlas);
 
     // Copy filled Scene_GPU struct to device
     err = cudaMemcpy(d_scene, &gpuScene, sizeof(Scene_GPU), cudaMemcpyHostToDevice);
@@ -110,7 +110,7 @@ void FreeSceneGPU(Scene_GPU* d_scene)
     // Free TLAS
     if (h_scene.tlas) FreeBVH_GPU(h_scene.tlas);
     // Free Light Tree
-    if (h_scene.lightTree) FreeLightTree_GPU(h_scene.lightTree);
+    if (h_scene.lightTree_tlas) FreeLightTree_GPU(h_scene.lightTree_tlas);
 
     // Finally free the Scene_GPU struct itself
     cudaFree(d_scene);

@@ -14,7 +14,7 @@ private:
 	Renderer m_Renderer;
 	float m_CurrentFrameTime = 0.0f;
 	float m_AverageFrameTime = 0.0f;
-	float m_TimeToRender = 15.0f;
+	float m_TimeToRender = 30.f;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
@@ -42,7 +42,7 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
-		for(int i = 0; i < 1 ; i++)
+		for(int i = 0; i < 2 ; i++)
 		{
 			std::vector<Vertex> planeVertices = {
 				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
@@ -54,31 +54,45 @@ public:
 				0, 1, 2,  // First triangle
 				0, 2, 3   // Second triangle
 			};
-		
-			glm::vec3 pos{ i * 20,25,0 };
+
+			//	Set transforms
+			glm::vec3 pos{ i * 20,20,0 };
 			glm::vec3 rot{ 180,0,0 };
-			glm::vec3 scale{ 20,20,20 };
+			glm::vec3 scale{ 10,10,10 };
+
+			//	Init mesh into scene
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
 				planeIndices,
 				pos,
 				rot,
 				scale,
 				2);
-		
-			size_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
+
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		}
-		for(int i = -50; i < 50 ; i++)
+		for(int i = -20; i < 20 ; i++)
 		{
 			std::vector<Vertex> sphereVertices;
 			std::vector<uint32_t> sphereIndices;
-		
 			Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
+
+			//	Set transforms
 			glm::vec3 pos{i,i, i};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{1,1,1};
+
+			//	Init mesh into scene
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
 							sphereIndices,
 							pos,
@@ -86,10 +100,18 @@ public:
 							scale,
 							1);
 		
-			size_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		}
 		{
 			std::vector<Vertex> planeVertices = {
@@ -102,10 +124,13 @@ public:
 				0, 1, 2,  // First triangle
 				0, 2, 3   // Second triangle
 			};
-		
+
+			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
 			glm::vec3 scale{ 10,10,10 };
+			
+			//	Init mesh into scene
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
 				planeIndices,
 				pos,
@@ -113,24 +138,27 @@ public:
 				scale,
 				0);
 		
-			size_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, meshPtr->indexStart / 3, meshPtr->indexCount / 3, &triOffset);
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		}
 		
 		//	Scene TLAS Construction
 		auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
 		m_Scene.tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
 
-		//	Scene Light Tree Construction
-		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmmisiveTriangles();
-		m_Scene.lightTree.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-
-		//	test
-		 auto n0 = m_Scene.lightTree.nodes[0];
-		 auto n1 = m_Scene.lightTree.nodes[1];
-		 auto n2 = m_Scene.lightTree.nodes[2];
+		//	Scene Light Tree TLAS Construction
+		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromBLASLightTrees();
+		m_Scene.lightTree_tlas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		
 	}
 	
@@ -190,7 +218,7 @@ public:
 			ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
 			ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
 			ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.emissionColor));
-			ImGui::DragFloat("Emission Power", &material.emissionPower, 0.05f, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Emission Power", &material.emissionPower, 100.f, 0.0f, FLT_MAX);
 
 			ImGui::Separator();
 
@@ -237,7 +265,12 @@ public:
 		 if(m_RenderTime / 60000.0f >= m_TimeToRender && !stopDemo)
 		 {
 		 	stopDemo = true;
-		 	m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
+		 	
+		 	if(m_Renderer.GetCurrentFrameIndex() == 1)
+		 		m_AverageFrameTime = m_CurrentFrameTime;
+		 	else
+		 		m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
+		 	
 		 	std::string fileName = "RenderedImages/output";
 		 	fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
 		 	fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");

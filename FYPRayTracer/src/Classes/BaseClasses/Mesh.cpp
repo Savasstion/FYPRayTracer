@@ -147,18 +147,18 @@ void Mesh::UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector
 
 std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
     const std::vector<Triangle>& triangles,
-    size_t meshTriangleStart,
-    size_t meshTriangleCount,
-    size_t* outObjectOffset)
+    uint32_t* outObjectOffset) const
 {
-    *outObjectOffset = meshTriangleStart;   //  make sure BVH knows how much to offset to first triangle
+    uint32_t meshTriangleStart = indexStart / 3;
+    uint32_t meshTriangleCount = indexCount / 3;
+    *outObjectOffset = meshTriangleStart;   //  make sure BVH knows how much to offset to first triangle, only applicable for if BVH uses Morton Codes
     
     std::vector<BVH::Node> leafNodes;
     leafNodes.reserve(meshTriangleCount);
 
-    for (size_t i = 0; i < meshTriangleCount; i++)
+    for (uint32_t i = 0; i < meshTriangleCount; i++)
     {
-        size_t triIndex = meshTriangleStart + i;
+        uint32_t triIndex = meshTriangleStart + i;
         const Triangle& tri = triangles[triIndex];
 
         // Create a leaf node for this triangle
@@ -166,6 +166,40 @@ std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
         leafNodes.push_back(node);
         
     }
+
+    return leafNodes;
+}
+
+std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles(const std::vector<Triangle>& triangles, const std::vector<Material>& materials, const std::vector<Vertex>& worldVertices) const
+{
+    uint32_t meshTriangleStart = indexStart / 3;
+    uint32_t meshTriangleCount = indexCount / 3;
+    
+    std::vector<LightTree::Node> leafNodes;
+    leafNodes.reserve(meshTriangleCount);
+
+    //  only do if emissive
+    if(glm::length2(materials[materialIndex].GetEmission()) > 0.0f)
+        for (uint32_t i = 0; i < meshTriangleCount; i++)
+        {
+            uint32_t triIndex = meshTriangleStart + i;
+            
+            auto& v0 = worldVertices[triangles[triIndex].v0];
+            auto& v1 = worldVertices[triangles[triIndex].v1];
+            auto& v2 = worldVertices[triangles[triIndex].v2];
+            constexpr float PIhalf = MathUtils::pi / 2.0f;
+            float emmisiveRadiance = materials[triangles[triIndex].materialIndex].GetEmissionRadiance();
+            
+            glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
+            ConeBounds bounds_o;
+            bounds_o.theta_e = PIhalf;
+            bounds_o.theta_o = 0.0f;
+            bounds_o.axis = Triangle::GetTriangleNormal(v0.normal, v1.normal, v2.normal);
+            float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
+            float energy = area * emmisiveRadiance * MathUtils::pi;
+            
+            leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[i].aabb, bounds_o, energy);
+        }
 
     return leafNodes;
 }

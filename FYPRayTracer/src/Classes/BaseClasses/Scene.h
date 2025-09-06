@@ -29,15 +29,16 @@ struct Scene
 
     //  Acceleration Structure
     BVH tlas;   //  for ray-mesh intersections
-    LightTree lightTree;    //  Light Tree for light-source sampling / NEE
+    LightTree lightTree_tlas;    //  Light Tree for light-source sampling / NEE
 
     
-    Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices, const glm::vec3& pos, const glm::vec3& rotation, const glm::vec3& scale, int materialIndex);
+    Mesh* AddNewMeshToScene(std::vector<Vertex>& meshVertices, std::vector<uint32_t>& meshTriangleVertexIndices, const glm::vec3& pos, const glm::vec3& rotation, const glm::vec3& scale, int materialIndex);
     void UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot, const glm::vec3& newScale);
     void UpdateAllTransformedSceneMeshes();
-    std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles();  //obsolete now
-    std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes();
-    std::vector<LightTree::Node> CreateLightTreeNodesFromEmmisiveTriangles();
+    std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles() const;  //    obsolete now that we have a level system : TLAS/BLAS 
+    std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes() const;
+    std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();   //  obsolete now that we have a level system : TLAS/BLAS 
+    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
 };
 
 #endif

@@ -19,6 +19,7 @@ struct Mesh_GPU
 
     AABB aabb;
     BVH* blas;
+    LightTree* lightTree_blas;
 };
 
 inline Mesh_GPU MeshToHostMeshGPU(const Mesh& h_mesh)
@@ -43,6 +44,9 @@ inline Mesh_GPU MeshToHostMeshGPU(const Mesh& h_mesh)
 
     if(h_mesh.blas.nodeCount > 0)
         h_gpuMesh.blas = BVHToGPU(h_mesh.blas);
+
+    if(h_mesh.lightTree_blas.nodeCount > 0)
+        h_gpuMesh.lightTree_blas = LightTreeToGPU(h_mesh.lightTree_blas);
     
     return h_gpuMesh;
 }
@@ -62,6 +66,10 @@ inline void FreeMeshGPU(Mesh_GPU* d_mesh)
     // Free BLAS
     if (h_mesh.blas)
         FreeBVH_GPU(h_mesh.blas);
+
+    // Free Light Tree
+    if (h_mesh.lightTree_blas)
+        FreeLightTree_GPU(h_mesh.lightTree_blas);
 
     // Free the mesh
     err = cudaFree(d_mesh);

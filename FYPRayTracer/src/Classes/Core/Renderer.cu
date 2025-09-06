@@ -678,7 +678,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         LightTree::ShadingPointQuery sp;
         sp.normal = primaryPayload.worldNormal;
         sp.position = primaryPayload.worldPosition;
-        LightTree::SampledLight sampledLight = PickLight(activeScene->lightTree, sp, seed);
+        LightTree::SampledLight sampledLight = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
 
         //  get emmisive triangle data
         glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;
@@ -707,9 +707,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel(
         float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
         float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
         float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
-        float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance);
+        float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance) / cosTheta_y;
         
-        sampleThroughput *= brdf * cosTheta_x * cosTheta_y / glm::max(totalPDF, 1e-12f);
+        sampleThroughput *= brdf * cosTheta_x / glm::max(totalPDF, 1e-12f);
         
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;

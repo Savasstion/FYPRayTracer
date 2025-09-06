@@ -51,7 +51,7 @@ public:
     size_t nodeCount = 0;
     bool isNewValuesSet = true;
     size_t objectCount = 0;
-    size_t objectOffset = 0;    //  when building BLASes, nodes may not start from 0 first
+    size_t objectOffset = 0;    //  when building BLASes, nodes may not start from 0 first. Only needed when using morton codes to build the BVH
     size_t rootIndex = static_cast<size_t>(-1);
 
     // buffers for CUDA parallelization, not needed to copy 

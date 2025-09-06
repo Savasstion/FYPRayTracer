@@ -129,7 +129,7 @@ void Scene::UpdateAllTransformedSceneMeshes()
     }
 }
 
-std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles()
+std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles() const
 {
     std::vector<BVH::Node> leafNodes;
     leafNodes.reserve(triangles.size());
@@ -146,7 +146,7 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles()
     return leafNodes;
 }
 
-std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
+std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes() const
 {
     std::vector<BVH::Node> leafNodes;
     leafNodes.reserve(meshes.size());
@@ -163,10 +163,10 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes()
     return leafNodes;
 }
 
-std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmmisiveTriangles()
+std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
 {
     std::vector<LightTree::Node> leafNodes;
-    leafNodes.reserve(triangles.size() / 4);    //  allocated a quarter's worth first before needing to increase capacity automatically
+    leafNodes.reserve(triangles.size() / 10);    //  allocated a quarter's worth first before needing to increase capacity automatically
     
     for(uint32_t i = 0; i < triangles.size(); i++)
     {
@@ -189,6 +189,33 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmmisiveTriangles()
             float energy = area * emmisiveRadiance * MathUtils::pi;
             
             leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[i].aabb, bounds_o, energy);
+        }
+    }
+
+    return leafNodes;
+}
+
+std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() const
+{
+    std::vector<LightTree::Node> leafNodes;
+    leafNodes.reserve(meshes.size() / 10);    //  allocated a quarter's worth first before needing to increase capacity automatically
+    
+    for(uint32_t i = 0; i < meshes.size(); i++)
+    {
+        //  check if got valid or constructed light tree 
+        if(meshes[i].lightTree_blas.nodeCount > 0)
+        {
+            // get parent root node and convert it to a leaf node for the TLAS
+            LightTree::Node node = meshes[i].lightTree_blas.nodes[meshes[i].lightTree_blas.rootIndex];
+            node.emmiterIndex = i;  //  emmiterIndex will now refer to which mesh's lightTree_blas this node refers to
+            node.offset = 0;
+            //  since no barycentric coords of a triangle, substitute with AABB centroid pos instead
+            node.position.x = node.bounds_w.centroidPos.x;
+            node.position.y = node.bounds_w.centroidPos.y;
+            node.position.z = node.bounds_w.centroidPos.z;
+            node.isLeaf = true;
+
+            leafNodes.push_back(node);
         }
     }
 

@@ -4,9 +4,11 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <vector>
 #include "AABB.cuh"
+#include "Material.cuh"
 #include "Vertex.h"
 #include "Triangle.cuh"
 #include "../../DataStructures/BVH.cuh"
+#include "../../DataStructures/LightTree.cuh"
 
 
 struct Mesh
@@ -28,16 +30,19 @@ struct Mesh
 
     AABB aabb;
     BVH blas;
+    LightTree lightTree_blas;
 
     static void GenerateSphereMesh(float radius, int n_stacks, int n_slices, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
     static void UpdateWorldTransform(Mesh& mesh);
     static void UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector<Vertex>& worldVertices, 
         std::vector<Triangle>& triangles, const std::vector<uint32_t>& triangleVertexIndices);
-    static std::vector<BVH::Node> CreateBVHnodesFromMeshTriangles(
+    std::vector<BVH::Node> CreateBVHnodesFromMeshTriangles(
         const std::vector<Triangle>& triangles,
-        size_t meshTriangleStart,
-        size_t meshTriangleCount,
-        size_t* outObjectOffset);
+        uint32_t* outObjectOffset) const;
+    std::vector<LightTree::Node> CreateLightTreenodesFromEmmisiveMeshTriangles(
+        const std::vector<Triangle>& triangles,
+        const std::vector<Material>& materials,
+        const std::vector<Vertex>& worldVertices ) const;
 };
 
 #endif
