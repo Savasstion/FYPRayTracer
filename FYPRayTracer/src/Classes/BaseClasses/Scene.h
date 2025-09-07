@@ -10,6 +10,7 @@
 #include "../BaseClasses/Material.cuh"
 #include "../../DataStructures/BVH.cuh"
 #include "../../DataStructures/LightTree.cuh"
+#include "../Managers/SceneManager.h"
 
 namespace SceneSettings //  only needed for Morton Codes
 {
@@ -19,6 +20,8 @@ namespace SceneSettings //  only needed for Morton Codes
 
 struct Scene
 {
+    SceneManager sceneManager;
+    
     //  vectors of primitives in the scene
     std::vector<Vertex> vertices;   //  vertices with mesh local coordinates with no transforms 
     std::vector<Vertex> worldVertices; //   vertices that has world transforms applied
@@ -38,7 +41,7 @@ struct Scene
     std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles() const;  //    obsolete now that we have a level system : TLAS/BLAS 
     std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes() const;
     std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();  
-    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;    //  TODO : Fix the too little pmf issue for  2 level light tree traversal 
+    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;    
 };
 
 #endif

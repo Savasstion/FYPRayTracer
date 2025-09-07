@@ -197,29 +197,36 @@ public:
 		ImGui::End();
 
 		ImGui::Begin("Scene");
-		for(size_t i = 0; i < m_Scene.meshes.size(); i++)
+		for(uint32_t i = 0; i < m_Scene.meshes.size(); i++)
 		{
 			ImGui::PushID(i);
 
 			Mesh& mesh = m_Scene.meshes[i];
-			ImGui::DragFloat3("Position", glm::value_ptr(mesh.position), 0.1f);
-			ImGui::DragInt("Material Index", &mesh.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
+			bool meshTransformToBeUpdated = false, meshMatToBeUpdated = false;
+			meshTransformToBeUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(mesh.position), 0.1f);
+			meshMatToBeUpdated |= ImGui::DragInt("Material Index", &mesh.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
+
+			if(meshMatToBeUpdated || meshTransformToBeUpdated)
+				m_Scene.sceneManager.meshesToUpdate.emplace_back(meshTransformToBeUpdated, meshMatToBeUpdated, i);
 			
 			ImGui::Separator();
-			
 			ImGui::PopID();
 		}
 
-		for(size_t i = 0; i < m_Scene.materials.size(); i++)
+		for(uint32_t i = 0; i < m_Scene.materials.size(); i++)
 		{
 			ImGui::PushID(i);
 
 			Material& material = m_Scene.materials[i];
-			ImGui::ColorEdit3("Albedo", glm::value_ptr(material.albedo));
-			ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
-			ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
-			ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.emissionColor));
-			ImGui::DragFloat("Emission Power", &material.emissionPower, 100.f, 0.0f, FLT_MAX);
+			bool matToBeUpdated = false;
+			matToBeUpdated |= ImGui::ColorEdit3("Albedo", glm::value_ptr(material.albedo));
+			matToBeUpdated |= ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
+			matToBeUpdated |= ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
+			matToBeUpdated |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.emissionColor));
+			matToBeUpdated |= ImGui::DragFloat("Emission Power", &material.emissionPower, 100.f, 0.0f, FLT_MAX);
+
+			if(matToBeUpdated)
+				m_Scene.sceneManager.materialsToUpdate.push_back(i);
 
 			ImGui::Separator();
 
@@ -246,6 +253,7 @@ public:
 		ImGui::End();
 		ImGui::PopStyleVar();
 
+		m_Scene.sceneManager.PerformAllSceneUpdates();
 		Render();
 	}
 
