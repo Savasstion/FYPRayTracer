@@ -42,45 +42,12 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
-		for(int i = 0; i < 2 ; i++)
-		{
-			std::vector<Vertex> planeVertices = {
-				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
-				{{ 0.5f, 0.0f, -0.5f}, {0, 1, 0}, {1, 0}}, // 1: Bottom Right
-				{{ 0.5f, 0.0f,  0.5f}, {0, 1, 0}, {1, 1}}, // 2: Top Right
-				{{-0.5f, 0.0f,  0.5f}, {0, 1, 0}, {0, 1}}, // 3: Top Left
-			};
-			std::vector<uint32_t> planeIndices = {
-				0, 1, 2,  // First triangle
-				0, 2, 3   // Second triangle
-			};
-
-			//	Set transforms
-			glm::vec3 pos{ i * 20,20,0 };
-			glm::vec3 rot{ 180,0,0 };
-			glm::vec3 scale{ 10,10,10 };
-
-			//	Init mesh into scene
-			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
-				planeIndices,
-				pos,
-				rot,
-				scale,
-				2);
-
-			//	Build BVH for ray collision
-			uint32_t triOffset = 0;
-			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
-			meshPtr->blas.objectOffset = triOffset;
-			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
-			//	Build Light Tree for Light Source Sampling
-			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
-			if(lightTreeEmitterNodes.empty())
-				meshPtr->lightTree_blas.nodeCount = 0;
-			else
-				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-		}
+		Material& matBlueGlowingSphere = m_Scene.materials.emplace_back();
+		matBlueGlowingSphere.albedo = {0,0,1};
+		matBlueGlowingSphere.roughness = 0.1f;
+		matBlueGlowingSphere.emissionColor = matBlueGlowingSphere.albedo;
+		matBlueGlowingSphere.emissionPower = 20.0f;
+		
 		for(int i = -20; i < 20 ; i++)
 		{
 			std::vector<Vertex> sphereVertices;
@@ -138,6 +105,45 @@ public:
 				scale,
 				0);
 		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		for(int i = 0; i < 1 ; i++)
+		{
+			std::vector<Vertex> planeVertices = {
+				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
+				{{ 0.5f, 0.0f, -0.5f}, {0, 1, 0}, {1, 0}}, // 1: Bottom Right
+				{{ 0.5f, 0.0f,  0.5f}, {0, 1, 0}, {1, 1}}, // 2: Top Right
+				{{-0.5f, 0.0f,  0.5f}, {0, 1, 0}, {0, 1}}, // 3: Top Left
+			};
+			std::vector<uint32_t> planeIndices = {
+				0, 1, 2,  // First triangle
+				0, 2, 3   // Second triangle
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ i * 20,20,0 };
+			glm::vec3 rot{ 180,0,0 };
+			glm::vec3 scale{ 10,10,10 };
+
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
+				planeIndices,
+				pos,
+				rot,
+				scale,
+				2);
+
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);

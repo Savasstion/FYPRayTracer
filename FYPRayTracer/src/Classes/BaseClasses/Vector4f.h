@@ -35,7 +35,7 @@ public:
     
     // Magnitude (length)
     float Magnitude() const {
-        return MathUtils::approx_sqrt(x * x + y * y + z * z + w * w); // Use MagnitudeSquared() when possible for performance
+        return sqrtf(x * x + y * y + z * z + w * w); // Use MagnitudeSquared() when possible for performance
     }
 
     float MagnitudeSquared() const {

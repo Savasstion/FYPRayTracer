@@ -42,22 +42,7 @@ namespace MathUtils
 
         return y;
     }   
-
-    //Newton-Raphson square root
-    __host__ __device__ __forceinline__ float approx_sqrt(float number)
-    {
-        //  std::sqrt is faster so use this when std lib cant be used
-
-        if (number <= 0.0f) return 0.0f;
-
-        float x = number;
-        float approx = number * 0.5f;
-        // Two iterations for reasonable accuracy
-        approx = 0.5f * (approx + number / approx);
-        approx = 0.5f * (approx + number / approx);
-        return approx;
-    }
-
+    
     //  quick random number generator
     __host__ __device__ __forceinline__ uint32_t pcg_hash(uint32_t input)
     {

@@ -291,7 +291,7 @@ void LightTree::FreeNodes()
     }
 }
 
-float LightTree::GetOrientationBoundsAreaMeasure(const float& theta_o, const float& theta_e)
+float LightTree::GetOrientationBoundsAreaMeasure(float theta_o, float theta_e)
 {
     constexpr float piHalf = 0.5f * MathUtils::pi;
     //  refer to 4.3 of Importance Sampling of Many Lights with Adaptive Tree Splitting by ALEJANDRO CONTYESTEVEZ

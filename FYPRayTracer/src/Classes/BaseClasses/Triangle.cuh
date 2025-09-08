@@ -22,7 +22,7 @@ struct Triangle
         float r2 = MathUtils::randomFloat(seed);
 
         // Warp r1 for uniform area sampling
-        float sqrtR1 = MathUtils::approx_sqrt(r1);
+        float sqrtR1 = sqrtf(r1);
         
         float u = 1.0f - sqrtR1;
         float v = (1.0f - r2) * sqrtR1;

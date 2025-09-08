@@ -188,7 +188,7 @@ std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles
             auto& v1 = worldVertices[triangles[triIndex].v1];
             auto& v2 = worldVertices[triangles[triIndex].v2];
             constexpr float PIhalf = MathUtils::pi / 2.0f;
-            float emmisiveRadiance = materials[triangles[triIndex].materialIndex].GetEmissionRadiance();
+            float emmisiveRadiance = materials[materialIndex].GetEmissionRadiance();
             
             glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
             ConeBounds bounds_o;
@@ -198,7 +198,7 @@ std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles
             float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
             float energy = area * emmisiveRadiance * MathUtils::pi;
             
-            leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[i].aabb, bounds_o, energy);
+            leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[triIndex].aabb, bounds_o, energy);
         }
 
     return leafNodes;

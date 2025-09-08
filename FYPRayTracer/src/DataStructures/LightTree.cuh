@@ -67,7 +67,7 @@ public:
     void ClearLightTree();
     void AllocateNodes(uint32_t count);
     void FreeNodes();
-    float GetOrientationBoundsAreaMeasure(const float& theta_o, const float& theta_e);
+    float GetOrientationBoundsAreaMeasure(float theta_o, float theta_e);
     float GetProbabilityOfSamplingCluster(float area, float orientBoundAreaMeasure, float energy);
     float GetSplitCost(float probLeftCluster, float probRightCluster, float probCluster);
 };

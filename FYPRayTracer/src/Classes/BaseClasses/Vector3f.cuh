@@ -34,7 +34,7 @@ public:
     }
 
     __host__ __device__ __forceinline__ float Magnitude() const {
-        return MathUtils::approx_sqrt(x * x + y * y + z * z);
+        return sqrtf(x * x + y * y + z * z);
     }
 
     __host__ __device__ __forceinline__ float MagnitudeSquared() const {
