@@ -409,28 +409,33 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 // }
 
 //  //  COSINE-WEIGHTED SAMPLING
-// glm::vec4 Renderer::PerPixel(const uint32_t& x, const uint32_t& y, const uint8_t& maxBounces, const uint8_t& sampleCount)
+// __host__ __device__ glm::vec4 RendererGPU::PerPixel(
+//     uint32_t x, uint32_t y,
+//     uint8_t maxBounces, uint8_t sampleCount,
+//     uint32_t frameIndex, const RenderingSettings& settings,
+//     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+//     uint32_t imageWidth)
 // {
 //     //  a kind of BRDF sampling method that makes it so that shallower angles are less likely to be sampled as they likely contribute less light
 //     
-//     uint32_t seed = x + y * m_FinalRenderImage->GetWidth();
-//     seed *= m_FrameIndex;
+//     uint32_t seed = x + y * imageWidth;
+//     seed *= frameIndex;
 //
 //     glm::vec3 radiance{0.0f};   // Final color accumulated from all samples
 //
 //     // == PRIMARY RAY ==
 //     Ray primaryRay;
-//     primaryRay.origin = m_ActiveCamera->GetPosition();
-//     primaryRay.direction = m_ActiveCamera->GetRayDirections()[x + y * m_FinalRenderImage->GetWidth()];
+//     primaryRay.origin = activeCamera->position;
+//     primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 //
-//     RayHitPayload primaryPayload = TraceRay(primaryRay);
+//     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
 //
 //     // Hit sky immediately
 //     if (primaryPayload.hitDistance < 0.0f)
-//         return glm::vec4(m_Settings.skyColor, 1.0f);
+//         return glm::vec4(settings.skyColor, 1.0f);
 //
-//     const Sphere& hitSphere = m_ActiveScene->spheres[primaryPayload.objectIndex];
-//     const Material& hitMaterial = m_ActiveScene->materials[hitSphere.materialIndex];
+//     const Triangle& hitTri = activeScene->triangles[primaryPayload.objectIndex];
+//     const Material& hitMaterial = activeScene->materials[hitTri.materialIndex];
 //
 //     // Hit emissive object immediately
 //     if (glm::length(hitMaterial.GetEmission()) > 0.0f)
@@ -468,17 +473,17 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
 //         {
 //             seed += sampleIndex + 31 * bounce;
 //
-//             samplePayload = TraceRay(sampleRay);
+//             samplePayload = TraceRay(sampleRay, activeScene);
 //
 //             // Hit sky
 //             if (samplePayload.hitDistance < 0.0f)
 //             {
-//                 radiance += sampleThroughput * m_Settings.skyColor;
+//                 radiance += sampleThroughput * settings.skyColor;
 //                 break;
 //             }
 //
-//             const Sphere& sphere = m_ActiveScene->spheres[samplePayload.objectIndex];
-//             const Material& material = m_ActiveScene->materials[sphere.materialIndex];
+//             const Triangle& tri = activeScene->triangles[samplePayload.objectIndex];
+//             const Material& material = activeScene->materials[tri.materialIndex];
 //
 //             // Hit emissive light
 //             glm::vec3 emission = material.GetEmission();
