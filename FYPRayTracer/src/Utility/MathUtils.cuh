@@ -110,35 +110,55 @@ namespace MathUtils
 
     constexpr __host__ __device__ __forceinline__ float UniformHemispherePDF() {return 1 / (2 * pi);}
 
-    __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed)
+    __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed, float& outPDF)
     {
-        //  Heavily focuses on sampling specular lights
         glm::vec3 L;
+        glm::vec3 halfVector;
+
         do
         {
-            float u1 = MathUtils::randomFloat(seed);
-            float u2 = MathUtils::randomFloat(seed);
-            float a = roughness * roughness;
+            float u1 = randomFloat(seed);
+            float u2 = randomFloat(seed);
+            float a  = roughness * roughness;
 
-            // Sample GGX in spherical coordinates
-            float phi = 2.0f * pi * u1;
-            float cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (a * a - 1.0f) * u2));
+            // GGX spherical sampling
+            float phi      = 2.0f * pi * u1;
+            float cosTheta = glm::sqrt((1.0f - u2) /
+                                       (1.0f + (a * a - 1.0f) * u2));
             float sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
 
-            // Convert spherical to Cartesian (tangent space)
-            glm::vec3 h_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
+            // Half-vector in tangent space
+            glm::vec3 h_tangent(sinTheta * glm::cos(phi),
+                                sinTheta * glm::sin(phi),
+                                cosTheta);
 
-            // Build orthonormal basis from surface normal
+            // Transform to world space
             glm::vec3 tangent, bitangent;
-            BuildOrthonormalBasis(normal, tangent, bitangent); // Your function
+            BuildOrthonormalBasis(normal, tangent, bitangent);
+            halfVector = glm::normalize(
+                h_tangent.x * tangent +
+                h_tangent.y * bitangent +
+                h_tangent.z * normal
+            );
 
-            // Transform half-vector to world space
-            glm::vec3 halfVector = glm::normalize(h_tangent.x * tangent + h_tangent.y * bitangent + h_tangent.z * normal);
-
-            // Reflect view vector about half-vector
+            // Reflect V about H to get outgoing direction
             L = glm::reflect(-viewVector, halfVector);
 
-        } while (glm::dot(normal, L) <= 0.0f);    //  resample if reflected ray is going below surface
+        } while (glm::dot(normal, L) <= 0.0f); // reject below the surface
+
+        // ---- PDF computation -----------------------------------------------
+        glm::vec3 h = glm::normalize(viewVector + L);
+        float NdotH = glm::max(0.0f, glm::dot(normal, h));
+        float VdotH = glm::max(0.0f, glm::dot(viewVector, h));
+        float alpha = roughness; // if you use alpha=roughness^2 adjust here
+
+        // GGX NDF
+        float denom = (NdotH * NdotH) * (alpha * alpha - 1.0f) + 1.0f;
+        float D = (alpha * alpha) / (pi * denom * denom);
+
+        // Reflection PDF
+        outPDF = (D * NdotH) / (4.0f * VdotH);
+        // --------------------------------------------------------------------
 
         return glm::normalize(L);
     }

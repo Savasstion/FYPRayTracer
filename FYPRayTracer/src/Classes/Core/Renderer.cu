@@ -565,6 +565,116 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
     return glm::vec4(radiance, 1.0f);
 }
 
+ //  GGX SAMPLING
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
+    uint32_t x, uint32_t y,
+    uint8_t maxBounces, uint8_t sampleCount,
+    uint32_t frameIndex, const RenderingSettings& settings,
+    const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth)
+{
+    //  sample more often towards directions that contribute more to specular lighting
+    
+    uint32_t seed = x + y * imageWidth;
+    seed *= frameIndex;
+
+    glm::vec3 radiance{0.0f};   // Final color accumulated from all samples
+
+    // == PRIMARY RAY ==
+    Ray primaryRay;
+    primaryRay.origin = activeCamera->position;
+    primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
+
+    RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
+
+    // Hit sky immediately
+    if (primaryPayload.hitDistance < 0.0f)
+        return glm::vec4(settings.skyColor, 1.0f);
+
+    const Triangle& hitTri = activeScene->triangles[primaryPayload.objectIndex];
+    const Material& hitMaterial = activeScene->materials[hitTri.materialIndex];
+
+    // Hit emissive object immediately
+    if (glm::length(hitMaterial.GetEmission()) > 0.0f)
+        return glm::vec4(hitMaterial.GetEmission(), 1.0f);
+
+    // == SAMPLE MULTIPLE LIGHT PATHS FROM FIRST HIT ==
+    for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+    {
+        seed += (sampleIndex + 1) * 27;
+        glm::vec3 sampleThroughput{1.0f};
+        Ray sampleRay;
+        RayHitPayload samplePayload = primaryPayload;
+
+        // Sample initial direction from first hit
+        float pdf;
+        glm::vec3 newDir = MathUtils::GGXSampleHemisphere(primaryPayload.worldNormal, -primaryRay.direction, hitMaterial.roughness,seed, pdf);
+
+        glm::vec3 brdf = CalculateBRDF(
+            primaryPayload.worldNormal,
+            -primaryRay.direction,
+            newDir,
+            hitMaterial.albedo,
+            hitMaterial.metallic,
+            hitMaterial.roughness
+        );
+
+        float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);  //  Geometry Term
+        sampleThroughput *= (brdf * cosTheta / glm::max(pdf, 1e-4f)); // Rendering equation core
+
+        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
+        sampleRay.direction = newDir;
+
+        // Trace the path for maxBounces
+        for (int bounce = 0; bounce < maxBounces; bounce++)
+        {
+            seed += sampleIndex + 31 * bounce;
+
+            samplePayload = TraceRay(sampleRay, activeScene);
+
+            // Hit sky
+            if (samplePayload.hitDistance < 0.0f)
+            {
+                radiance += sampleThroughput * settings.skyColor;
+                break;
+            }
+
+            const Triangle& tri = activeScene->triangles[samplePayload.objectIndex];
+            const Material& material = activeScene->materials[tri.materialIndex];
+
+            // Hit emissive light
+            glm::vec3 emission = material.GetEmission();
+            if (glm::length(emission) > 0.0f)
+            {
+                radiance += sampleThroughput * emission;
+                break;
+            }
+
+            // Sample next direction
+            glm::vec3 bounceDir = MathUtils::CosineSampleHemisphere(primaryPayload.worldNormal, seed);
+            
+            glm::vec3 bounceBrdf = CalculateBRDF(
+                samplePayload.worldNormal,
+                -sampleRay.direction,
+                bounceDir,
+                material.albedo,
+                material.metallic,
+                material.roughness
+            );
+
+            float bounceCosTheta = glm::max(glm::dot(bounceDir, samplePayload.worldNormal), 0.0f);
+            float bouncePdf = MathUtils::CosineHemispherePDF(bounceCosTheta);
+            sampleThroughput *= bounceBrdf * bounceCosTheta / glm::max(bouncePdf, 1e-4f);
+
+            sampleRay.origin = samplePayload.worldPosition + samplePayload.worldNormal * 1e-3f;
+            sampleRay.direction = bounceDir;
+        }
+    }
+
+    radiance /= float(sampleCount); // Average across all sampled paths
+    return glm::vec4(radiance, 1.0f);
+}
+
 //  BRDF SAMPLING
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
     uint32_t x, uint32_t y,
