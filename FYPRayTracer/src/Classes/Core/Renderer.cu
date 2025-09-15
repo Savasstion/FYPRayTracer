@@ -971,16 +971,7 @@ __host__ __device__ glm::vec3 RendererGPU::CalculateBRDF(const glm::vec3& N, con
     return diffuse + specular;
 }
 
-__global__ void RenderKernel(
-    glm::vec4* accumulationData,
-    uint32_t* renderImageData,
-    uint32_t width,
-    uint32_t height,
-    uint32_t frameIndex,
-    RenderingSettings settings,
-    const Scene_GPU* scene,
-    const Camera_GPU* camera
-)
+__global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
