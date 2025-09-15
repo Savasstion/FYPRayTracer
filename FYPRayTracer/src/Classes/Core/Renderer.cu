@@ -651,7 +651,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
             }
 
             // Sample next direction
-            glm::vec3 bounceDir = MathUtils::CosineSampleHemisphere(primaryPayload.worldNormal, seed);
+            float bouncePdf;
+            glm::vec3 bounceDir = MathUtils::GGXSampleHemisphere(primaryPayload.worldNormal, -primaryRay.direction, hitMaterial.roughness,seed, bouncePdf);
             
             glm::vec3 bounceBrdf = CalculateBRDF(
                 samplePayload.worldNormal,
@@ -663,7 +664,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
             );
 
             float bounceCosTheta = glm::max(glm::dot(bounceDir, samplePayload.worldNormal), 0.0f);
-            float bouncePdf = MathUtils::CosineHemispherePDF(bounceCosTheta);
             sampleThroughput *= bounceBrdf * bounceCosTheta / glm::max(bouncePdf, 1e-4f);
 
             sampleRay.origin = samplePayload.worldPosition + samplePayload.worldNormal * 1e-3f;
