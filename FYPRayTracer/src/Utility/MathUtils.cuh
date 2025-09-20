@@ -165,58 +165,69 @@ namespace MathUtils
 
     __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector, const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
     {
-        float u1 = MathUtils::randomFloat(seed);
-        float u2 = MathUtils::randomFloat(seed);
-        float u3 = MathUtils::randomFloat(seed);
+        // Fresnel weight for deciding specular vs diffuse
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-        glm::vec3 H, L;
-        glm::vec3 T, B;
-        BuildOrthonormalBasis(normal, T, B);
+        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal,viewingVector), 0.0f), 5.0f);
+        float specularWeight = glm::max(glm::max(F.x, F.y), F.z);
 
-        // Schlick approximation for Fresnel
-        glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
-        float specularWeight = glm::max(glm::max(F.x, F.y), F.z); // Clamp to prevent total diffuse
-
-        if (u3 < specularWeight)
+        if (randomFloat(seed) < specularWeight)
         {
-            // --- Sample GGX specular lobe ---
-            float a = roughness * roughness;
-            float phi = 2.0f * pi * u1;
-            float cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (a * a - 1.0f) * u2));
-            float sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
-
-            glm::vec3 h_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
-            H = glm::normalize(h_tangent.x * T + h_tangent.y * B + h_tangent.z * normal);
-            L = glm::reflect(-viewingVector, H);
-
-            if (glm::dot(normal, L) <= 0.0f)
-            {
-                outPDF = 0.0f;
-                return glm::vec3(0.0f);
-            }
-
-            float NdotH = glm::max(glm::dot(normal, H), 0.0f);
-            float VdotH = glm::max(glm::dot(viewingVector, H), 0.0f);
-            float D = (a * a) / (pi * glm::pow((NdotH * NdotH) * (a * a - 1.0f) + 1.0f, 2.0f));
-            float pdf = (D * NdotH) / (4.0f * VdotH);
-
-            outPDF = pdf * specularWeight;
+            // --- Specular (GGX) ---
+            float ggxPDF = 0.0f;
+            glm::vec3 L  = GGXSampleHemisphere(normal, viewingVector, roughness, seed, ggxPDF);
+            outPDF = ggxPDF * specularWeight;
+            return L;
         }
         else
         {
-            // Sample cosine-weighted diffuse lobe
-            float phi = 2.0f * pi * u1;
-            float cosTheta = glm::sqrt(1.0f - u2);
-            float sinTheta = glm::sqrt(u2);
+            // --- Diffuse (cosine-weighted) ---
+            glm::vec3 L  = CosineSampleHemisphere(normal, seed);
+            float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
+            outPDF = CosineHemispherePDF(cosTheta) * (1.0f - specularWeight);
+            return L;
+        }
+    }
 
-            glm::vec3 L_tangent = glm::vec3(sinTheta * glm::cos(phi), sinTheta * glm::sin(phi), cosTheta);
-            L = glm::normalize(L_tangent.x * T + L_tangent.y * B + L_tangent.z * normal);
+    __host__ __device__ __forceinline__ float BRDFHemispherePDF(const glm::vec3& normal, const glm::vec3& inDir, const glm::vec3& outDir, float metallic, float roughness)
+    {
+        // Cosine between outgoing direction and surface normal
+        float cosTheta = glm::max(glm::dot(normal, outDir), 0.0f);
+        if (cosTheta <= 0.0f) return 0.0f;
 
-            float NdotL = glm::max(glm::dot(normal, L), 0.0f);
-            outPDF = (NdotL / pi) * (1.0f - specularWeight);
+        // ----- 1) Diffuse (Lambert) term -----
+        // Cosine-weighted hemisphere: pdf = cos(theta)/pi
+        float pdfDiffuse = CosineHemispherePDF(cosTheta);
+
+        // ----- 2) Specular GGX term -----
+        // If your sampler blends in a GGX microfacet lobe, include its PDF.
+        // The GGX half-vector distribution:
+        glm::vec3 h = glm::normalize(outDir + inDir);
+        float NoH  = glm::max(glm::dot(normal, h), 0.0f);
+        float VoH  = glm::max(glm::dot(inDir,   h), 0.0f);
+        // GGX normal distribution
+        float a = roughness * roughness;
+        float a2 = a * a;
+        float denom = NoH * NoH * (a2 - 1.0f) + 1.0f;
+        float D = a2 / (pi * denom * denom);
+        // Importance sampling of GGX gives: pdf = D * NoH / (4 * VoH)
+        float pdfSpec = (VoH > 0.0f) ? (D * NoH / (4.0f * VoH + 1e-12f)) : 0.0f;
+
+        // ----- 3) Mixture weights -----
+        // Common “metallic” blend: metallic drives specular weight,
+        // baseColor luminance drives diffuse weight.
+        float kd = (1.0f - metallic);
+        float ks = metallic + (1.0f - metallic) * 0.04f; // small base specular
+        float wDiffuse = kd;
+        float wSpec    = ks;
+
+        // Normalize weights so they sum to 1
+        float wSum = wDiffuse + wSpec;
+        if (wSum > 0.0f) {
+            wDiffuse /= wSum;
+            wSpec    /= wSum;
         }
 
-        return L;   //  sample vector within the hemisphere
+        return wDiffuse * pdfDiffuse + wSpec * pdfSpec;
     }
 }
 

@@ -27,12 +27,12 @@ public:
 	{
 		Material& matPinkSphere = m_Scene.materials.emplace_back();
 		matPinkSphere.albedo = {1.0f,0.0f,1.0f};
-		matPinkSphere.roughness = 0.1f;
-		matPinkSphere.metallic = 0.45f;
+		matPinkSphere.roughness = 1.f;
+		matPinkSphere.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
 		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
-		matBlueSphere.roughness = 0.7f;
+		matBlueSphere.roughness = 1.f;
 		matBlueSphere.metallic = 0.0f;
 		
 
@@ -48,7 +48,7 @@ public:
 		matBlueGlowingSphere.emissionColor = matBlueGlowingSphere.albedo;
 		matBlueGlowingSphere.emissionPower = 20.0f;
 		
-		for(int i = -20; i < 20 ; i++)
+		for(int i = -10; i < 10 ; i++)
 		{
 			std::vector<Vertex> sphereVertices;
 			std::vector<uint32_t> sphereIndices;
@@ -80,26 +80,217 @@ public:
 			else
 				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		}
+		std::vector<Vertex> boxVertices = {
+			// Bottom (-Y)
+			{{-0.5f,-0.5f,-0.5f}, { 0.0f, 1.0f, 0.0f}, {0,0}},
+			{{ 0.5f,-0.5f,-0.5f}, { 0.0f, 1.0f, 0.0f}, {1,0}},
+			{{ 0.5f,-0.5f, 0.5f}, { 0.0f, 1.0f, 0.0f}, {1,1}},
+			{{-0.5f,-0.5f, 0.5f}, { 0.0f, 1.0f, 0.0f}, {0,1}},
+
+			// Top (+Y)
+			{{-0.5f, 0.5f,-0.5f}, { 0.0f,-1.0f, 0.0f}, {0,0}},
+			{{ 0.5f, 0.5f,-0.5f}, { 0.0f,-1.0f, 0.0f}, {1,0}},
+			{{ 0.5f, 0.5f, 0.5f}, { 0.0f,-1.0f, 0.0f}, {1,1}},
+			{{-0.5f, 0.5f, 0.5f}, { 0.0f,-1.0f, 0.0f}, {0,1}},
+
+			// Front (+Z)
+			{{-0.5f,-0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {0,0}},
+			{{ 0.5f,-0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {1,0}},
+			{{ 0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {1,1}},
+			{{-0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {0,1}},
+
+			// Back (-Z)
+			{{-0.5f,-0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {0,0}},
+			{{ 0.5f,-0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {1,0}},
+			{{ 0.5f, 0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {1,1}},
+			{{-0.5f, 0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {0,1}},
+
+			// Left (-X)
+			{{-0.5f,-0.5f,-0.5f}, { 1.0f, 0.0f, 0.0f}, {0,0}},
+			{{-0.5f,-0.5f, 0.5f}, { 1.0f, 0.0f, 0.0f}, {1,0}},
+			{{-0.5f, 0.5f, 0.5f}, { 1.0f, 0.0f, 0.0f}, {1,1}},
+			{{-0.5f, 0.5f,-0.5f}, { 1.0f, 0.0f, 0.0f}, {0,1}},
+
+			// Right (+X)
+			{{ 0.5f,-0.5f,-0.5f}, {-1.0f, 0.0f, 0.0f}, {0,0}},
+			{{ 0.5f,-0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1,0}},
+			{{ 0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1,1}},
+			{{ 0.5f, 0.5f,-0.5f}, {-1.0f, 0.0f, 0.0f}, {0,1}},
+		};
 		{
-			std::vector<Vertex> planeVertices = {
-				{{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
-				{{ 0.5f, 0.0f, -0.5f}, {0, 1, 0}, {1, 0}}, // 1: Bottom Right
-				{{ 0.5f, 0.0f,  0.5f}, {0, 1, 0}, {1, 1}}, // 2: Top Right
-				{{-0.5f, 0.0f,  0.5f}, {0, 1, 0}, {0, 1}}, // 3: Top Left
-			};
-			std::vector<uint32_t> planeIndices = {
-				0, 1, 2,  // First triangle
-				0, 2, 3   // Second triangle
+			std::vector<uint32_t> boxIndices = {
+				// Bottom
+				0,1,2, 0,2,3,
 			};
 
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
-			glm::vec3 scale{ 10,10,10 };
+			glm::vec3 scale{ 20,20,20 };
 			
 			//	Init mesh into scene
-			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
-				planeIndices,
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		{
+			std::vector<uint32_t> boxIndices = {
+				// Top
+				4,6,5, 4,7,6,
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 20,20,20 };
+			
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		{
+			std::vector<uint32_t> boxIndices = {
+				// Front
+				8,9,10, 8,10,11,
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 20,20,20 };
+			
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		{
+			std::vector<uint32_t> boxIndices = {
+				// Back
+				12,14,13, 12,15,14,
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 20,20,20 };
+			
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		{
+			std::vector<uint32_t> boxIndices = {
+				// Left
+				16,17,18, 16,18,19,
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 20,20,20 };
+			
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
+				pos,
+				rot,
+				scale,
+				0);
+		
+			//	Build BVH for ray collision
+			uint32_t triOffset = 0;
+			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+			meshPtr->blas.objectOffset = triOffset;
+			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+			//	Build Light Tree for Light Source Sampling
+			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+			if(lightTreeEmitterNodes.empty())
+				meshPtr->lightTree_blas.nodeCount = 0;
+			else
+				meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		}
+		{
+			std::vector<uint32_t> boxIndices = {
+				// Right
+				20,22,21, 20,23,22
+			};
+
+			//	Set transforms
+			glm::vec3 pos{ 0,-1,0 };
+			glm::vec3 rot{ 0,0,0 };
+			glm::vec3 scale{ 20,20,20 };
+			
+			//	Init mesh into scene
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
+				boxIndices,
 				pos,
 				rot,
 				scale,
@@ -132,9 +323,9 @@ public:
 			};
 
 			//	Set transforms
-			glm::vec3 pos{ i * 20,20,0 };
+			glm::vec3 pos{ i * 20,9,0 };
 			glm::vec3 rot{ 180,0,0 };
-			glm::vec3 scale{ 10,10,10 };
+			glm::vec3 scale{ 5,5,5 };
 
 			//	Init mesh into scene
 			Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,

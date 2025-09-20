@@ -841,7 +841,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
         sp.normal = primaryPayload.worldNormal;
         sp.position = primaryPayload.worldPosition;
         LightTree::SampledLight sampledLight = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
-        //LightTree::SampledLight sampledLight = PickLight(activeScene->lightTree_tlas, sp, seed);
 
         //  get emmisive triangle data
         glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;
@@ -903,6 +902,404 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
     radiance /= float(sampleCount);
     return glm::vec4(radiance, 1.0f);
 }
+
+//  NEXT EVENT ESTIMATION
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
+    uint32_t x, uint32_t y,
+    uint8_t maxBounces, uint8_t sampleCount,
+    uint32_t frameIndex, const RenderingSettings& settings,
+    const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth)
+{
+    uint32_t seed = (x + y * imageWidth) * frameIndex;
+    glm::vec3 radiance{0.0f};
+
+    // PRIMARY RAY
+    Ray ray;
+    ray.origin    = activeCamera->position;
+    ray.direction = activeCamera->rayDirections[x + y * imageWidth];
+
+    RayHitPayload payload = TraceRay(ray, activeScene);
+
+    //  Skybox
+    if (payload.hitDistance < 0.0f)
+        return glm::vec4(settings.skyColor, 1.0f);
+
+    // Multi-sample per pixel
+    for (int s = 0; s < sampleCount; ++s)
+    {
+        seed += (s + 1) * 31;   // original seed update
+
+        glm::vec3 pathThroughput{1.0f};
+        Ray       pathRay      = ray;
+        RayHitPayload hit      = payload;
+
+        // Bounce loop
+        for (int bounce = 0; bounce < maxBounces; ++bounce)
+        {
+            const Triangle& tri = activeScene->triangles[payload.objectIndex];
+            const Material& mat = activeScene->materials[tri.materialIndex];
+
+            // Emissive surface
+            glm::vec3 emission = mat.GetEmission();
+            if (mat.GetEmissionRadiance() > 0.0f)
+            {
+                radiance += pathThroughput * emission;
+                break;
+            }
+            
+            // -------------------------------
+            //   DIRECT LIGHT 
+            // -------------------------------
+            {
+                LightTree::ShadingPointQuery sp;
+                sp.normal   = hit.worldNormal;
+                sp.position = hit.worldPosition;
+
+                LightTree::SampledLight sampled = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+
+                // light triangle data
+                const Triangle& lTri = activeScene->triangles[sampled.emitterIndex];
+                glm::vec3 p0 = activeScene->worldVertices[lTri.v0].position;
+                glm::vec3 p1 = activeScene->worldVertices[lTri.v1].position;
+                glm::vec3 p2 = activeScene->worldVertices[lTri.v2].position;
+                glm::vec3 n0 = activeScene->worldVertices[lTri.v0].normal;
+                glm::vec3 n1 = activeScene->worldVertices[lTri.v1].normal;
+                glm::vec3 n2 = activeScene->worldVertices[lTri.v2].normal;
+
+                glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
+                glm::vec3 lightDir = lightPoint - hit.worldPosition;
+                float dist = glm::max(glm::length(lightDir), 1e-12f);
+                lightDir /= dist;
+
+                // Shadow ray
+                Ray shadow;
+                shadow.origin = hit.worldPosition + hit.worldNormal * 1e-4f;
+                shadow.direction = lightDir;
+
+                RayHitPayload shadowHit = TraceRay(shadow, activeScene);
+
+                // Only add if unoccluded and hit correct emitter
+                if (shadowHit.hitDistance > 0.0f &&
+                    static_cast<uint32_t>(shadowHit.objectIndex) == sampled.emitterIndex)
+                {
+                    glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
+
+                    glm::vec3 brdf = CalculateBRDF(
+                        hit.worldNormal,
+                        -pathRay.direction,
+                        lightDir,
+                        mat.albedo,
+                        mat.metallic,
+                        mat.roughness
+                    );
+
+                    float cosTheta_x = glm::max(glm::dot(lightDir, hit.worldNormal), 0.0f);
+                    float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 0.0f);
+
+                    // triangle area pdf (area measure)
+                    float triArea = Triangle::GetTriangleArea(p0,p1,p2);
+                    float triAreaPDF = 1.0f / glm::max(triArea, 1e-12f); // p_A
+
+                    // convert area PDF -> solid-angle PDF:
+                    // p_ω = p_A * r^2 / cosTheta_y
+                    float lightSolidAnglePDF = triAreaPDF * (dist * dist) / glm::max(cosTheta_y, 1e-12f);
+
+                    // total PDF includes the sampling PMF from PickLight_TLAS
+                    float totalPDF = sampled.pmf * lightSolidAnglePDF;
+
+                    const Material& lightMat =
+                        activeScene->materials[lTri.materialIndex];
+                    
+                    radiance += pathThroughput *
+                                brdf *
+                                cosTheta_x *
+                                lightMat.GetEmission() /
+                                glm::max(totalPDF, 1e-12f);
+                }
+            }
+
+            //  if just one bounce, then no need to do indirect lighting stuff
+            if(maxBounces == 1)
+                break;
+
+            // -------------------------------
+            //   INDIRECT BOUNCE
+            // -------------------------------
+            float pdf;
+            glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
+                hit.worldNormal,
+                -pathRay.direction,
+                mat.albedo,
+                mat.metallic,
+                mat.roughness,
+                seed,
+                pdf
+            );
+
+            glm::vec3 brdf = CalculateBRDF(
+                hit.worldNormal,
+                -pathRay.direction,
+                nextDir,
+                mat.albedo,
+                mat.metallic,
+                mat.roughness
+            );
+
+            float cosTheta = glm::max(glm::dot(nextDir, hit.worldNormal), 0.0f);
+
+            // throughput update
+            pathThroughput *= brdf * cosTheta / glm::max(pdf, 1e-12f);
+
+            pathRay.origin    = hit.worldPosition + hit.worldNormal * 1e-4f;
+            pathRay.direction = nextDir;
+
+            // Trace next bounce
+            hit = TraceRay(pathRay, activeScene);
+            if (hit.hitDistance < 0.0f)
+            {
+                radiance += pathThroughput * settings.skyColor;
+                break;
+            }
+        } // bounce loop
+    }     // sample loop
+
+    return glm::vec4(radiance / float(sampleCount), 1.0f);
+}
+
+// //  NEXT EVENT ESTIMATION with MIS (balance heuristic)
+// __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation_MIS(
+//     uint32_t x, uint32_t y,
+//     uint8_t maxBounces, uint8_t sampleCount,
+//     uint32_t frameIndex, const RenderingSettings& settings,
+//     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+//     uint32_t imageWidth)
+// {
+//     uint32_t seed = (x + y * imageWidth) * frameIndex;
+//     glm::vec3 radiance{0.0f};
+//
+//     // PRIMARY RAY
+//     Ray ray;
+//     ray.origin    = activeCamera->position;
+//     ray.direction = activeCamera->rayDirections[x + y * imageWidth];
+//
+//     RayHitPayload initPayload = TraceRay(ray, activeScene);
+//
+//     // Skybox
+//     if (initPayload.hitDistance < 0.0f)
+//         return glm::vec4(settings.skyColor, 1.0f);
+//
+//     // Multi-sample per pixel
+//     for (int s = 0; s < sampleCount; ++s)
+//     {
+//         seed += (s + 1) * 31;
+//
+//         glm::vec3 pathThroughput{1.0f};
+//         Ray       pathRay      = ray;
+//         RayHitPayload hit      = initPayload;
+//
+//         // Bounce loop
+//         for (int bounce = 0; bounce < maxBounces; ++bounce)
+//         {
+//             const Triangle& tri = activeScene->triangles[hit.objectIndex];
+//             const Material& mat = activeScene->materials[tri.materialIndex];
+//
+//             // Emissive surface directly hit by path
+//             glm::vec3 emission = mat.GetEmission();
+//             if (mat.GetEmissionRadiance() > 0.0f)
+//             {
+//                 radiance += pathThroughput * emission;
+//                 break;
+//             }
+//
+//             // ------------------------------------------------
+//             //  DIRECT LIGHT (light sampling) with MIS weight
+//             // ------------------------------------------------
+//             {
+//                 LightTree::ShadingPointQuery sp;
+//                 sp.normal   = hit.worldNormal;
+//                 sp.position = hit.worldPosition;
+//
+//                 LightTree::SampledLight sampled = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+//
+//                 // emitter triangle data
+//                 const Triangle& lTri = activeScene->triangles[sampled.emitterIndex];
+//                 glm::vec3 p0 = activeScene->worldVertices[lTri.v0].position;
+//                 glm::vec3 p1 = activeScene->worldVertices[lTri.v1].position;
+//                 glm::vec3 p2 = activeScene->worldVertices[lTri.v2].position;
+//                 glm::vec3 n0 = activeScene->worldVertices[lTri.v0].normal;
+//                 glm::vec3 n1 = activeScene->worldVertices[lTri.v1].normal;
+//                 glm::vec3 n2 = activeScene->worldVertices[lTri.v2].normal;
+//
+//                 glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
+//                 glm::vec3 lightDir = lightPoint - hit.worldPosition;
+//                 float dist = glm::max(glm::length(lightDir), 1e-12f);
+//                 lightDir /= dist;
+//
+//                 // Shadow ray
+//                 Ray shadow;
+//                 shadow.origin = hit.worldPosition + hit.worldNormal * 1e-4f;
+//                 shadow.direction = lightDir;
+//
+//                 RayHitPayload shadowHit = TraceRay(shadow, activeScene);
+//
+//                 // Only add if unoccluded and hit correct emitter
+//                 if (shadowHit.hitDistance > 0.0f &&
+//                     static_cast<uint32_t>(shadowHit.objectIndex) == sampled.emitterIndex)
+//                 {
+//                     glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
+//
+//                     glm::vec3 brdf = CalculateBRDF(
+//                         hit.worldNormal,
+//                         -pathRay.direction,
+//                         lightDir,
+//                         mat.albedo,
+//                         mat.metallic,
+//                         mat.roughness
+//                     );
+//
+//                     float cosTheta_x = glm::max(glm::dot(lightDir, hit.worldNormal), 0.0f);
+//                     float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 0.0f);
+//
+//                     // triangle area pdf (area measure) for the sampled point
+//                     float triArea = Triangle::GetTriangleArea(p0,p1,p2);
+//                     float triAreaPDF = 1.0f / glm::max(triArea, 1e-12f); // p_A
+//
+//                     // convert area PDF -> solid-angle PDF:
+//                     // p_ω_light = p_A * r^2 / cosTheta_y
+//                     float lightSolidAnglePDF = triAreaPDF * (dist * dist) / glm::max(cosTheta_y, 1e-12f);
+//
+//                     // total PDF of this light-sample (includes TLAS selection PMF)
+//                     float pdf_light = sampled.pmf * lightSolidAnglePDF; // measured in solid angle
+//
+//                     // PDF of sampling same direction using BRDF sampler (solid-angle)
+//                     // NOTE: this requires implementing MathUtils::BRDF_PDF that returns pdf in solid-angle measure
+//                     float pdf_bsdf = MathUtils::BRDFHemispherePDF(
+//                         hit.worldNormal,
+//                         -pathRay.direction,
+//                         lightDir,
+//                         mat.metallic,
+//                         mat.roughness
+//                     );
+//
+//                     // Balance heuristic weights (both strategies had 1 sample)
+//                     float w_light = pdf_light / (pdf_light + pdf_bsdf + 1e-20f);
+//
+//                     const Material& lightMat = activeScene->materials[lTri.materialIndex];
+//
+//                     // contribution: throughput * brdf * cos / pdf_light, weighted by w_light
+//                     radiance += pathThroughput *
+//                                 brdf *
+//                                 cosTheta_x *
+//                                 lightMat.GetEmission() *
+//                                 (w_light / glm::max(pdf_light, 1e-12f));
+//                 }
+//             }
+//
+//             // ------------------------------------------------
+//             //  INDIRECT BOUNCE (sample BRDF)
+//             //  If this BRDF-sampled direction hits an emitter, use MIS
+//             // ------------------------------------------------
+//             float pdf_brdf;
+//             glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
+//                 hit.worldNormal,
+//                 -pathRay.direction,
+//                 mat.albedo,
+//                 mat.metallic,
+//                 mat.roughness,
+//                 seed,
+//                 pdf_brdf // pdf in solid angle
+//             );
+//
+//             // If pdf is zero, terminate
+//             if (pdf_brdf <= 0.0f)
+//                 break;
+//
+//             glm::vec3 brdf_val = CalculateBRDF(
+//                 hit.worldNormal,
+//                 -pathRay.direction,
+//                 nextDir,
+//                 mat.albedo,
+//                 mat.metallic,
+//                 mat.roughness
+//             );
+//
+//             float cosTheta = glm::max(glm::dot(nextDir, hit.worldNormal), 0.0f);
+//
+//             // update throughput for path continuation (but postpone adding emitter contrib)
+//             pathThroughput *= brdf_val * cosTheta / glm::max(pdf_brdf, 1e-12f);
+//
+//             pathRay.origin    = hit.worldPosition + hit.worldNormal * 1e-4f;
+//             pathRay.direction = nextDir;
+//
+//             // Trace next bounce (the direction sampled from BRDF)
+//             RayHitPayload nextHit = TraceRay(pathRay, activeScene);
+//             if (nextHit.hitDistance < 0.0f)
+//             {
+//                 // hit the environment
+//                 radiance += pathThroughput * settings.skyColor;
+//                 break;
+//             }
+//
+//             // If the BRDF-sampled ray hit an emissive triangle, compute MIS weight
+//             const Triangle& hitTri = activeScene->triangles[nextHit.objectIndex];
+//             const Material& hitMat = activeScene->materials[hitTri.materialIndex];
+//
+//             if (hitMat.GetEmissionRadiance() > 0.0f)
+//             {
+//                 // we hit an emitter triangle at nextHit
+//                 glm::vec3 p0 = activeScene->worldVertices[hitTri.v0].position;
+//                 glm::vec3 p1 = activeScene->worldVertices[hitTri.v1].position;
+//                 glm::vec3 p2 = activeScene->worldVertices[hitTri.v2].position;
+//                 glm::vec3 n0 = activeScene->worldVertices[hitTri.v0].normal;
+//                 glm::vec3 n1 = activeScene->worldVertices[hitTri.v1].normal;
+//                 glm::vec3 n2 = activeScene->worldVertices[hitTri.v2].normal;
+//
+//                 glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
+//
+//                 // geometry term from shading point to the hit point
+//                 glm::vec3 L = nextHit.worldPosition - hit.worldPosition;
+//                 float r = glm::max(glm::length(L), 1e-12f);
+//                 L /= r;
+//
+//                 float cosTheta_x = glm::max(glm::dot(L, hit.worldNormal), 0.0f);
+//                 float cosTheta_y = glm::max(glm::dot(-L, lightNormal), 0.0f);
+//
+//                 // compute area PDF for sampling the point on that triangle uniformly
+//                 float triArea = Triangle::GetTriangleArea(p0,p1,p2);
+//                 float triAreaPDF = 1.0f / glm::max(triArea, 1e-12f);
+//
+//                 // convert area -> solid angle pdf for that point
+//                 float pdf_light_on_hit = triAreaPDF * (r * r) / glm::max(cosTheta_y, 1e-12f);
+//                 
+//                 LightTree::ShadingPointQuery sp_for_pmf;
+//                 sp_for_pmf.normal = hit.worldNormal;
+//                 sp_for_pmf.position = hit.worldPosition;
+//
+//                 float emitterPMF = EvaluateEmitterPMF_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp_for_pmf, static_cast<uint32_t>(nextHit.objectIndex), seed);
+//                 float pdf_light = emitterPMF * pdf_light_on_hit; // light sampling pdf in solid-angle
+//                 
+//                 // balance heuristic weight for BSDF-sampled estimator
+//                 float w_bsdf = pdf_brdf / (pdf_brdf + pdf_light);
+//
+//                 // emitter emission
+//                 glm::vec3 emit = hitMat.GetEmission();
+//
+//                 // contribution: throughput * emission * (w_bsdf / pdf_bsdf)
+//                 radiance += pathThroughput * emit * (w_bsdf / glm::max(pdf_brdf, 1e-12f));
+//
+//                 // After collecting emitter radiance, we stop the path
+//                 break;
+//             }
+//
+//             // continue the bounce loop with the new hit
+//             hit = nextHit;
+//         } // bounce loop
+//     } // sample loop
+//
+//     return glm::vec4(radiance / float(sampleCount), 1.0f);
+// }
+
 
 __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
     const Ray& ray, float hitDistance, int objectIndex,
@@ -979,7 +1376,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
     if (x >= width || y >= height)
         return;
     
-    glm::vec4 pixelColor = RendererGPU::PerPixel_LightSourceSampling(
+    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(
         x,
         y,
         (uint32_t)settings.lightBounces,

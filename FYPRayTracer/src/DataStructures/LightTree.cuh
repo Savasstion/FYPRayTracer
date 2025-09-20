@@ -172,6 +172,9 @@ __host__ __device__ LightTree::SampledLight PickLight_BLAS(const LightTree* blas
 
 __host__ __device__ LightTree::SampledLight PickLight_TLAS(const Mesh_GPU* meshes, const LightTree* tlas_tree, const LightTree::ShadingPointQuery& sp, uint32_t& randSeed);
 
+// __host__ __device__ float EvaluateEmitterPMF_TLAS(const Mesh_GPU* meshes,const LightTree* tlas_tree,const LightTree::ShadingPointQuery& sp,uint32_t emitterIndex, uint32_t& randSeed);
+// __host__ __device__ float EvaluateEmitterPMF_BLAS(const LightTree* blas_tree,const LightTree::ShadingPointQuery& sp,uint32_t emitterIndex, float currentPMF, float randFloat);
+
 //  Obsolete
 __host__ __device__ __forceinline__ LightTree::SampledLight PickLight(const LightTree* tree, const LightTree::ShadingPointQuery& sp, uint32_t& randSeed)
 {
@@ -240,6 +243,8 @@ __host__ __device__ __forceinline__ LightTree::SampledLight PickLight(const Ligh
         // loop continues until a leaf
     } // end while
 }
+
+
 
 
 #endif
