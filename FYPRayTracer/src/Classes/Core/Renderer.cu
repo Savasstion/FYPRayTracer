@@ -1021,7 +1021,17 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             // -------------------------------
             
             float pdf;
-            glm::vec3 nextDir = MathUtils::GGXSampleHemisphere(hit.worldNormal, -pathRay.direction, mat.roughness,seed, pdf);
+            //glm::vec3 nextDir = MathUtils::GGXSampleHemisphere(hit.worldNormal, -pathRay.direction, mat.roughness,seed, pdf);
+            //glm::vec3 nextDir = MathUtils::CosineSampleHemisphere(hit.worldNormal, seed);
+            glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
+                hit.worldNormal,
+                -pathRay.direction,
+                mat.albedo,
+                mat.metallic,
+                mat.roughness,
+                seed,
+                pdf
+            );
             
             glm::vec3 brdf = CalculateBRDF(
                 hit.worldNormal,
@@ -1033,6 +1043,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             );
 
             float cosTheta = glm::dot(nextDir, hit.worldNormal);
+            //float pdf = MathUtils::CosineHemispherePDF(cosTheta);
 
             // throughput update
             pathThroughput *= brdf * cosTheta / pdf;
@@ -1046,15 +1057,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             //  Skybox
             if (hit.hitDistance < 0.0f)
             {
-                radiance += pathThroughput * settings.skyColor;
-                break;
-            }
-
-            // Emissive surface
-            glm::vec3 emission = mat.GetEmission();
-            if (mat.GetEmissionRadiance() > 0.0f)
-            {
-                radiance += pathThroughput * emission;
                 break;
             }
             
@@ -1063,7 +1065,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
 
     return glm::vec4(radiance / float(sampleCount), 1.0f);
 }
-
 
 __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
     const Ray& ray, float hitDistance, int objectIndex,
@@ -1140,7 +1141,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
     if (x >= width || y >= height)
         return;
     
-    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(
+    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation_MIS(
         x,
         y,
         (uint32_t)settings.lightBounces,
