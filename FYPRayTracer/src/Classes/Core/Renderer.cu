@@ -186,12 +186,13 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
                      const glm::vec3& v0 = activeScene->worldVertices[tri.v0].position;
                      const glm::vec3& v1 = activeScene->worldVertices[tri.v1].position;
                      const glm::vec3& v2 = activeScene->worldVertices[tri.v2].position;
-                     
+
+                     // Möller–Trumbore intersection algorithm
                      glm::vec3 edge1 = v1 - v0;
                      glm::vec3 edge2 = v2 - v0;
                      glm::vec3 h = glm::cross(ray.direction, edge2);
                      float a = glm::dot(edge1, h);
-                     if (fabsf(a) < 1e-8f) continue;
+                     // if (fabsf(a) < 1e-8f) continue;
     
                      float f = 1.0f / a;
                      glm::vec3 s = ray.origin - v0;
