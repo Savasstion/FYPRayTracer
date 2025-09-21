@@ -1016,6 +1016,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 }
             }
 
+            //  if no bounces, then no need to do indirect lighting calculation, pretty much the same as regular light source sampling
+            if(maxBounces == 1)
+                break;
+
             // -------------------------------
             //   INDIRECT BOUNCE
             // -------------------------------
@@ -1141,7 +1145,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
     if (x >= width || y >= height)
         return;
     
-    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation_MIS(
+    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(
         x,
         y,
         (uint32_t)settings.lightBounces,
