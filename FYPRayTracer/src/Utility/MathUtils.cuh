@@ -153,6 +153,31 @@ namespace MathUtils
         return glm::normalize(L);
     }
 
+    __host__ __device__ __forceinline__ float GGXHemishperePDF(const glm::vec3& normal, const glm::vec3& viewVector, const glm::vec3& reflectVector, float roughness)
+    {
+        // Compute half-vector
+        glm::vec3 H = glm::normalize(reflectVector + viewVector);
+    
+        float alpha = roughness * roughness;
+    
+        // Cosine of angle between normal and half-vector
+        float NdotH = glm::dot(normal, H);
+        float NdotL = glm::dot(normal, reflectVector);
+
+        if (NdotL <= 0.0f || NdotH <= 0.0f)
+            return 0.0f;
+
+        // GGX D term (Trowbridge-Reitz normal distribution function)
+        float denom = NdotH * NdotH * (alpha * alpha - 1.0f) + 1.0f;
+        float D = (alpha * alpha) / (pi * denom * denom);
+
+        // Convert from half-vector PDF to solid angle PDF for reflectVector
+        float HdotL = glm::dot(H, reflectVector);
+        float pdf = D * NdotH / (4.0f * HdotL);
+
+        return pdf;
+    }
+
     __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector, const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
     {
         // Fresnel weight for deciding specular vs diffuse
