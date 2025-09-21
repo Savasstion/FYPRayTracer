@@ -25,16 +25,15 @@ public:
 	ExampleLayer()
 	: m_Camera(45.0f, 0.1f, 100.0f)
 	{
-		Material& matPinkSphere = m_Scene.materials.emplace_back();
-		matPinkSphere.albedo = {1.0f,0.0f,1.0f};
-		matPinkSphere.roughness = 1.f;
-		matPinkSphere.metallic = 0.0f;
+		Material& matPink = m_Scene.materials.emplace_back();
+		matPink.albedo = {1.0f,0.0f,1.0f};
+		matPink.roughness = 1.f;
+		matPink.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
 		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
 		matBlueSphere.roughness = 0.75f;
 		matBlueSphere.metallic = 0.2f;
-		
 
 		Material& matWhiteGlowingSphere = m_Scene.materials.emplace_back();
 		matWhiteGlowingSphere.albedo = {1,1,1};
@@ -42,11 +41,15 @@ public:
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
-		Material& matBlueGlowingSphere = m_Scene.materials.emplace_back();
-		matBlueGlowingSphere.albedo = {0,0,1};
-		matBlueGlowingSphere.roughness = 0.1f;
-		matBlueGlowingSphere.emissionColor = matBlueGlowingSphere.albedo;
-		matBlueGlowingSphere.emissionPower = 20.0f;
+		Material& matRed = m_Scene.materials.emplace_back();
+		matRed.albedo = {1.0f,0.0f,0.0f};
+		matRed.roughness = 1.0f;
+		matRed.metallic = 0.0f;
+
+		Material& matGreen = m_Scene.materials.emplace_back();
+		matGreen.albedo = {0.0f,1.0f,0.0f};
+		matGreen.roughness = 1.0f;
+		matGreen.metallic = 0.0f;
 		
 		for(int i = -10; i < 10 ; i++)
 		{
@@ -198,7 +201,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				1);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -262,7 +265,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				3);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -294,7 +297,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				4);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;

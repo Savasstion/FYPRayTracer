@@ -5,6 +5,7 @@
 #include "cuda_runtime.h"
 #include <device_launch_parameters.h>
 #include <iostream>
+#include <glm/gtx/compatibility.hpp>
 
 Scene_GPU* RendererGPU::d_currentScene = nullptr;
 
@@ -1177,6 +1178,8 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
 
     if (x >= width || y >= height)
         return;
+
+    size_t index = x + y * width;
     
     glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(
         x,
@@ -1189,14 +1192,19 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         camera,
         width
     );
-
-    size_t index = x + y * width;
+    
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
 
     // Accumulate pixel color
     accumulationData[index] += pixelColor;
 
     // Average over frames
     glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1,1,1,0));
 
     // Clamp to valid range
     accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
