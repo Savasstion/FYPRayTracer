@@ -74,12 +74,12 @@ namespace MathUtils
         float u1 = MathUtils::randomFloat(seed);
         float u2 = MathUtils::randomFloat(seed);
 
-        float r = sqrt(u1);
+        float r = sqrtf(u1);
         float theta = 2.0f * pi * u2;
 
         float x = r * glm::cos(theta);
         float y = r * glm::sin(theta);
-        float z = sqrt(glm::max(0.0f, 1.0f - u1));
+        float z = sqrtf(glm::max(0.0f, 1.0f - u1));
 
         // Convert to world space
         glm::vec3 tangent, bitangent;
@@ -113,19 +113,19 @@ namespace MathUtils
     __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed, float& outPDF)
     {
         glm::vec3 L;
-        glm::vec3 halfVector;
+        glm::vec3 halfVector{0.0f};
+        float alpha = roughness * roughness;
+        float phi = 0.0f, cosTheta = 0.0f, sinTheta = 0.0f;
 
         do
         {
             float u1 = randomFloat(seed);
             float u2 = randomFloat(seed);
-            float a  = roughness * roughness;
-
+            
             // GGX spherical sampling
-            float phi      = 2.0f * pi * u1;
-            float cosTheta = glm::sqrt((1.0f - u2) /
-                                       (1.0f + (a * a - 1.0f) * u2));
-            float sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
+            phi = 2.0f * pi * u1;
+            cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (alpha * alpha - 1.0f) * u2));
+            sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
 
             // Half-vector in tangent space
             glm::vec3 h_tangent(sinTheta * glm::cos(phi),
@@ -146,19 +146,9 @@ namespace MathUtils
 
         } while (glm::dot(normal, L) <= 0.0f); // reject below the surface
 
-        // ---- PDF computation -----------------------------------------------
-        glm::vec3 h = glm::normalize(viewVector + L);
-        float NdotH = glm::max(0.0f, glm::dot(normal, h));
-        float VdotH = glm::max(0.0f, glm::dot(viewVector, h));
-        float alpha = roughness; // if you use alpha=roughness^2 adjust here
-
-        // GGX NDF
-        float denom = (NdotH * NdotH) * (alpha * alpha - 1.0f) + 1.0f;
-        float D = (alpha * alpha) / (pi * denom * denom);
-
-        // Reflection PDF
-        outPDF = (D * NdotH) / (4.0f * VdotH);
-        // --------------------------------------------------------------------
+        // PDF computation
+        float denom = (cosTheta * cosTheta * (alpha * alpha - 1.0f) + 1);
+        outPDF = (alpha * alpha * cosTheta * sinTheta) / (denom * denom);
 
         return glm::normalize(L);
     }
