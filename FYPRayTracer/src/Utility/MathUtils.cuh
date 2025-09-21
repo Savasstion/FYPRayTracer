@@ -169,8 +169,9 @@ namespace MathUtils
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
         glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal,viewingVector), 0.0f), 5.0f);
         float specularWeight = glm::max(glm::max(F.x, F.y), F.z);
-
-        if (randomFloat(seed) < specularWeight)
+        float randomNum = randomFloat(seed);
+        
+        if (randomNum < specularWeight)
         {
             // --- Specular (GGX) ---
             float ggxPDF = 0.0f;
@@ -186,48 +187,6 @@ namespace MathUtils
             outPDF = CosineHemispherePDF(cosTheta) * (1.0f - specularWeight);
             return L;
         }
-    }
-
-    __host__ __device__ __forceinline__ float BRDFHemispherePDF(const glm::vec3& normal, const glm::vec3& inDir, const glm::vec3& outDir, float metallic, float roughness)
-    {
-        // Cosine between outgoing direction and surface normal
-        float cosTheta = glm::max(glm::dot(normal, outDir), 0.0f);
-        if (cosTheta <= 0.0f) return 0.0f;
-
-        // ----- 1) Diffuse (Lambert) term -----
-        // Cosine-weighted hemisphere: pdf = cos(theta)/pi
-        float pdfDiffuse = CosineHemispherePDF(cosTheta);
-
-        // ----- 2) Specular GGX term -----
-        // If your sampler blends in a GGX microfacet lobe, include its PDF.
-        // The GGX half-vector distribution:
-        glm::vec3 h = glm::normalize(outDir + inDir);
-        float NoH  = glm::max(glm::dot(normal, h), 0.0f);
-        float VoH  = glm::max(glm::dot(inDir,   h), 0.0f);
-        // GGX normal distribution
-        float a = roughness * roughness;
-        float a2 = a * a;
-        float denom = NoH * NoH * (a2 - 1.0f) + 1.0f;
-        float D = a2 / (pi * denom * denom);
-        // Importance sampling of GGX gives: pdf = D * NoH / (4 * VoH)
-        float pdfSpec = (VoH > 0.0f) ? (D * NoH / (4.0f * VoH + 1e-12f)) : 0.0f;
-
-        // ----- 3) Mixture weights -----
-        // Common “metallic” blend: metallic drives specular weight,
-        // baseColor luminance drives diffuse weight.
-        float kd = (1.0f - metallic);
-        float ks = metallic + (1.0f - metallic) * 0.04f; // small base specular
-        float wDiffuse = kd;
-        float wSpec    = ks;
-
-        // Normalize weights so they sum to 1
-        float wSum = wDiffuse + wSpec;
-        if (wSum > 0.0f) {
-            wDiffuse /= wSum;
-            wSpec    /= wSum;
-        }
-
-        return wDiffuse * pdfDiffuse + wSpec * pdfSpec;
     }
 }
 
