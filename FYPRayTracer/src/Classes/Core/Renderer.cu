@@ -1032,7 +1032,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             //   INDIRECT BOUNCE
             // -------------------------------
             
-            float pdfIndirect;
             glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
                 hit.worldNormal,
                 -pathRay.direction,
