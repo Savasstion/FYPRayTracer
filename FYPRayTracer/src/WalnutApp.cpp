@@ -371,6 +371,7 @@ public:
 		{
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
+			stopDemo = false;
 		}
 		
 	}
@@ -410,6 +411,7 @@ public:
 			{
 				m_Renderer.ResetFrameIndex();
 				m_RenderTime = 0.0f;
+				stopDemo = false;
 			}
 				
 			m_Renderer.GetSettings().currentSamplingTechnique = static_cast<SamplingTechniqueEnum>(currentIndex);
@@ -419,6 +421,7 @@ public:
 		{
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
+			stopDemo = false;
 		}
 
 		ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)", &m_Renderer.GetSettings().toAccumulate);
