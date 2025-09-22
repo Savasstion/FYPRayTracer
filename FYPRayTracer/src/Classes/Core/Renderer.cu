@@ -1180,18 +1180,38 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         return;
 
     size_t index = x + y * width;
+
+    glm::vec4 pixelColor{0.0f};
+    switch(settings.currentSamplingTechnique)
+    {
+    case BRUTE_FORCE:
+        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case UNIFORM_SAMPLING:
+        pixelColor = RendererGPU::PerPixel_UniformSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case COSINE_WEIGHTED_SAMPLING:
+        pixelColor = RendererGPU::PerPixel_CosineWeightedSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case GGX_SAMPLING:
+        pixelColor = RendererGPU::PerPixel_GGXSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case BRDF_SAMPLING:
+        pixelColor = RendererGPU::PerPixel_BRDFSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case LIGHT_SOURCE_SAMPLING:
+        pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    case NEE:
+        pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        break;
+    //case RESTIR_DI:
+    //case RESTIR_GI:
+    default:
+        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+    }
     
-    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(
-        x,
-        y,
-        (uint32_t)settings.lightBounces,
-        (uint32_t)settings.sampleCount,
-        frameIndex,
-        settings,
-        scene,
-        camera,
-        width
-    );
+
     
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))

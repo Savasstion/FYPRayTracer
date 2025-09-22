@@ -4,6 +4,7 @@
 #include "Walnut/Image.h"
 #include <memory>
 #include <vector>
+#include "../../Enums/SamplingTechniqueEnum.h"
 #include "../BaseClasses/RenderingSettings.h"
 #include "../BaseClasses/Scene.h"
 #include "../BaseClasses/Camera.h"

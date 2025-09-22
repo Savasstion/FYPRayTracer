@@ -1,3 +1,4 @@
+#include <array>
 #include "Classes/BaseClasses/Camera.h"
 #include "Walnut/Application.h"
 #include "Walnut/EntryPoint.h"
@@ -377,7 +378,7 @@ public:
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
-		ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
+		ImGui::ColorEdit3("Skybox Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
 		ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
 		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
@@ -387,6 +388,33 @@ public:
 		ImGui::DragFloat("Total Time to Render(min)", &m_TimeToRender, 0.1f);
 		ImGui::Text("Render Time : %.3f min(s)", m_RenderTime / 60000.0f);
 		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
+
+		//	Sampling Technique Selection
+		static constexpr std::array<const char*, SamplingTechniqueEnum_COUNT> samplingTechniqueNames = {
+			"Brute Force",
+			"Uniform Sampling",
+			"Cosine-Weighted Sampling",
+			"GGX Sampling",
+			"BRDF Sampling",
+			"Light-Source Sampling",
+			"Next Event Estimation",
+			"ReSTIR DI",
+			"ReSTIR GI"
+		};
+
+		int currentIndex = m_Renderer.GetSettings().currentSamplingTechnique;
+
+		if (ImGui::Combo("Sampling Technique", &currentIndex, samplingTechniqueNames.data(), static_cast<int>(samplingTechniqueNames.size())))
+		{
+			if(m_Renderer.GetSettings().currentSamplingTechnique != static_cast<SamplingTechniqueEnum>(currentIndex))
+			{
+				m_Renderer.ResetFrameIndex();
+				m_RenderTime = 0.0f;
+			}
+				
+			m_Renderer.GetSettings().currentSamplingTechnique = static_cast<SamplingTechniqueEnum>(currentIndex);
+		}
+		
 		if (ImGui::Button("Reset"))
 		{
 			m_Renderer.ResetFrameIndex();
@@ -403,7 +431,10 @@ public:
 
 			Mesh& mesh = m_Scene.meshes[i];
 			bool meshTransformToBeUpdated = false, meshMatToBeUpdated = false;
+			ImGui::Text("Object ID : %d", i);
 			meshTransformToBeUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(mesh.position), 0.1f);
+			meshTransformToBeUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(mesh.rotation), 0.1f);
+			meshTransformToBeUpdated |= ImGui::DragFloat3("Scale", glm::value_ptr(mesh.scale), 0.1f);
 			meshMatToBeUpdated |= ImGui::DragInt("Material Index", &mesh.materialIndex, 1.0f, 0, (int)m_Scene.materials.size()-1);
 
 			if(meshMatToBeUpdated || meshTransformToBeUpdated)
@@ -412,13 +443,16 @@ public:
 			ImGui::Separator();
 			ImGui::PopID();
 		}
+		ImGui::End();
 
+		ImGui::Begin("Materials");
 		for(uint32_t i = 0; i < m_Scene.materials.size(); i++)
 		{
 			ImGui::PushID(i);
 
 			Material& material = m_Scene.materials[i];
 			bool matToBeUpdated = false;
+			ImGui::Text("Material ID : %d", i);
 			matToBeUpdated |= ImGui::ColorEdit3("Albedo", glm::value_ptr(material.albedo));
 			matToBeUpdated |= ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
 			matToBeUpdated |= ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
@@ -432,7 +466,6 @@ public:
 
 			ImGui::PopID();
 		}
-		
 		ImGui::End();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f,0.0f));

@@ -8,6 +8,7 @@ struct RenderingSettings
     int lightBounces = 1;
     int sampleCount = 1;
     glm::vec3 skyColor{0, 0, 0};
+    SamplingTechniqueEnum currentSamplingTechnique = BRUTE_FORCE;
 };
 
 
