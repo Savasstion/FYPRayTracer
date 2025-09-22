@@ -11,7 +11,9 @@ enum SamplingTechniqueEnum
     LIGHT_SOURCE_SAMPLING,
     NEE,
     RESTIR_DI,
-    RESTIR_GI
+    RESTIR_GI,
+    
+    SamplingTechniqueEnum_COUNT //  used to determine total num of sampling techniques
 };
 
 #endif
