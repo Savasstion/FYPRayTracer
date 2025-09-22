@@ -9,7 +9,7 @@
 
 Scene_GPU* RendererGPU::d_currentScene = nullptr;
 
-void Renderer::Render(const Scene& scene, const Camera& camera)
+void Renderer::Render(Scene& scene, Camera& camera)
 {
     m_ActiveScene = &scene;
     m_ActiveCamera = &camera;

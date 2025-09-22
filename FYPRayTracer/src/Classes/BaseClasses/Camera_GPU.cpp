@@ -1,7 +1,7 @@
 #include "Camera_GPU.h"
 #include <iostream>
 
-__host__ Camera_GPU* CameraToGPU(const Camera& cpuCam)
+__host__ Camera_GPU* CameraToGPU(Camera& cpuCam)
 {
     cudaError_t err;
     

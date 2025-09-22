@@ -105,6 +105,12 @@ void Camera::OnResize(uint32_t width, uint32_t height)
 	RecalculateRayDirections();
 }
 
+void Camera::UpdateCameraView()
+{
+	RecalculateView();
+	RecalculateRayDirections();
+}
+
 float Camera::GetRotationSpeed()
 {
 	return 0.3f;

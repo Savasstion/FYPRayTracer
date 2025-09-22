@@ -26,7 +26,7 @@ private:
 public:
     Renderer() = default;
     void OnResize(uint32_t width, uint32_t height);
-    void Render(const Scene& scene, const Camera& camera);
+    void Render(Scene& scene, Camera& camera);
 
     std::shared_ptr<Walnut::Image> GetFinalRenderImage() const { return m_FinalRenderImage; }
     void ResetFrameIndex() { m_FrameIndex = 1; }

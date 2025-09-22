@@ -32,7 +32,7 @@ struct Camera_GPU
     }
 };
 
-Camera_GPU* CameraToGPU(const Camera& cpuCam);
+Camera_GPU* CameraToGPU(Camera& cpuCam);
 void FreeCameraGPU(Camera_GPU* d_camera);
 
 #endif

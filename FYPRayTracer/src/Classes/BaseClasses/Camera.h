@@ -34,14 +34,25 @@ public:
 
 	bool OnUpdate(float ts);
 	void OnResize(uint32_t width, uint32_t height);
+	void UpdateCameraView();
 
 	const glm::mat4& GetProjection() const { return m_Projection; }
 	const glm::mat4& GetInverseProjection() const { return m_InverseProjection; }
 	const glm::mat4& GetView() const { return m_View; }
 	const glm::mat4& GetInverseView() const { return m_InverseView; }
 	
-	const glm::vec3& GetPosition() const { return m_Position; }
-	const glm::vec3& GetDirection() const { return m_ForwardDirection; }
+	glm::vec3& GetPosition() { return m_Position; }
+	glm::vec3& GetDirection() { return m_ForwardDirection; }
+	void SetPosition(const glm::vec3& m_position)
+	{
+		m_Position = m_position;
+		UpdateCameraView();
+	}
+	void SetDirection(const glm::vec3& m_forward_direction)
+	{
+		m_ForwardDirection = m_forward_direction;
+		UpdateCameraView();
+	}
 
 	const std::vector<glm::vec3>& GetRayDirections() const { return m_RayDirections; }
 

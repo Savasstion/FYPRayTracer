@@ -202,7 +202,7 @@ public:
 				pos,
 				rot,
 				scale,
-				1);
+				3);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -266,7 +266,7 @@ public:
 				pos,
 				rot,
 				scale,
-				3);
+				1);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -361,7 +361,11 @@ public:
 		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromBLASLightTrees();
 		//auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmissiveTriangles();
 		m_Scene.lightTree_tlas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-		
+
+
+		//	Set Starting Camera Position and Direction
+		m_Camera.SetPosition(glm::vec3{-0.206f, 8.288f, -9.494f});
+		m_Camera.SetDirection(glm::vec3{0.275f, -0.622f, 0.733f});
 	}
 	
 	virtual void OnUpdate(float ts) override
@@ -379,9 +383,20 @@ public:
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
+		bool isCameraUpdated = false;
+		isCameraUpdated |= ImGui::DragFloat3("Camera Position", glm::value_ptr(m_Camera.GetPosition()), 0.1f);
+		isCameraUpdated |= ImGui::DragFloat3("Camera Forward Direction", glm::value_ptr(m_Camera.GetDirection()), 0.1f);
+		if(isCameraUpdated)
+		{
+			m_Camera.UpdateCameraView();
+			m_Renderer.ResetFrameIndex();
+			m_RenderTime = 0.0f;
+			stopDemo = false;
+		}
 		ImGui::ColorEdit3("Skybox Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
-		ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
-		ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
+		bool rayTracingSettingsUpdated = false;
+		rayTracingSettingsUpdated |= ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
+		rayTracingSettingsUpdated |= ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
 		ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
 		ImGui::Text("Vertices Count : %d", static_cast<uint32_t>(m_Scene.vertices.size()));
@@ -425,6 +440,12 @@ public:
 		}
 
 		ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)", &m_Renderer.GetSettings().toAccumulate);
+		if(m_Renderer.GetSettings().toAccumulate && rayTracingSettingsUpdated)
+		{
+			m_Renderer.ResetFrameIndex();
+			m_RenderTime = 0.0f;
+			stopDemo = false;
+		}
 		ImGui::End();
 
 		ImGui::Begin("Scene");
