@@ -112,96 +112,105 @@ namespace MathUtils
 
     __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed, float& outPDF)
     {
-        glm::vec3 L;
-        glm::vec3 halfVector{0.0f};
-        float alpha = roughness * roughness;
-        float phi = 0.0f, cosTheta = 0.0f, sinTheta = 0.0f;
+        // 1) RNG
+        float u1 = MathUtils::randomFloat(seed); // implement or replace with your RNG
+        float u2 = MathUtils::randomFloat(seed);
 
-        do
-        {
-            float u1 = randomFloat(seed);
-            float u2 = randomFloat(seed);
-            
-            // GGX spherical sampling
-            phi = 2.0f * pi * u1;
-            cosTheta = glm::sqrt((1.0f - u2) / (1.0f + (alpha * alpha - 1.0f) * u2));
-            sinTheta = glm::sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
+        // 2) convert roughness to alpha convention
+        float alpha = roughness * roughness; // artist-friendly mapping
 
-            // Half-vector in tangent space
-            glm::vec3 h_tangent(sinTheta * glm::cos(phi),
-                                sinTheta * glm::sin(phi),
-                                cosTheta);
+        // 3) sample spherical coordinates for half-vector H (Walter / Heitz sampling form)
+        float phi = 2.0f * pi * u2;
 
-            // Transform to world space
-            glm::vec3 tangent, bitangent;
-            BuildOrthonormalBasis(normal, tangent, bitangent);
-            halfVector = glm::normalize(
-                h_tangent.x * tangent +
-                h_tangent.y * bitangent +
-                h_tangent.z * normal
-            );
+        // stable expression for cos(theta) when alpha = roughness^2 and using a2 = alpha*alpha
+        float cosTheta = sqrtf( (1.0f - u1) / (1.0f + (alpha * alpha - 1.0f) * u1) );
+        cosTheta = glm::clamp(cosTheta, 0.0f, 1.0f);
+        float sinTheta = sqrtf(fmaxf(0.0f, 1.0f - cosTheta * cosTheta));
 
-            // Reflect V about H to get outgoing direction
-            L = glm::reflect(-viewVector, halfVector);
+        // half-vector in tangent space (Ht)
+        glm::vec3 Ht = glm::vec3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
 
-        } while (glm::dot(normal, L) <= 0.0f); // reject below the surface
+        // 4) build tangent/bitangent and transform to world space
+        glm::vec3 T, B;
+        BuildOrthonormalBasis(normal, T, B);
+        glm::vec3 H = glm::normalize(Ht.x * T + Ht.y * B + Ht.z * normal);
 
-        // PDF computation
-        float denom = (cosTheta * cosTheta * (alpha * alpha - 1.0f) + 1);
-        outPDF = (alpha * alpha * cosTheta * sinTheta) / (denom * denom);
+        // 5) reflect view vector about H to get outgoing L
+        glm::vec3 L = glm::reflect(-viewVector, H); // reflect assumes incoming is -V
 
-        return glm::normalize(L);
+        // 6) validate hemisphere and compute PDF
+        float NdotL = glm::dot(normal, L);
+        if (NdotL <= 0.0f) {
+            outPDF = 0.0f;
+            return glm::vec3(0.0f);
+        }
+
+        float NdotH = glm::dot(normal, H);
+        float VdotH = glm::dot(viewVector, H); // note: viewVector should be unit
+        if (VdotH <= 0.0f || NdotH <= 0.0f) {
+            outPDF = 0.0f;
+            return glm::vec3(0.0f);
+        }
+
+        // PDF for H (solid angle) = D(N,H) * (N·H)
+        float a2 = alpha * alpha;
+        float denom = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
+        float D = (a2) / (pi * denom * denom);
+        float p_H = D * NdotH;
+
+        // convert to PDF for L using Jacobian of reflection: p(L) = p(H) / (4 * V·H)
+        outPDF = p_H / (4.0f * VdotH);
+        
+        return L;
     }
 
-    __host__ __device__ __forceinline__ float GGXHemishperePDF(const glm::vec3& normal, const glm::vec3& viewVector, const glm::vec3& reflectVector, float roughness)
+    __host__ __device__ __forceinline__ float GGXHemispherePDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, float roughness)
     {
-        // Compute half-vector
-        glm::vec3 H = glm::normalize(reflectVector + viewVector);
-    
-        float alpha = roughness * roughness;
-    
-        // Cosine of angle between normal and half-vector
-        float NdotH = glm::dot(normal, H);
-        float NdotL = glm::dot(normal, reflectVector);
-
-        if (NdotL <= 0.0f || NdotH <= 0.0f)
+        glm::vec3 H = glm::normalize(V + L);
+        float NdotH = glm::max(glm::dot(N, H), 0.0f);
+        float VdotH = glm::max(glm::dot(V, H), 0.0f);
+        if (NdotH <= 0.0f || VdotH <= 0.0f)
             return 0.0f;
 
-        // GGX D term (Trowbridge-Reitz normal distribution function)
-        float denom = NdotH * NdotH * (alpha * alpha - 1.0f) + 1.0f;
-        float D = (alpha * alpha) / (pi * denom * denom);
-
-        // Convert from half-vector PDF to solid angle PDF for reflectVector
-        float HdotL = glm::dot(H, reflectVector);
-        float pdf = D * NdotH / (4.0f * HdotL);
-
-        return pdf;
+        float alpha = roughness * roughness;
+        float a2 = alpha * alpha;
+        float denom = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
+        float D = a2 / (pi * denom * denom);
+        return D * NdotH / (4.0f * VdotH);
     }
 
     __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector, const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
     {
-        // Fresnel weight for deciding specular vs diffuse
+        // --- choose branch ---
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal,viewingVector), 0.0f), 5.0f);
-        float specularWeight = glm::max(glm::max(F.x, F.y), F.z);
-        float randomNum = randomFloat(seed);
-        
-        if (randomNum < specularWeight)
+        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
+        float wSpec = glm::max(glm::max(F.x, F.y), F.z);
+
+        float rand = randomFloat(seed);
+        glm::vec3 L;
+        float pdfSpec = 0.0f, pdfDiff = 0.0f;
+
+        if (rand < wSpec)
         {
-            // --- Specular (GGX) ---
-            float ggxPDF = 0.0f;
-            glm::vec3 L  = GGXSampleHemisphere(normal, viewingVector, roughness, seed, ggxPDF);
-            outPDF = ggxPDF * specularWeight;
-            return L;
+            // specular sample
+            L = GGXSampleHemisphere(normal, viewingVector, roughness, seed, pdfSpec);
+            // we still need the diffuse pdf for this same L:
+            float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
+            pdfDiff = CosineHemispherePDF(cosTheta);
         }
         else
         {
-            // --- Diffuse (cosine-weighted) ---
-            glm::vec3 L  = CosineSampleHemisphere(normal, seed);
+            // diffuse sample
+            L = CosineSampleHemisphere(normal, seed);
             float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
-            outPDF = CosineHemispherePDF(cosTheta) * (1.0f - specularWeight);
-            return L;
+            pdfDiff = CosineHemispherePDF(cosTheta);
+            // need GGX pdf for same L:
+            pdfSpec = GGXHemispherePDF(normal, viewingVector, L, roughness); // or your GGX pdf function
         }
+
+        // final mixture pdf
+        outPDF = wSpec * pdfSpec + (1.0f - wSpec) * pdfDiff;
+        return L;
     }
 }
 
