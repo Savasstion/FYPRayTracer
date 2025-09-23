@@ -67,10 +67,6 @@ struct RendererGPU
     __host__ __device__ static RayHitPayload Miss(
         const Ray& ray);
 
-    __host__ __device__ static glm::vec3 CalculateBRDF(
-        const glm::vec3& N, const glm::vec3& V, const glm::vec3& L,
-        const glm::vec3& albedo, float metallic, float roughness);
-
     static Scene_GPU* d_currentScene;
 };
 

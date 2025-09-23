@@ -212,6 +212,44 @@ namespace MathUtils
         outPDF = wSpec * pdfSpec + (1.0f - wSpec) * pdfDiff;
         return L;
     }
+
+    __host__ __device__ __forceinline__ glm::vec3 CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
+    {
+        constexpr float invPI = 1 / pi;
+    
+        glm::vec3 H = glm::normalize(V + L);
+        float NdotL = glm::max(glm::dot(N, L), 0.0f);
+        float NdotV = glm::max(glm::dot(N, V), 0.0f);
+        float NdotH = glm::max(glm::dot(N, H), 0.0f);
+        float VdotH = glm::max(glm::dot(V, H), 0.0f);
+
+        // Fresnel (Schlick's approximation)
+        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+        glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - VdotH, 5.0f);
+
+        // Geometry Shadowing (Smith)
+        float k = (roughness + 1.0f) * (roughness + 1.0f) / 8.0f;
+        float G_V = NdotV / (NdotV * (1.0f - k) + k);
+        float G_L = NdotL / (NdotL * (1.0f - k) + k);
+        float G = G_V * G_L;
+    
+        // Lambertian diffuse (non-metallic only)
+        glm::vec3 kD = (1.0f - F) * (1.0f - metallic);
+        glm::vec3 diffuse = kD * albedo * invPI;
+
+        // Normal Distribution (GGX / Trowbridge-Reitz)
+        float a = roughness * roughness;
+        float a2 = a * a;
+        float denominator = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
+        float D = a2 * invPI / (denominator * denominator);
+
+    
+        //  Cook-Torrance specular
+        glm::vec3 specular = (D * F * G) / 4.0f * NdotV * NdotL;
+
+        //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
+        return diffuse + specular;
+    }
 }
 
 

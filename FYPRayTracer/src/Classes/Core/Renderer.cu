@@ -281,7 +281,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
     // Sample initial direction from first hit
     glm::vec3 newDir = MathUtils::UniformSampleHemisphere(primaryPayload.worldNormal, seed);
 
-    glm::vec3 brdf = CalculateBRDF(
+    glm::vec3 brdf = MathUtils::CalculateBRDF(
         primaryPayload.worldNormal,
         -primaryRay.direction,
         newDir,
@@ -325,7 +325,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
         // Sample next direction
         glm::vec3 bounceDir = MathUtils::UniformSampleHemisphere(samplePayload.worldNormal, seed);
             
-        glm::vec3 bounceBrdf = CalculateBRDF(
+        glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
         samplePayload.worldNormal,
         -sampleRay.direction,
         bounceDir,
@@ -389,7 +389,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
         // Sample initial direction from first hit
         glm::vec3 newDir = MathUtils::UniformSampleHemisphere(primaryPayload.worldNormal, seed);
 
-        glm::vec3 brdf = CalculateBRDF(
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
@@ -433,7 +433,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
             // Sample next direction
             glm::vec3 bounceDir = MathUtils::UniformSampleHemisphere(samplePayload.worldNormal, seed);
             
-            glm::vec3 bounceBrdf = CalculateBRDF(
+            glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
@@ -499,7 +499,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
         // Sample initial direction from first hit
         glm::vec3 newDir = MathUtils::CosineSampleHemisphere(primaryPayload.worldNormal, seed);
 
-        glm::vec3 brdf = CalculateBRDF(
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
@@ -543,7 +543,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
             // Sample next direction
             glm::vec3 bounceDir = MathUtils::CosineSampleHemisphere(samplePayload.worldNormal, seed);
             
-            glm::vec3 bounceBrdf = CalculateBRDF(
+            glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
@@ -610,7 +610,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
         float pdf;
         glm::vec3 newDir = MathUtils::GGXSampleHemisphere(primaryPayload.worldNormal, -primaryRay.direction, hitMaterial.roughness,seed, pdf);
 
-        glm::vec3 brdf = CalculateBRDF(
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
@@ -654,7 +654,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
             float bouncePdf;
             glm::vec3 bounceDir = MathUtils::GGXSampleHemisphere(samplePayload.worldNormal, -sampleRay.direction, hitMaterial.roughness,seed, bouncePdf);
             
-            glm::vec3 bounceBrdf = CalculateBRDF(
+            glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
@@ -726,7 +726,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
             pdf
         );
 
-        glm::vec3 brdf = CalculateBRDF(
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
@@ -777,7 +777,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
                 bouncePdf
             );
 
-            glm::vec3 bounceBrdf = CalculateBRDF(
+            glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
@@ -856,7 +856,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
         float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
         newDir = newDir / distance;
         
-        glm::vec3 brdf = CalculateBRDF(
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
@@ -988,7 +988,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 {
                     glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
 
-                    glm::vec3 brdf = CalculateBRDF(
+                    glm::vec3 brdf = MathUtils::CalculateBRDF(
                         hit.worldNormal,
                         -pathRay.direction,
                         lightDir,
@@ -1045,7 +1045,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
 
             
             
-            glm::vec3 brdf = CalculateBRDF(
+            glm::vec3 brdf = MathUtils::CalculateBRDF(
                 hit.worldNormal,
                 -pathRay.direction,
                 nextDir,
@@ -1131,44 +1131,6 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
     RayHitPayload payload;
     payload.hitDistance = -1.0f;
     return payload;
-}
-
-__host__ __device__ glm::vec3 RendererGPU::CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
-{
-    constexpr float invPI = 1 / MathUtils::pi;
-    
-    glm::vec3 H = glm::normalize(V + L);
-    float NdotL = glm::max(glm::dot(N, L), 0.0f);
-    float NdotV = glm::max(glm::dot(N, V), 0.0f);
-    float NdotH = glm::max(glm::dot(N, H), 0.0f);
-    float VdotH = glm::max(glm::dot(V, H), 0.0f);
-
-    // Fresnel (Schlick's approximation)
-    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-    glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - VdotH, 5.0f);
-
-    // Geometry Shadowing (Smith)
-    float k = (roughness + 1.0f) * (roughness + 1.0f) / 8.0f;
-    float G_V = NdotV / (NdotV * (1.0f - k) + k);
-    float G_L = NdotL / (NdotL * (1.0f - k) + k);
-    float G = G_V * G_L;
-    
-    // Lambertian diffuse (non-metallic only)
-    glm::vec3 kD = (1.0f - F) * (1.0f - metallic);
-    glm::vec3 diffuse = kD * albedo * invPI;
-
-    // Normal Distribution (GGX / Trowbridge-Reitz)
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float denominator = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
-    float D = a2 * invPI / (denominator * denominator);
-
-    
-    //  Cook-Torrance specular
-    glm::vec3 specular = (D * F * G) / 4.0f * NdotV * NdotL;
-
-    //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
-    return diffuse + specular;
 }
 
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
