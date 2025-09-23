@@ -96,7 +96,7 @@ namespace MathUtils
 
         float phi = 2.0f * pi * u1;
         float cosTheta = u2;
-        float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
+        float sinTheta = sqrtf(1.0f - cosTheta * cosTheta);
 
         float x = sinTheta * glm::cos(phi);
         float y = sinTheta * glm::sin(phi);
