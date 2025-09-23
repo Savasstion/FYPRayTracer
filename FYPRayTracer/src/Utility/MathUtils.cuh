@@ -87,7 +87,7 @@ namespace MathUtils
         return glm::normalize(tangent * x + bitangent * y + normal * z);
     }
 
-    constexpr __host__ __device__ __forceinline__ float CosineHemispherePDF(float cosTheta){ return cosTheta / pi;}
+    constexpr __host__ __device__ __forceinline__ float CosineHemispherePDF(const float& cosTheta){ return cosTheta / pi;}
 
     __host__ __device__ __forceinline__ glm::vec3 UniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed)
     {
