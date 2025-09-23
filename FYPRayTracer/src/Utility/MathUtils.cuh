@@ -184,13 +184,13 @@ namespace MathUtils
         // --- choose branch ---
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
         glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
-        float wSpec = glm::max(glm::max(F.x, F.y), F.z);
+        float wSpec = (F.x + F.y + F.z) / 3.0f;
 
         float rand = randomFloat(seed);
         glm::vec3 L;
         float pdfSpec = 0.0f, pdfDiff = 0.0f;
 
-        if (rand < wSpec)
+        if (rand <= wSpec)
         {
             // specular sample
             L = GGXSampleHemisphere(normal, viewingVector, roughness, seed, pdfSpec);
