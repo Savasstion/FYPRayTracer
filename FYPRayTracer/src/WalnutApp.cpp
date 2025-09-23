@@ -21,6 +21,18 @@ private:
 	Scene m_Scene;
 
 	bool stopDemo = false;
+
+	static constexpr std::array<const char*, SamplingTechniqueEnum_COUNT> samplingTechniqueNames = {
+		"Brute Force",
+		"Uniform Sampling",
+		"Cosine-Weighted Sampling",
+		"GGX Sampling",
+		"BRDF Sampling",
+		"Light-Source Sampling",
+		"Next Event Estimation",
+		"ReSTIR DI",
+		"ReSTIR GI"
+	};
 	
 public:
 	ExampleLayer()
@@ -406,18 +418,6 @@ public:
 		ImGui::Text("Accumulated Frames : %d", m_Renderer.GetCurrentFrameIndex());
 
 		//	Sampling Technique Selection
-		static constexpr std::array<const char*, SamplingTechniqueEnum_COUNT> samplingTechniqueNames = {
-			"Brute Force",
-			"Uniform Sampling",
-			"Cosine-Weighted Sampling",
-			"GGX Sampling",
-			"BRDF Sampling",
-			"Light-Source Sampling",
-			"Next Event Estimation",
-			"ReSTIR DI",
-			"ReSTIR GI"
-		};
-
 		int currentIndex = m_Renderer.GetSettings().currentSamplingTechnique;
 
 		if (ImGui::Combo("Sampling Technique", &currentIndex, samplingTechniqueNames.data(), static_cast<int>(samplingTechniqueNames.size())))
@@ -540,6 +540,8 @@ public:
 		 	std::string fileName = "RenderedImages/output";
 		 	fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
 		 	fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");
+		 	std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
+		 	fileName.append("_" + samplingTechniqueName);
 		 	std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
 		 	MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
 		 }
