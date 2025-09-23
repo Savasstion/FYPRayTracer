@@ -15,7 +15,7 @@ private:
 	Renderer m_Renderer;
 	float m_CurrentFrameTime = 0.0f;
 	float m_AverageFrameTime = 0.0f;
-	float m_TimeToRender = 60.f;
+	float m_TimeToRender = 120.0f;
 	float m_RenderTime = 0.0f;
 	Camera m_Camera;
 	Scene m_Scene;
@@ -50,7 +50,6 @@ public:
 
 		Material& matWhiteGlowingSphere = m_Scene.materials.emplace_back();
 		matWhiteGlowingSphere.albedo = {1,1,1};
-		matWhiteGlowingSphere.roughness = 0.1f;
 		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
 		matWhiteGlowingSphere.emissionPower = 20.0f;
 
@@ -63,6 +62,13 @@ public:
 		matGreen.albedo = {0.0f,1.0f,0.0f};
 		matGreen.roughness = 1.0f;
 		matGreen.metallic = 0.0f;
+
+		Material& matWhite = m_Scene.materials.emplace_back();
+		matWhite.albedo = {1,1,1};
+		matWhite.roughness = 1.0f;
+		matWhite.metallic = 0.0f;
+		matWhite.emissionColor = matWhite.albedo;
+		matWhite.emissionPower = 0.0f;
 		
 		for(int i = -10; i < 10 ; i++)
 		{
@@ -150,7 +156,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				5);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -182,7 +188,7 @@ public:
 				pos,
 				rot,
 				scale,
-				0);
+				5);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
@@ -439,6 +445,16 @@ public:
 			stopDemo = false;
 		}
 
+		if (ImGui::Button("Import"))
+		{
+			//	not yet implemented
+		}
+
+		if (ImGui::Button("Benchmark render results"))
+		{
+			SaveBenchmarkResults();
+		}
+
 		ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)", &m_Renderer.GetSettings().toAccumulate);
 		if(m_Renderer.GetSettings().toAccumulate && rayTracingSettingsUpdated)
 		{
@@ -514,6 +530,24 @@ public:
 		Render();
 	}
 
+	void SaveBenchmarkResults()
+	{
+		if(m_Renderer.GetCurrentFrameIndex() == 1)
+			m_AverageFrameTime = m_CurrentFrameTime;
+		else
+			m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
+		 	
+		std::string fileName = "RenderedImages/output";
+		fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
+		fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");
+		std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
+		fileName.append("_" + samplingTechniqueName);
+		fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
+		fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+		std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
+		MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
+	}
+	
 	void Render()
 	{
 		Walnut::Timer timer;
@@ -527,23 +561,11 @@ public:
 			m_RenderTime += m_CurrentFrameTime;
 		}
 		
-		//	DEBUG
+		//	OFFLINE RENDERING
 		 if(m_RenderTime / 60000.0f >= m_TimeToRender && !stopDemo)
 		 {
 		 	stopDemo = true;
-		 	
-		 	if(m_Renderer.GetCurrentFrameIndex() == 1)
-		 		m_AverageFrameTime = m_CurrentFrameTime;
-		 	else
-		 		m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
-		 	
-		 	std::string fileName = "RenderedImages/output";
-		 	fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
-		 	fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");
-		 	std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
-		 	fileName.append("_" + samplingTechniqueName);
-		 	std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
-		 	MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
+		 	SaveBenchmarkResults();
 		 }
 	}
 };
