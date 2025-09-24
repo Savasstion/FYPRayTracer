@@ -245,7 +245,7 @@ namespace MathUtils
 
     
         //  Cook-Torrance specular
-        glm::vec3 specular = (D * F * G) / 4.0f * NdotV * NdotL;
+        glm::vec3 specular = (D * F * G) / (4.0f * NdotV * NdotL);
 
         //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
         return diffuse + specular;
