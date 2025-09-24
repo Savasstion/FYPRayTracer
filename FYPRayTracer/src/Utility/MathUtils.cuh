@@ -181,36 +181,78 @@ namespace MathUtils
 
     __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector, const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
     {
-        // --- choose branch ---
-        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
-        float wSpec = (F.x + F.y + F.z) / 3.0f;
-
-        float rand = randomFloat(seed);
         glm::vec3 L;
-        float pdfSpec = 0.0f, pdfDiff = 0.0f;
+        float pdfSpecular = 0.0f, pdfDiffuse = 0.0f;
+        
+        // --- choose branch ---
+        float wSpecular;
+        if(metallic == 1.0f)
+        {
+            return GGXSampleHemisphere(normal, viewingVector, roughness, seed, outPDF);
+        }
+        else if(metallic == 0.0f)
+        {
+            L = CosineSampleHemisphere(normal, seed);
+            float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
+            outPDF = CosineHemispherePDF(cosTheta);
+            return L;
+        }
+        else
+        {
+            glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+            glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
+            wSpecular = (F.x + F.y + F.z) / 3.0f;
+        }
+        
+        float rand = randomFloat(seed);
 
-        if (rand <= wSpec)
+        if (rand <= wSpecular)
         {
             // specular sample
-            L = GGXSampleHemisphere(normal, viewingVector, roughness, seed, pdfSpec);
+            L = GGXSampleHemisphere(normal, viewingVector, roughness, seed, pdfSpecular);
             // we still need the diffuse pdf for this same L:
             float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
-            pdfDiff = CosineHemispherePDF(cosTheta);
+            pdfDiffuse = CosineHemispherePDF(cosTheta);
         }
         else
         {
             // diffuse sample
             L = CosineSampleHemisphere(normal, seed);
             float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
-            pdfDiff = CosineHemispherePDF(cosTheta);
+            pdfDiffuse = CosineHemispherePDF(cosTheta);
             // need GGX pdf for same L:
-            pdfSpec = GGXHemispherePDF(normal, viewingVector, L, roughness); // or your GGX pdf function
+            pdfSpecular = GGXHemispherePDF(normal, viewingVector, L, roughness); // or your GGX pdf function
         }
 
         // final mixture pdf
-        outPDF = wSpec * pdfSpec + (1.0f - wSpec) * pdfDiff;
+        outPDF = wSpecular * pdfSpecular + (1.0f - wSpecular) * pdfDiffuse;
         return L;
+    }
+
+    __host__ __device__ __forceinline__ float BRDFHemispherePDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
+    {
+        // perfect‐metal or perfect‐dielectric cases
+        if (metallic == 1.0f) {
+            return GGXHemispherePDF(N, V, L, roughness);
+        }
+        if (metallic == 0.0f) {
+            float cosTheta = glm::max(glm::dot(N, L), 0.0f);
+            return CosineHemispherePDF(cosTheta);
+        }
+
+        // Fresnel term to decide specular weight
+        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+        float NdotV  = glm::max(glm::dot(N, V), 0.0f);
+        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - NdotV, 5.0f);
+        float wSpec  = (F.x + F.y + F.z) * (1.0f / 3.0f);   // average the RGB
+
+        // individual PDFs
+        float pdfSpec = GGXHemispherePDF(N, V, L, roughness);
+        float cosTheta = glm::max(glm::dot(N, L), 0.0f);
+        float pdfDiff = CosineHemispherePDF(cosTheta);
+
+        // mixture PDF
+        return wSpec * pdfSpec + (1.0f - wSpec) * pdfDiff;
     }
 
     __host__ __device__ __forceinline__ glm::vec3 CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
@@ -225,7 +267,7 @@ namespace MathUtils
         float NdotH = glm::max(glm::dot(N, H), 0.0f);
         float VdotH = glm::max(glm::dot(V, H), 0.0f);
 
-        if (NdotL <= 0.0f || NdotV <= 0.0f)
+        if (NdotL == 0.0f || NdotV == 0.0f)
             return glm::vec3(0.0f);
 
         // Fresnel (Schlick's approximation)
@@ -250,8 +292,8 @@ namespace MathUtils
         glm::vec3 specular = (D * G * F) / glm::max((4.0f * NdotV * NdotL), 1e-12f);
 
         //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
-        return glm::min(diffuse + specular, glm::vec3(1.0f));
-        //return diffuse + specular;
+        //return glm::min(diffuse + specular, glm::vec3(1.0f));
+        return diffuse + specular;
     }
 }
 
