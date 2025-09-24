@@ -176,7 +176,7 @@ __host__ __device__ uint32_t FindBLAS_LightTreeWithEmmiterIndexInTLAS_LightTree(
 
 __host__ __device__ uint32_t FindNodeWithEmmiterIndexInLightTree(LightTree::Node* nodes, const uint32_t& nodeCount, const uint32_t& indexToCheck);
 
-__host__ __device__ float ComputeDirectEmitterPMF(const Mesh_GPU* meshes, const LightTree* tlas_tree,const LightTree::ShadingPointQuery& sp, uint32_t emitterIndex)
+__host__ __device__ float ComputeDirectEmitterPMF(const Mesh_GPU* meshes, const LightTree* tlas_tree,const LightTree::ShadingPointQuery& sp, uint32_t emitterIndex);
 
 //  Obsolete
 __host__ __device__ __forceinline__ LightTree::SampledLight PickLight(const LightTree* tree, const LightTree::ShadingPointQuery& sp, uint32_t& randSeed)
