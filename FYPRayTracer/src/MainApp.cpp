@@ -8,7 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Utility/MisUtils.h"
 
-class ExampleLayer : public Walnut::Layer
+class MainLayer : public Walnut::Layer
 {
 private:
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
@@ -20,7 +20,7 @@ private:
 	Camera m_Camera;
 	Scene m_Scene;
 
-	bool stopDemo = false;
+	bool stopRender = false;
 
 	static constexpr std::array<const char*, SamplingTechniqueEnum_COUNT> samplingTechniqueNames = {
 		"Brute Force",
@@ -35,7 +35,7 @@ private:
 	};
 	
 public:
-	ExampleLayer()
+	MainLayer()
 	: m_Camera(45.0f, 0.1f, 100.0f)
 	{
 		Material& matPink = m_Scene.materials.emplace_back();
@@ -393,7 +393,7 @@ public:
 		{
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
-			stopDemo = false;
+			stopRender = false;
 		}
 		
 	}
@@ -409,7 +409,7 @@ public:
 			m_Camera.UpdateCameraView();
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
-			stopDemo = false;
+			stopRender = false;
 		}
 		ImGui::ColorEdit3("Skybox Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
 		bool rayTracingSettingsUpdated = false;
@@ -432,7 +432,7 @@ public:
 			{
 				m_Renderer.ResetFrameIndex();
 				m_RenderTime = 0.0f;
-				stopDemo = false;
+				stopRender = false;
 			}
 				
 			m_Renderer.GetSettings().currentSamplingTechnique = static_cast<SamplingTechniqueEnum>(currentIndex);
@@ -442,7 +442,7 @@ public:
 		{
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
-			stopDemo = false;
+			stopRender = false;
 		}
 
 		if (ImGui::Button("Import"))
@@ -460,7 +460,7 @@ public:
 		{
 			m_Renderer.ResetFrameIndex();
 			m_RenderTime = 0.0f;
-			stopDemo = false;
+			stopRender = false;
 		}
 		ImGui::End();
 
@@ -554,7 +554,7 @@ public:
 		
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
 		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
-		if(!stopDemo)
+		if(!stopRender)
 		{
 			m_Renderer.Render(m_Scene, m_Camera);
 			m_CurrentFrameTime = timer.ElapsedMillis();
@@ -562,9 +562,9 @@ public:
 		}
 		
 		//	OFFLINE RENDERING
-		 if(m_RenderTime / 60000.0f >= m_TimeToRender && !stopDemo)
+		 if(m_RenderTime / 60000.0f >= m_TimeToRender && !stopRender)
 		 {
-		 	stopDemo = true;
+		 	stopRender = true;
 		 	SaveBenchmarkResults();
 		 }
 	}
@@ -576,7 +576,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 	spec.Name = "FYP Ray Tracer";
 
 	Walnut::Application* app = new Walnut::Application(spec);
-	app->PushLayer<ExampleLayer>();
+	app->PushLayer<MainLayer>();
 	app->SetMenubarCallback([app]()
 	{
 		if (ImGui::BeginMenu("File"))
