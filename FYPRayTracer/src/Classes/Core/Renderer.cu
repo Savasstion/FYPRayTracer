@@ -997,7 +997,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                     );
 
                     float cosTheta_x = glm::max(glm::dot(lightDir, hit.worldNormal), 0.0f);
-                    float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 0.0f);
+                    float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
 
                     // triangle area pdf (area measure)
                     float triArea = Triangle::GetTriangleArea(p0,p1,p2);
@@ -1013,7 +1013,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
 
                     //  Do MIS weighting
                     //  calc balance heuristic
-                    weightBRDF = pdfBRDF / (pdfBRDF + pdfDirect);
+                    weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
                     weightDirect = 1.0f - weightBRDF;
                     
                     const Material& lightMat = activeScene->materials[lTri.materialIndex];
@@ -1038,6 +1038,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 seed,
                 pdfBRDF 
             );
+
+            pdfBRDF = glm::max(pdfBRDF, 1e-12f);
             
             glm::vec3 brdf = MathUtils::CalculateBRDF(
                 hit.worldNormal,
@@ -1078,7 +1080,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 pdfDirect = ComputeDirectEmitterPMF(activeScene->meshes, activeScene->lightTree_tlas, sp, hit.objectIndex);
                 //  Do MIS weighting
                 //  calc balance heuristic
-                weightBRDF = pdfBRDF / (pdfBRDF + pdfDirect);
+                weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
                 radiance += weightBRDF * pathThroughput * emission;
                 break;
             }
