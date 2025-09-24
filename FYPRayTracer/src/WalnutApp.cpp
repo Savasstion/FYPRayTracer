@@ -44,9 +44,9 @@ public:
 		matPink.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
-		matBlueSphere.albedo = {1.f,1.f,1.0f};
-		matBlueSphere.roughness = 0.1f;
-		matBlueSphere.metallic = 1.f;
+		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
+		matBlueSphere.roughness = 0.75f;
+		matBlueSphere.metallic = 0.2f;
 
 		Material& matWhiteEmissive = m_Scene.materials.emplace_back();
 		matWhiteEmissive.albedo = {1,1,1};
@@ -113,31 +113,31 @@ public:
 			{{ 0.5f,-0.5f,-0.5f}, { 0.0f, 1.0f, 0.0f}, {1,0}},
 			{{ 0.5f,-0.5f, 0.5f}, { 0.0f, 1.0f, 0.0f}, {1,1}},
 			{{-0.5f,-0.5f, 0.5f}, { 0.0f, 1.0f, 0.0f}, {0,1}},
-
+		
 			// Top (+Y)
 			{{-0.5f, 0.5f,-0.5f}, { 0.0f,-1.0f, 0.0f}, {0,0}},
 			{{ 0.5f, 0.5f,-0.5f}, { 0.0f,-1.0f, 0.0f}, {1,0}},
 			{{ 0.5f, 0.5f, 0.5f}, { 0.0f,-1.0f, 0.0f}, {1,1}},
 			{{-0.5f, 0.5f, 0.5f}, { 0.0f,-1.0f, 0.0f}, {0,1}},
-
+		
 			// Front (+Z)
 			{{-0.5f,-0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {0,0}},
 			{{ 0.5f,-0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {1,0}},
 			{{ 0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {1,1}},
 			{{-0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f,-1.0f}, {0,1}},
-
+		
 			// Back (-Z)
 			{{-0.5f,-0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {0,0}},
 			{{ 0.5f,-0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {1,0}},
 			{{ 0.5f, 0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {1,1}},
 			{{-0.5f, 0.5f,-0.5f}, { 0.0f, 0.0f, 1.0f}, {0,1}},
-
+		
 			// Left (-X)
 			{{-0.5f,-0.5f,-0.5f}, { 1.0f, 0.0f, 0.0f}, {0,0}},
 			{{-0.5f,-0.5f, 0.5f}, { 1.0f, 0.0f, 0.0f}, {1,0}},
 			{{-0.5f, 0.5f, 0.5f}, { 1.0f, 0.0f, 0.0f}, {1,1}},
 			{{-0.5f, 0.5f,-0.5f}, { 1.0f, 0.0f, 0.0f}, {0,1}},
-
+		
 			// Right (+X)
 			{{ 0.5f,-0.5f,-0.5f}, {-1.0f, 0.0f, 0.0f}, {0,0}},
 			{{ 0.5f,-0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1,0}},
@@ -149,7 +149,7 @@ public:
 				// Bottom
 				0,1,2, 0,2,3,
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -168,7 +168,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -181,7 +181,7 @@ public:
 				// Top
 				4,6,5, 4,7,6,
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -200,7 +200,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -213,7 +213,7 @@ public:
 				// Front
 				8,9,10, 8,10,11,
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -232,7 +232,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -245,7 +245,7 @@ public:
 				// Back
 				12,14,13, 12,15,14,
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -264,7 +264,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -277,7 +277,7 @@ public:
 				// Left
 				16,17,18, 16,18,19,
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -296,7 +296,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -309,7 +309,7 @@ public:
 				// Right
 				20,22,21, 20,23,22
 			};
-
+		
 			//	Set transforms
 			glm::vec3 pos{ 0,-1,0 };
 			glm::vec3 rot{ 0,0,0 };
@@ -328,7 +328,7 @@ public:
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
