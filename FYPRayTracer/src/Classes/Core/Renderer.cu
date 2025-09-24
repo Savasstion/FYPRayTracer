@@ -1075,8 +1075,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             }
 
             // Emissive surface
-            glm::vec3 emission = mat.GetEmission();
-            if (mat.GetEmissionRadiance() > 0.0f)
+            const Triangle& hitEmissiveTri = activeScene->triangles[hit.objectIndex];
+            const Material& hitEmissiveMat = activeScene->materials[hitEmissiveTri.materialIndex];
+            glm::vec3 emission = hitEmissiveMat.GetEmission();
+            if (hitEmissiveMat.GetEmissionRadiance() > 0.0f)
             {
                 indirectRadiance += pathThroughput * emission;
                 doMIS = true;
