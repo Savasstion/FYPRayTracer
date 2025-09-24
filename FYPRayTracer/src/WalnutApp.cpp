@@ -557,8 +557,17 @@ public:
 		if(!stopRender)
 		{
 			m_Renderer.Render(m_Scene, m_Camera);
-			m_CurrentFrameTime = timer.ElapsedMillis();
-			m_RenderTime += m_CurrentFrameTime;
+			
+			if(m_Renderer.GetSettings().toAccumulate)
+			{
+				m_CurrentFrameTime = timer.ElapsedMillis();
+				m_RenderTime += m_CurrentFrameTime;
+			}
+			else
+			{
+				m_RenderTime = 0.0f;
+			}
+
 		}
 		
 		//	OFFLINE RENDERING
