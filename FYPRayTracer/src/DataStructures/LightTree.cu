@@ -137,8 +137,7 @@ __host__ __device__ LightTree::SampledLight PickLight_TLAS(const Mesh_GPU* meshe
     } // end while
 }
 
-__host__ __device__ uint32_t FindBLAS_LightTreeWithEmmiterIndexInTLAS_LightTree(const Mesh_GPU* meshes, const LightTree* tlas_tree,
-    const uint32_t& indexToCheck)
+__host__ __device__ uint32_t FindBLAS_LightTreeWithEmmiterIndexInTLAS_LightTree(const Mesh_GPU* meshes, const LightTree* tlas_tree, const uint32_t& indexToCheck)
 {
     for (uint32_t i = 0; i < tlas_tree->nodeCount; i++)
     {
@@ -156,8 +155,7 @@ __host__ __device__ uint32_t FindBLAS_LightTreeWithEmmiterIndexInTLAS_LightTree(
     return -1; // no leaf matched
 }
 
-__host__ __device__ uint32_t FindNodeWithEmmiterIndexInLightTree(LightTree::Node* nodes, const uint32_t& nodeCount,
-    const uint32_t& indexToCheck)
+__host__ __device__ uint32_t FindNodeWithEmmiterIndexInLightTree(LightTree::Node* nodes, const uint32_t& nodeCount, const uint32_t& indexToCheck)
 {
     for (uint32_t i = 0; i < nodeCount; i++)
     {
