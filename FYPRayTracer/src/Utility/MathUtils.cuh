@@ -146,7 +146,7 @@ namespace MathUtils
         }
 
         float NdotH = glm::dot(normal, H);
-        float VdotH = glm::dot(viewVector, H); // note: viewVector should be unit
+        float VdotH = glm::dot(viewVector, H); 
         if (VdotH <= 0.0f || NdotH <= 0.0f) {
             outPDF = 0.0f;
             return glm::vec3(0.0f);
@@ -223,6 +223,9 @@ namespace MathUtils
         float NdotH = glm::max(glm::dot(N, H), 0.0f);
         float VdotH = glm::max(glm::dot(V, H), 0.0f);
 
+        if (NdotL <= 0.0f || NdotV <= 0.0f)
+            return glm::vec3(0.0f);
+
         // Fresnel (Schlick's approximation)
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
         glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - VdotH, 5.0f);
@@ -248,7 +251,7 @@ namespace MathUtils
         glm::vec3 specular = (D * F * G) / (4.0f * NdotV * NdotL);
 
         //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
-        return diffuse + specular;
+        return glm::min(diffuse + specular, 1.0f);
     }
 }
 
