@@ -44,9 +44,9 @@ public:
 		matPink.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
-		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
-		matBlueSphere.roughness = 0.75f;
-		matBlueSphere.metallic = 0.2f;
+		matBlueSphere.albedo = {1.f,1.f,1.0f};
+		matBlueSphere.roughness = 0.1f;
+		matBlueSphere.metallic = 1.f;
 
 		Material& matWhiteEmissive = m_Scene.materials.emplace_back();
 		matWhiteEmissive.albedo = {1,1,1};
@@ -544,7 +544,7 @@ public:
 		 	
 		std::string fileName = "RenderedImages/output";
 		fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
-		fileName.append("_" + std::to_string(m_TimeToRender) + "(min)s");
+		fileName.append("_" + std::to_string(m_RenderTime) + "(min)s");
 		std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
 		fileName.append("_" + samplingTechniqueName);
 		fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
@@ -562,7 +562,7 @@ public:
 		if(!stopRender)
 		{
 			m_Renderer.Render(m_Scene, m_Camera);
-			
+
 			if(m_Renderer.GetSettings().toAccumulate)
 			{
 				m_CurrentFrameTime = timer.ElapsedMillis();
@@ -570,6 +570,7 @@ public:
 			}
 			else
 			{
+				m_CurrentFrameTime = timer.ElapsedMillis();
 				m_RenderTime = 0.0f;
 			}
 

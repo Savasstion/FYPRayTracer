@@ -941,9 +941,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
         Ray       pathRay      = ray;
         RayHitPayload hit      = payload;
         
-        glm::vec3 directRadiance{0.0f};
-        glm::vec3 indirectRadiance{0.0f};
-        float pdfIndirect = 1.0f, pdfDirect = 1.0f;
+        float pdfBRDF = 1.0f, pdfDirect = 1.0f;
+        float weightBRDF = 1.0f, weightDirect = 1.0f;
 
         // Bounce loop
         for (int bounce = 0; bounce < maxBounces; ++bounce)
@@ -954,8 +953,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             // -------------------------------
             //   DIRECT LIGHT 
             // -------------------------------
-            {
-                LightTree::ShadingPointQuery sp;
+
+            LightTree::ShadingPointQuery sp;
                 sp.normal   = hit.worldNormal;
                 sp.position = hit.worldPosition;
 
@@ -1008,31 +1007,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                     // p_ω = p_A * r^2 / cosTheta_y
                     float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
 
-                    // total PDF includes the sampling PMF from PickLight_TLAS
+                    // get all the probabilily of directly choosing light source and probabily of choosing that direction according to BRDF
                     pdfDirect = sampled.pmf * lightSolidAnglePDF;
+                    pdfBRDF = MathUtils::BRDFHemispherePDF(hit.worldNormal, -pathRay.direction, lightDir, mat.albedo, mat.metallic, mat.roughness);
 
+                    //  Do MIS weighting
+                    //  calc balance heuristic
+                    weightBRDF = pdfBRDF / (pdfBRDF + pdfDirect);
+                    weightDirect = 1.0f - weightBRDF;
+                    
                     const Material& lightMat = activeScene->materials[lTri.materialIndex];
                     
-                    directRadiance += pathThroughput *
+                    radiance += weightDirect *
+                                pathThroughput *
                                 brdf *
                                 cosTheta_x *
                                 lightMat.GetEmission() /
                                 pdfDirect;
                 }
-            }
-
-            //  if no bounces, then no need to do indirect lighting calculation, pretty much the same as regular light source sampling
-            if(maxBounces == 1)
-            {
-                radiance += directRadiance;
-                break;
-            }
-                
-
+            
             // -------------------------------
             //   INDIRECT BOUNCE
             // -------------------------------
-            
             glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
                 hit.worldNormal,
                 -pathRay.direction,
@@ -1040,10 +1036,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 mat.metallic,
                 mat.roughness,
                 seed,
-                pdfIndirect 
+                pdfBRDF 
             );
-
-            
             
             glm::vec3 brdf = MathUtils::CalculateBRDF(
                 hit.worldNormal,
@@ -1057,21 +1051,22 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             float cosTheta = glm::dot(nextDir, hit.worldNormal);
 
             // throughput update
-            pathThroughput *= brdf * cosTheta / pdfIndirect;
+            pathThroughput *=  brdf * cosTheta / pdfBRDF;
 
             pathRay.origin    = hit.worldPosition + hit.worldNormal * 1e-12f;
             pathRay.direction = nextDir;
 
             // Trace next bounce
             hit = TraceRay(pathRay, activeScene);
-
-            //  if brdf sampling hits light source, do MIS weighting
-            bool doMIS = false;
+            sp.normal   = hit.worldNormal;
+            sp.position = hit.worldPosition;
+            
+            //  if brdf sampling hits light source
             //  Skybox
             if (hit.hitDistance < 0.0f)
             {
-                indirectRadiance += pathThroughput * settings.skyColor;
-                doMIS = true;
+                radiance += pathThroughput * settings.skyColor;
+                break;
             }
 
             // Emissive surface
@@ -1080,25 +1075,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             glm::vec3 emission = hitEmissiveMat.GetEmission();
             if (hitEmissiveMat.GetEmissionRadiance() > 0.0f)
             {
-                indirectRadiance += pathThroughput * emission;
-                doMIS = true;
-            }
-
-            //  Do MIS
-            if(doMIS)
-            {
+                pdfDirect = ComputeDirectEmitterPMF(activeScene->meshes, activeScene->lightTree_tlas, sp, hit.objectIndex);
+                //  Do MIS weighting
                 //  calc balance heuristic
-                float weightIndirect = pdfIndirect / (pdfIndirect + pdfDirect);
-                float weightDirect = 1.0f - weightIndirect;
-
-                radiance += weightDirect * directRadiance + weightIndirect * indirectRadiance;
+                weightBRDF = pdfBRDF / (pdfBRDF + pdfDirect);
+                radiance += weightBRDF * pathThroughput * emission;
                 break;
             }
-            else if (bounce == maxBounces - 1)    //  last bounce and brdf sampling still didnt hit light then use direct lighting only
-            {
-                radiance += directRadiance;
-            }
-            
             
         } // bounce loop
     }     // sample loop
