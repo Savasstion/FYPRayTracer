@@ -1025,6 +1025,14 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                                 lightMat.GetEmission() /
                                 pdfDirect;
                 }
+
+            //  since not doing GI, dont bother continue
+            if(maxBounces == 1)
+            {
+                radiance /= weightDirect;   //  undo MIS so it is exactly similiar like regular Light Source Sampling
+                break;
+            }
+                
             
             // -------------------------------
             //   INDIRECT BOUNCE
@@ -1077,7 +1085,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             glm::vec3 emission = hitEmissiveMat.GetEmission();
             if (hitEmissiveMat.GetEmissionRadiance() > 0.0f)
             {
+                glm::vec3 p0 = activeScene->worldVertices[hitEmissiveTri.v0].position;
+                glm::vec3 p1 = activeScene->worldVertices[hitEmissiveTri.v1].position;
+                glm::vec3 p2 = activeScene->worldVertices[hitEmissiveTri.v2].position;
+                glm::vec3 n0 = activeScene->worldVertices[hitEmissiveTri.v0].normal;
+                glm::vec3 n1 = activeScene->worldVertices[hitEmissiveTri.v1].normal;
+                glm::vec3 n2 = activeScene->worldVertices[hitEmissiveTri.v2].normal;
+
+                glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
+                glm::vec3 lightDir = lightPoint - hit.worldPosition;
+                float dist = glm::length(lightDir);
+                lightDir /= dist;
+                glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
+                float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
+                
+                float triArea = Triangle::GetTriangleArea(p0,p1,p2);
+                float triAreaPDF = 1.0f / triArea; // p_A
+
+                // convert area PDF -> solid-angle PDF:
+                float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
                 pdfDirect = ComputeDirectEmitterPMF(activeScene->meshes, activeScene->lightTree_tlas, sp, hit.objectIndex);
+                pdfDirect *= lightSolidAnglePDF;
                 //  Do MIS weighting
                 //  calc balance heuristic
                 weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
