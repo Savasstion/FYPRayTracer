@@ -48,10 +48,10 @@ public:
 		matBlueSphere.roughness = 0.75f;
 		matBlueSphere.metallic = 0.2f;
 
-		Material& matWhiteGlowingSphere = m_Scene.materials.emplace_back();
-		matWhiteGlowingSphere.albedo = {1,1,1};
-		matWhiteGlowingSphere.emissionColor = matWhiteGlowingSphere.albedo;
-		matWhiteGlowingSphere.emissionPower = 20.0f;
+		Material& matWhiteEmissive = m_Scene.materials.emplace_back();
+		matWhiteEmissive.albedo = {1,1,1};
+		matWhiteEmissive.emissionColor = matWhiteEmissive.albedo;
+		matWhiteEmissive.emissionPower = 20.0f;
 
 		Material& matRed = m_Scene.materials.emplace_back();
 		matRed.albedo = {1.0f,0.0f,0.0f};
@@ -69,6 +69,11 @@ public:
 		matWhite.metallic = 0.0f;
 		matWhite.emissionColor = matWhite.albedo;
 		matWhite.emissionPower = 0.0f;
+
+		Material& matBlue = m_Scene.materials.emplace_back();
+		matBlue.albedo = {0.0f,0.0f,1.0f};
+		matBlue.roughness = 1.0f;
+		matBlue.metallic = 0.0f;
 		
 		for(int i = -10; i < 10 ; i++)
 		{
@@ -284,7 +289,7 @@ public:
 				pos,
 				rot,
 				scale,
-				1);
+				6);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
