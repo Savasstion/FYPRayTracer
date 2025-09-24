@@ -544,7 +544,7 @@ public:
 		 	
 		std::string fileName = "RenderedImages/output";
 		fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
-		fileName.append("_" + std::to_string(m_RenderTime) + "(min)s");
+		fileName.append("_" + std::to_string(m_RenderTime / 60000.0f) + "(min)s");
 		std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
 		fileName.append("_" + samplingTechniqueName);
 		fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
