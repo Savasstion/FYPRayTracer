@@ -44,9 +44,9 @@ public:
 		matMagenta.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
-		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
-		matBlueSphere.roughness = 0.75f;
-		matBlueSphere.metallic = 0.2f;
+		matBlueSphere.albedo = {1.f,1.f,1.0f};
+		matBlueSphere.roughness = 0.1f;
+		matBlueSphere.metallic = 1.f;
 
 		Material& matWhiteEmissive = m_Scene.materials.emplace_back();
 		matWhiteEmissive.albedo = {1,1,1};
@@ -67,8 +67,6 @@ public:
 		matWhite.albedo = {1,1,1};
 		matWhite.roughness = 1.0f;
 		matWhite.metallic = 0.0f;
-		matWhite.emissionColor = matWhite.albedo;
-		matWhite.emissionPower = 0.0f;
 
 		Material& matBlue = m_Scene.materials.emplace_back();
 		matBlue.albedo = {0.0f,0.0f,1.0f};
