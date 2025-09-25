@@ -199,6 +199,7 @@ namespace MathUtils
         }
         else
         {
+            //  Fresnel
             glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
             glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
             wSpecular = (F.x + F.y + F.z) / 3.0f;
