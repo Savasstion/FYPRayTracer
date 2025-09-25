@@ -921,122 +921,105 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
 
     RayHitPayload payload = TraceRay(ray, activeScene);
 
-    //  Skybox
+    // Skybox
     if (payload.hitDistance < 0.0f)
         return glm::vec4(settings.skyColor, 1.0f);
-    
+
     const Triangle& hitTri = activeScene->triangles[payload.objectIndex];
     const Material& hitMat = activeScene->materials[hitTri.materialIndex];
 
     // Hit emissive surface
     if (glm::length(hitMat.GetEmission()) > 0.0f)
         return glm::vec4(hitMat.GetEmission(), 1.0f);
-    
+
     // Multi-sample per pixel
     for (int s = 0; s < sampleCount; ++s)
     {
-        seed += (s + 1) * 31;   // original seed update
+        seed += (s + 1) * 31;
 
         glm::vec3 pathThroughput{1.0f};
         Ray       pathRay      = ray;
         RayHitPayload hit      = payload;
-        
-        float pdfBRDF = 1.0f, pdfDirect = 1.0f;
-        float weightBRDF = 1.0f, weightDirect = 1.0f;
 
-        // Bounce loop
+        float pdfBRDF = 1.0f;
+        float pdfDirect = 1.0f;
+
         for (int bounce = 0; bounce < maxBounces; ++bounce)
         {
             const Triangle& tri = activeScene->triangles[hit.objectIndex];
             const Material& mat = activeScene->materials[tri.materialIndex];
-            
-            // -------------------------------
-            //   DIRECT LIGHT 
-            // -------------------------------
 
+            // -------------------------------
+            // Direct Light Sampling (NEE)
+            // -------------------------------
             LightTree::ShadingPointQuery sp;
-                sp.normal   = hit.worldNormal;
-                sp.position = hit.worldPosition;
+            sp.normal   = hit.worldNormal;
+            sp.position = hit.worldPosition;
 
-                LightTree::SampledLight sampled = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+            LightTree::SampledLight sampled = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
 
-                // light triangle data
-                const Triangle& lTri = activeScene->triangles[sampled.emitterIndex];
-                glm::vec3 p0 = activeScene->worldVertices[lTri.v0].position;
-                glm::vec3 p1 = activeScene->worldVertices[lTri.v1].position;
-                glm::vec3 p2 = activeScene->worldVertices[lTri.v2].position;
-                glm::vec3 n0 = activeScene->worldVertices[lTri.v0].normal;
-                glm::vec3 n1 = activeScene->worldVertices[lTri.v1].normal;
-                glm::vec3 n2 = activeScene->worldVertices[lTri.v2].normal;
+            const Triangle& lTri = activeScene->triangles[sampled.emitterIndex];
+            glm::vec3 p0 = activeScene->worldVertices[lTri.v0].position;
+            glm::vec3 p1 = activeScene->worldVertices[lTri.v1].position;
+            glm::vec3 p2 = activeScene->worldVertices[lTri.v2].position;
+            glm::vec3 n0 = activeScene->worldVertices[lTri.v0].normal;
+            glm::vec3 n1 = activeScene->worldVertices[lTri.v1].normal;
+            glm::vec3 n2 = activeScene->worldVertices[lTri.v2].normal;
 
-                glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
-                glm::vec3 lightDir = lightPoint - hit.worldPosition;
-                float dist = glm::length(lightDir);
-                lightDir /= dist;
+            glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+            glm::vec3 lightDir = lightPoint - hit.worldPosition;
+            float dist = glm::length(lightDir);
+            lightDir /= dist;
 
-                // Shadow ray
-                Ray shadowRay;
-                shadowRay.origin = hit.worldPosition + hit.worldNormal * 1e-12f;
-                shadowRay.direction = lightDir;
+            // Shadow ray
+            Ray shadowRay;
+            shadowRay.origin = hit.worldPosition + hit.worldNormal * 1e-12f;
+            shadowRay.direction = lightDir;
 
-                RayHitPayload shadowPayload = TraceRay(shadowRay, activeScene);
+            RayHitPayload shadowPayload = TraceRay(shadowRay, activeScene);
 
-                // Only add if unoccluded and hit correct emitter
-                if (shadowPayload.hitDistance > 0.0f &&
-                    static_cast<uint32_t>(shadowPayload.objectIndex) == sampled.emitterIndex)
-                {
-                    glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
-
-                    glm::vec3 brdf = MathUtils::CalculateBRDF(
-                        hit.worldNormal,
-                        -pathRay.direction,
-                        lightDir,
-                        mat.albedo,
-                        mat.metallic,
-                        mat.roughness
-                    );
-
-                    float cosTheta_x = glm::max(glm::dot(lightDir, hit.worldNormal), 0.0f);
-                    float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
-
-                    // triangle area pdf (area measure)
-                    float triArea = Triangle::GetTriangleArea(p0,p1,p2);
-                    float triAreaPDF = 1.0f / triArea; // p_A
-
-                    // convert area PDF -> solid-angle PDF:
-                    // p_ω = p_A * r^2 / cosTheta_y
-                    float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
-
-                    // get all the probabilily of directly choosing light source and probabily of choosing that direction according to BRDF
-                    pdfDirect = sampled.pmf * lightSolidAnglePDF;
-                    pdfBRDF = MathUtils::BRDFHemispherePDF(hit.worldNormal, -pathRay.direction, lightDir, mat.albedo, mat.metallic, mat.roughness);
-
-                    //  Do MIS weighting
-                    //  calc balance heuristic
-                    weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
-                    weightDirect = 1.0f - weightBRDF;
-                    
-                    const Material& lightMat = activeScene->materials[lTri.materialIndex];
-                    
-                    radiance += weightDirect *
-                                pathThroughput *
-                                brdf *
-                                cosTheta_x *
-                                lightMat.GetEmission() /
-                                pdfDirect;
-                }
-
-            //  since not doing GI, dont bother continue
-            if(maxBounces == 1)
+            if (shadowPayload.hitDistance > 0.0f &&
+                static_cast<uint32_t>(shadowPayload.objectIndex) == sampled.emitterIndex)
             {
-                radiance /= weightDirect;   //  undo MIS so it is exactly similiar like regular Light Source Sampling
-                break;
+                glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0, n1, n2);
+
+                glm::vec3 brdf = MathUtils::CalculateBRDF(
+                    hit.worldNormal,
+                    -pathRay.direction,
+                    lightDir,
+                    mat.albedo,
+                    mat.metallic,
+                    mat.roughness
+                );
+
+                float cosTheta_x = glm::max(glm::dot(lightDir, hit.worldNormal), 0.0f);
+                float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
+
+                float triArea = Triangle::GetTriangleArea(p0, p1, p2);
+                float triAreaPDF = 1.0f / triArea;
+                float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
+
+                pdfDirect = sampled.pmf * lightSolidAnglePDF;
+                pdfBRDF = MathUtils::BRDFHemispherePDF(hit.worldNormal, -pathRay.direction, lightDir, mat.albedo, mat.metallic, mat.roughness);
+
+                ////  MIS only for interior bounces
+                // if (bounce == 0)
+                // {
+                //     radiance += pathThroughput * brdf * cosTheta_x * activeScene->materials[lTri.materialIndex].GetEmission() / pdfDirect;
+                // }
+                // else
+                {
+                    //  Calc MIS weight, balance heuristics
+                    float weightDirect = pdfDirect / glm::max(pdfBRDF + pdfDirect, 1e-12f);
+                    radiance += weightDirect * pathThroughput * brdf * cosTheta_x * activeScene->materials[lTri.materialIndex].GetEmission() / pdfDirect;
+                }
             }
-                
-            
+
             // -------------------------------
-            //   INDIRECT BOUNCE
+            // Indirect Bounce
             // -------------------------------
+            if (bounce == maxBounces - 1) break;
+
             glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
                 hit.worldNormal,
                 -pathRay.direction,
@@ -1044,11 +1027,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 mat.metallic,
                 mat.roughness,
                 seed,
-                pdfBRDF 
+                pdfBRDF
             );
 
             pdfBRDF = glm::max(pdfBRDF, 1e-12f);
-            
+
             glm::vec3 brdf = MathUtils::CalculateBRDF(
                 hit.worldNormal,
                 -pathRay.direction,
@@ -1059,19 +1042,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             );
 
             float cosTheta = glm::dot(nextDir, hit.worldNormal);
+            pathThroughput *= brdf * cosTheta / pdfBRDF;
 
-            // throughput update
-            pathThroughput *=  brdf * cosTheta / pdfBRDF;
-
-            pathRay.origin    = hit.worldPosition + hit.worldNormal * 1e-12f;
+            pathRay.origin = hit.worldPosition + hit.worldNormal * 1e-12f;
             pathRay.direction = nextDir;
 
-            // Trace next bounce
             hit = TraceRay(pathRay, activeScene);
-            sp.normal   = hit.worldNormal;
-            sp.position = hit.worldPosition;
-            
-            //  if brdf sampling hits light source
+
             //  Skybox
             if (hit.hitDistance < 0.0f)
             {
@@ -1079,40 +1056,47 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 break;
             }
 
-            // Emissive surface
+            //  Emissive Surface
             const Triangle& hitEmissiveTri = activeScene->triangles[hit.objectIndex];
             const Material& hitEmissiveMat = activeScene->materials[hitEmissiveTri.materialIndex];
             glm::vec3 emission = hitEmissiveMat.GetEmission();
             if (hitEmissiveMat.GetEmissionRadiance() > 0.0f)
             {
-                glm::vec3 p0 = activeScene->worldVertices[hitEmissiveTri.v0].position;
-                glm::vec3 p1 = activeScene->worldVertices[hitEmissiveTri.v1].position;
-                glm::vec3 p2 = activeScene->worldVertices[hitEmissiveTri.v2].position;
-                glm::vec3 n0 = activeScene->worldVertices[hitEmissiveTri.v0].normal;
-                glm::vec3 n1 = activeScene->worldVertices[hitEmissiveTri.v1].normal;
-                glm::vec3 n2 = activeScene->worldVertices[hitEmissiveTri.v2].normal;
-
-                glm::vec3 lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
-                glm::vec3 lightDir = lightPoint - hit.worldPosition;
-                float dist = glm::length(lightDir);
-                lightDir /= dist;
-                glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
-                float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
-                
-                float triArea = Triangle::GetTriangleArea(p0,p1,p2);
-                float triAreaPDF = 1.0f / triArea; // p_A
-
-                // convert area PDF -> solid-angle PDF:
-                float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
-                pdfDirect = ComputeDirectEmitterPMF(activeScene->meshes, activeScene->lightTree_tlas, sp, hit.objectIndex);
-                pdfDirect *= lightSolidAnglePDF;
-                //  Do MIS weighting
-                //  calc balance heuristic
-                weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
-                radiance += weightBRDF * pathThroughput * emission;
+                ////    MIS only for interior bounces
+                // if (bounce == 0)
+                //     radiance += pathThroughput * emission;
+                // else
+                {
+                    sp.normal = hit.worldNormal;
+                    sp.position = hit.worldPosition;
+                    
+                    p0 = activeScene->worldVertices[hitEmissiveTri.v0].position;
+                    p1 = activeScene->worldVertices[hitEmissiveTri.v1].position;
+                    p2 = activeScene->worldVertices[hitEmissiveTri.v2].position;
+                    n0 = activeScene->worldVertices[hitEmissiveTri.v0].normal;
+                    n1 = activeScene->worldVertices[hitEmissiveTri.v1].normal;
+                    n2 = activeScene->worldVertices[hitEmissiveTri.v2].normal;
+                    
+                    lightPoint = Triangle::GetRandomPointOnTriangle(p0,p1,p2,seed);
+                    lightDir = lightPoint - hit.worldPosition;
+                    dist = glm::length(lightDir);
+                    lightDir /= dist;
+                    glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0,n1,n2);
+                    float cosTheta_y = glm::max(glm::dot(-lightDir, lightNormal), 1e-12f);
+                    
+                    float triArea = Triangle::GetTriangleArea(p0,p1,p2);
+                    float triAreaPDF = 1.0f / triArea;
+                    
+                    // convert area PDF -> solid-angle PDF:
+                    float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
+                    pdfDirect = ComputeDirectEmitterPMF(activeScene->meshes, activeScene->lightTree_tlas, sp, hit.objectIndex) * lightSolidAnglePDF;
+                    
+                    //  Calc MIS weight, balance heuristics
+                    float weightBRDF = pdfBRDF / glm::max(pdfBRDF + pdfDirect, 1e-12f);
+                    radiance += weightBRDF * pathThroughput * emission;
+                }
                 break;
             }
-            
         } // bounce loop
     }     // sample loop
 
