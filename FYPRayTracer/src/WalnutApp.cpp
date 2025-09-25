@@ -38,10 +38,10 @@ public:
 	MainLayer()
 	: m_Camera(45.0f, 0.1f, 100.0f)
 	{
-		Material& matPink = m_Scene.materials.emplace_back();
-		matPink.albedo = {1.0f,0.0f,1.0f};
-		matPink.roughness = 1.f;
-		matPink.metallic = 0.0f;
+		Material& matMagenta = m_Scene.materials.emplace_back();
+		matMagenta.albedo = {1.0f,0.0f,1.0f};
+		matMagenta.roughness = 1.f;
+		matMagenta.metallic = 0.0f;
 		
 		Material& matBlueSphere = m_Scene.materials.emplace_back();
 		matBlueSphere.albedo = {0.2f,0.3f,1.0f};
