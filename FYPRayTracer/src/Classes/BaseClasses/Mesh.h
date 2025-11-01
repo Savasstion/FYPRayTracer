@@ -9,6 +9,9 @@
 #include "Triangle.cuh"
 #include "../../DataStructures/BVH.cuh"
 #include "../../DataStructures/LightTree.cuh"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 
 struct Mesh
@@ -43,6 +46,11 @@ struct Mesh
         const std::vector<Triangle>& triangles,
         const std::vector<Material>& materials,
         const std::vector<Vertex>& worldVertices ) const;
+
+    //  ASSIMP Stuff
+    static void ProcessMesh(const aiMesh* mesh, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
+    static void ProcessNode(const aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
+    static void GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 };
 
 #endif

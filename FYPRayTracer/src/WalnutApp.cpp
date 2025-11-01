@@ -72,32 +72,67 @@ public:
 		matBlue.albedo = {0.0f,0.0f,1.0f};
 		matBlue.roughness = 1.0f;
 		matBlue.metallic = 0.0f;
-		
-		for(int i = -10; i < 10 ; i++)
-		{
-			std::vector<Vertex> sphereVertices;
-			std::vector<uint32_t> sphereIndices;
-			Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
 
+		////	Place Spehres
+		// for(int i = -10; i < 10 ; i++)
+		// {
+		// 	std::vector<Vertex> sphereVertices;
+		// 	std::vector<uint32_t> sphereIndices;
+		// 	Mesh::GenerateSphereMesh(1, 20,20, sphereVertices, sphereIndices);
+		//
+		// 	//	Set transforms
+		// 	glm::vec3 pos{i,i, i};
+		// 	glm::vec3 rot{0,0,0};
+		// 	glm::vec3 scale{1,1,1};
+		//
+		// 	//	Init mesh into scene
+		// 	Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
+		// 					sphereIndices,
+		// 					pos,
+		// 					rot,
+		// 					scale,
+		// 					1);
+		//
+		// 	//	Build BVH for ray collision
+		// 	uint32_t triOffset = 0;
+		// 	auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+		// 	meshPtr->blas.objectOffset = triOffset;
+		// 	meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+		//
+		// 	//	Build Light Tree for Light Source Sampling
+		// 	auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+		// 	if(lightTreeEmitterNodes.empty())
+		// 		meshPtr->lightTree_blas.nodeCount = 0;
+		// 	else
+		// 		meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+		// }
+		
+		//	Place utah teapot
+		{
+			std::vector<Vertex> meshVertices;
+			std::vector<uint32_t> meshIndices;
+			std::string filePath = "Assets/3D Models/Test/teapot.obj";
+			Mesh::GenerateMesh(filePath, meshVertices, meshIndices);
+		
 			//	Set transforms
-			glm::vec3 pos{i,i, i};
+			glm::vec3 pos{0,0, 0};
 			glm::vec3 rot{0,0,0};
 			glm::vec3 scale{1,1,1};
-
+		
 			//	Init mesh into scene
-			Mesh* meshPtr = m_Scene.AddNewMeshToScene(sphereVertices,
-							sphereIndices,
+			Mesh* meshPtr = m_Scene.AddNewMeshToScene(meshVertices,
+							meshIndices,
 							pos,
 							rot,
 							scale,
-							1);
+							0);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;
 			auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
 			meshPtr->blas.objectOffset = triOffset;
 			meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
-
+		
 			//	Build Light Tree for Light Source Sampling
 			auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
 			if(lightTreeEmitterNodes.empty())
@@ -142,6 +177,7 @@ public:
 			{{ 0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1,1}},
 			{{ 0.5f, 0.5f,-0.5f}, {-1.0f, 0.0f, 0.0f}, {0,1}},
 		};
+		//	Place box
 		{
 			std::vector<uint32_t> boxIndices = {
 				// Bottom

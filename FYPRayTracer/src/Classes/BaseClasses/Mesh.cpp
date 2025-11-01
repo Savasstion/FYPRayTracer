@@ -5,6 +5,7 @@
 
 
 
+
 void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
                               std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
 {
@@ -202,4 +203,100 @@ std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles
         }
 
     return leafNodes;
+}
+
+void Mesh::ProcessMesh(const aiMesh* mesh, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices)
+{
+    size_t baseVertex = vertices.size();
+
+    // --- Vertices ---
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+    {
+        Vertex vertex;
+        vertex.position = {
+            mesh->mVertices[i].x,
+            mesh->mVertices[i].y,
+            mesh->mVertices[i].z
+        };
+
+        if (mesh->HasNormals())
+        {
+            vertex.normal = {
+                mesh->mNormals[i].x,
+                mesh->mNormals[i].y,
+                mesh->mNormals[i].z
+            };
+        }
+
+        if (mesh->HasTextureCoords(0))
+        {
+            vertex.uv = {
+                mesh->mTextureCoords[0][i].x,
+                mesh->mTextureCoords[0][i].y
+            };
+        }
+
+        vertices.push_back(vertex);
+    }
+
+    // --- Indices ---
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+    {
+        const aiFace& face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++)
+        {
+            indices.push_back(static_cast<uint32_t>(baseVertex + face.mIndices[j]));
+        }
+    }
+}
+
+void Mesh::ProcessNode(const aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices)
+{
+    // Process all meshes in this node
+    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        ProcessMesh(mesh, vertices, indices);
+    }
+
+    // Recursively process children
+    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        ProcessNode(node->mChildren[i], scene, vertices, indices);
+    }
+}
+
+void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
+{
+    Assimp::Importer importer;
+
+    const aiScene* scene = importer.ReadFile(
+        filepath,
+        aiProcess_Triangulate | 
+        aiProcess_GenSmoothNormals |
+        aiProcess_FlipUVs |             // Flip UVs (OpenGL-style)
+        aiProcess_JoinIdenticalVertices |
+        aiProcess_CalcTangentSpace
+    );
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    {
+        std::cerr << "ASSIMP Error: " << importer.GetErrorString() << std::endl;
+        return;
+    }
+
+    outVertices.clear();
+    outIndices.clear();
+
+    ProcessNode(scene->mRootNode, scene, outVertices, outIndices);
+
+    // // Left-Handed Fix (for OpenGL-like systems) 
+    // // ASSIMP often loads in right-handed space
+    // for (auto& v : outVertices)
+    // {
+    //     v.position.z *= -1.0f;
+    //     v.normal.z   *= -1.0f;
+    // }
+    
 }
