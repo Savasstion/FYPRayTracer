@@ -293,10 +293,11 @@ void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVer
 
     // // Left-Handed Fix (for OpenGL-like systems) 
     // // ASSIMP often loads in right-handed space
-    // for (auto& v : outVertices)
+    // #pragma omp parallel for
+    // for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
     // {
-    //     v.position.z *= -1.0f;
-    //     v.normal.z   *= -1.0f;
+    //     outVertices[i].position.z *= -1.0f;
+    //     outVertices[i].normal.z   *= -1.0f;
     // }
     
 }
