@@ -30,6 +30,15 @@ namespace ColorUtils
     
         return (a << 24) | (b << 16) | (g << 8) | r;
     }
+
+    __host__ __device__ __forceinline__ glm::vec4 UnpackABGR(uint32_t abgr)
+    {
+        float r =  (float)((abgr      ) & 0xFF) * (1.0f / 255.0f);
+        float g =  (float)((abgr >>  8) & 0xFF) * (1.0f / 255.0f);
+        float b =  (float)((abgr >> 16) & 0xFF) * (1.0f / 255.0f);
+        float a =  (float)((abgr >> 24) & 0xFF) * (1.0f / 255.0f);
+        return glm::vec4(r, g, b, a);
+    }
 }
 
 
