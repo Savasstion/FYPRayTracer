@@ -11,6 +11,7 @@ struct Scene_GPU
     Triangle* triangles;
     Mesh_GPU* meshes;
     Material* materials;
+    Texture* textures;
 
     BVH* tlas;
     LightTree* lightTree_tlas;
@@ -21,6 +22,7 @@ struct Scene_GPU
     uint32_t triangleCount;
     uint32_t meshCount;
     uint32_t materialCount;
+    uint32_t textureCount;
 };
 
 

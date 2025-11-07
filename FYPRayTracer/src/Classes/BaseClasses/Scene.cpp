@@ -222,3 +222,9 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() con
     return leafNodes;
 }
 
+void Scene::AddNewTexture(std::string& textureFilePath)
+{
+    if(!textureFilePath.empty())
+        textures.emplace_back(textureFilePath);
+}
+

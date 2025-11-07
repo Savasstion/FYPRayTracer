@@ -4,6 +4,7 @@
 #include <vector>
 #include "Mesh.h"
 #include "Sphere.h"
+#include "Texture.cuh"
 #include "Triangle.cuh"
 #include "Vector3f.cuh"
 #include "Vertex.h"
@@ -29,6 +30,7 @@ struct Scene
     std::vector<Triangle> triangles;    //  used as a buffer to group triangles up for easier calculations like for ray intersection test or bvh
     std::vector<Mesh> meshes;
     std::vector<Material> materials;
+    std::vector<Texture> textures;
 
     //  Acceleration Structure
     BVH tlas;   //  for ray-mesh intersections
@@ -41,7 +43,8 @@ struct Scene
     std::vector<BVH::Node> CreateBVHnodesFromSceneTriangles() const;  //    obsolete now that we have a level system : TLAS/BLAS 
     std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes() const;
     std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();  
-    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;    
+    std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
+    void AddNewTexture(std::string& textureFilePath);
 };
 
 #endif
