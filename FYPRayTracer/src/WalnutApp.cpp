@@ -73,6 +73,12 @@ public:
 		matBlue.roughness = 1.0f;
 		matBlue.metallic = 0.0f;
 
+		Material& matBanana = m_Scene.materials.emplace_back();
+		std::string filePath = "Assets/3D Models/Test/bananaDiffuse.png";
+		matBanana.albedoMapIndex = m_Scene.AddNewTexture(filePath, matBanana, ALBEDO);
+		matBanana.roughness = 1.0f;
+		matBanana.metallic = 0.0f;
+
 		////	Place Spehres
 		// for(int i = -10; i < 10 ; i++)
 		// {
@@ -107,16 +113,16 @@ public:
 		// 		meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(), static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 		// }
 		
-		//	Place utah teapot
+		//	Place Banana
 		{
 			std::vector<Vertex> meshVertices;
 			std::vector<uint32_t> meshIndices;
-			std::string filePath = "Assets/3D Models/Test/teapot.obj";
-			Mesh::GenerateMesh(filePath, meshVertices, meshIndices);
-		
+			std::string filePath = "Assets/3D Models/Test/banana.obj";
+			Mesh::GenerateMesh(filePath, meshVertices, meshIndices, false);
+			
 			//	Set transforms
 			glm::vec3 pos{0,0, 0};
-			glm::vec3 rot{0,0,0};
+			glm::vec3 rot{-90,0,0};
 			glm::vec3 scale{1,1,1};
 		
 			//	Init mesh into scene
@@ -125,7 +131,7 @@ public:
 							pos,
 							rot,
 							scale,
-							0);
+							7);
 		
 			//	Build BVH for ray collision
 			uint32_t triOffset = 0;

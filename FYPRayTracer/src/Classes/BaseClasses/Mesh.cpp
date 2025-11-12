@@ -267,7 +267,7 @@ void Mesh::ProcessNode(const aiNode* node, const aiScene* scene, std::vector<Ver
     }
 }
 
-void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
+void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices, bool toFlipUV)
 {
     Assimp::Importer importer;
 
@@ -291,13 +291,22 @@ void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVer
 
     ProcessNode(scene->mRootNode, scene, outVertices, outIndices);
 
-    // // Left-Handed Fix (for OpenGL-like systems) 
-    // // ASSIMP often loads in right-handed space
-    // #pragma omp parallel for
-    // for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
-    // {
-    //     outVertices[i].position.z *= -1.0f;
-    //     outVertices[i].normal.z   *= -1.0f;
-    // }
+    // Left-Handed Fix (for OpenGL-like systems) 
+    // ASSIMP often loads in right-handed space
+    #pragma omp parallel for
+    for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
+    {
+        outVertices[i].position.z *= -1.0f;
+        outVertices[i].normal.z   *= -1.0f;
+    }
+    
+    if(toFlipUV)
+    {
+        #pragma omp parallel for
+        for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
+        {
+            outVertices[i].uv.y = 1.0f - outVertices[i].uv.y;
+        }
+    }
     
 }

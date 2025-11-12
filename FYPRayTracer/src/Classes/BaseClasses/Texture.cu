@@ -30,11 +30,6 @@ Texture::Texture(std::string& imageFilePath)
     stbi_image_free(data);
 }
 
-Texture::~Texture()
-{
-    FreeTexture();
-}
-
 Texture TextureToHostTextureGPU(const Texture& h_tex)
 {
     Texture h_gpuTex{};

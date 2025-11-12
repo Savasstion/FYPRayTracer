@@ -11,6 +11,7 @@
 #include "../BaseClasses/Material.cuh"
 #include "../../DataStructures/BVH.cuh"
 #include "../../DataStructures/LightTree.cuh"
+#include "../../Enums/MaterialPropertiesEnum.h"
 #include "../Managers/SceneManager.h"
 
 namespace SceneSettings //  only needed for Morton Codes
@@ -44,7 +45,7 @@ struct Scene
     std::vector<BVH::Node> CreateBVHnodesFromSceneMeshes() const;
     std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();  
     std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
-    void AddNewTexture(std::string& textureFilePath);
+    uint32_t AddNewTexture(std::string& textureFilePath, Material& mat, MaterialPropertiesEnum matProperty);
 };
 
 #endif

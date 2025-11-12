@@ -222,9 +222,24 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() con
     return leafNodes;
 }
 
-void Scene::AddNewTexture(std::string& textureFilePath)
+uint32_t Scene::AddNewTexture(std::string& textureFilePath, Material& mat, MaterialPropertiesEnum matProperty)
 {
     if(!textureFilePath.empty())
         textures.emplace_back(textureFilePath);
+
+    switch(matProperty)
+    {
+    case ALBEDO:
+        mat.isUseAlbedoMap = true;
+        break;
+        
+    case ROUGHNESS:
+    case METALLIC:
+        break;
+    default:
+        break;
+    }
+    
+    return static_cast<uint32_t>(textures.size() - 1);
 }
 

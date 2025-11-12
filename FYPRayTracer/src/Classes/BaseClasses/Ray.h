@@ -16,6 +16,7 @@ struct RayHitPayload
     float hitDistance;
     glm::vec3 worldPosition;
     glm::vec3 worldNormal;
+    float u = 0.0f, v = 0.0f;
 
     int objectIndex;
     //  may also need in the future, the type of object (ie : Sphere, Quad or Triangle)

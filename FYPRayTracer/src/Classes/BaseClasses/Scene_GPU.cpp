@@ -51,16 +51,15 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     err = cudaMalloc((void**)&gpuScene.textures, sizeof(Texture) * cpuScene.textures.size());
     if(err != cudaSuccess)
         std::cerr << "cudaMalloc failed\n";
-    
+
+    std::vector<Texture> texBuffer;
     for(size_t i = 0; i < cpuScene.textures.size(); i++)
-    {
-        Texture h_tex = TextureToHostTextureGPU(cpuScene.textures[i]);
-        err = cudaMemcpy(&gpuScene.textures[i], &h_tex, sizeof(Texture), cudaMemcpyHostToDevice);
-        if(err != cudaSuccess)
-            std::cerr << "cudaMemcpy failed\n";
-    }
-    gpuScene.textureCount = static_cast<uint32_t>(cpuScene.textures.size());
+        texBuffer.push_back(TextureToHostTextureGPU(cpuScene.textures[i]));
     
+    err = cudaMemcpy(gpuScene.textures, texBuffer.data(), sizeof(Texture), cudaMemcpyHostToDevice);
+    if(err != cudaSuccess)
+        std::cerr << "cudaMemcpy failed\n";
+    gpuScene.textureCount = static_cast<uint32_t>(cpuScene.textures.size());
 
     // Copy TLAS
     gpuScene.tlas = BVHToGPU(cpuScene.tlas);

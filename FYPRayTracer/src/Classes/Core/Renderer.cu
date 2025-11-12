@@ -281,11 +281,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
     // Sample initial direction from first hit
     glm::vec3 newDir = MathUtils::UniformSampleHemisphere(primaryPayload.worldNormal, seed);
 
+    // Sample albedo from albedo map is exist
+    glm::vec3 sampledAlbedo{0.0f};
+    if(hitMaterial.isUseAlbedoMap)
+    {
+        Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+        uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+        glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+        sampledAlbedo.r = color4.r;
+        sampledAlbedo.g = color4.g;
+        sampledAlbedo.b = color4.b;
+    }
+    else
+    {
+        sampledAlbedo = hitMaterial.albedo;
+    }
+    
     glm::vec3 brdf = MathUtils::CalculateBRDF(
         primaryPayload.worldNormal,
         -primaryRay.direction,
         newDir,
-        hitMaterial.albedo,
+        sampledAlbedo,
         hitMaterial.metallic,
         hitMaterial.roughness
     );
@@ -324,12 +340,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
 
         // Sample next direction
         glm::vec3 bounceDir = MathUtils::UniformSampleHemisphere(samplePayload.worldNormal, seed);
-            
+
+        // Sample albedo from albedo map is exist
+        sampledAlbedo = {0.0f, 0.0f, 0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+        
         glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
         samplePayload.worldNormal,
         -sampleRay.direction,
         bounceDir,
-        material.albedo,
+        sampledAlbedo,
         material.metallic,
         material.roughness
         );
@@ -855,12 +887,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
         glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
         float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
         newDir = newDir / distance;
+
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo{0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
         
         glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness
         );
@@ -1104,6 +1152,8 @@ __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
     const Ray& ray, float hitDistance, int objectIndex,
     float u, float v, const Scene_GPU* activeScene)
 {
+    //  Note that the u and v parameter of this function refers to barycentric U and V, not texture coordinates
+    
     RayHitPayload payload;
     payload.hitDistance = hitDistance;
     payload.objectIndex = objectIndex;
@@ -1118,6 +1168,16 @@ __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
     glm::vec3 n2 = activeScene->worldVertices[tri.v2].normal;
 
     payload.worldNormal = glm::normalize(n0 * w + n1 * u + n2 * v);
+
+    // Interpolate texture UV
+    const glm::vec2& uv0 = activeScene->worldVertices[tri.v0].uv;
+    const glm::vec2& uv1 = activeScene->worldVertices[tri.v1].uv;
+    const glm::vec2& uv2 = activeScene->worldVertices[tri.v2].uv;
+
+    glm::vec2 interpolatedUV = uv0 * w + uv1 * u + uv2 * v;
+    payload.u = interpolatedUV.x;
+    payload.v = interpolatedUV.y;
+
 
     return payload;
 }

@@ -13,7 +13,6 @@ struct Texture
 
     Texture(){}
     Texture(std::string& imageFilePath);
-    ~Texture();
     
     void FreeTexture();
     __host__ void FreeTextureGPU();
