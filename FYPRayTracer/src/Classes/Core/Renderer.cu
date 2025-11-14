@@ -421,11 +421,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
         // Sample initial direction from first hit
         glm::vec3 newDir = MathUtils::UniformSampleHemisphere(primaryPayload.worldNormal, seed);
 
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo{0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+
         glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness
         );
@@ -464,12 +480,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
 
             // Sample next direction
             glm::vec3 bounceDir = MathUtils::UniformSampleHemisphere(samplePayload.worldNormal, seed);
+
+            // Sample albedo from albedo map is exist
+            sampledAlbedo = {0.0f, 0.0f, 0.0f};
+            if(hitMaterial.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = hitMaterial.albedo;
+            }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
-                material.albedo,
+                sampledAlbedo,
                 material.metallic,
                 material.roughness
             );
@@ -531,11 +563,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
         // Sample initial direction from first hit
         glm::vec3 newDir = MathUtils::CosineSampleHemisphere(primaryPayload.worldNormal, seed);
 
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo = {0.0f, 0.0f, 0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+        
         glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness
         );
@@ -574,12 +622,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
 
             // Sample next direction
             glm::vec3 bounceDir = MathUtils::CosineSampleHemisphere(samplePayload.worldNormal, seed);
+
+            // Sample albedo from albedo map is exist
+            sampledAlbedo = {0.0f, 0.0f, 0.0f};
+            if(hitMaterial.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = hitMaterial.albedo;
+            }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
-                material.albedo,
+                sampledAlbedo,
                 material.metallic,
                 material.roughness
             );
@@ -642,11 +706,27 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
         float pdf;
         glm::vec3 newDir = MathUtils::GGXSampleHemisphere(primaryPayload.worldNormal, -primaryRay.direction, hitMaterial.roughness,seed, pdf);
 
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo = {0.0f, 0.0f, 0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+        
         glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness
         );
@@ -685,12 +765,28 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
             // Sample next direction
             float bouncePdf;
             glm::vec3 bounceDir = MathUtils::GGXSampleHemisphere(samplePayload.worldNormal, -sampleRay.direction, hitMaterial.roughness,seed, bouncePdf);
+
+            // Sample albedo from albedo map is exist
+            sampledAlbedo = {0.0f, 0.0f, 0.0f};
+            if(hitMaterial.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = hitMaterial.albedo;
+            }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
-                material.albedo,
+                sampledAlbedo,
                 material.metallic,
                 material.roughness
             );
@@ -746,23 +842,39 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
         Ray sampleRay;
         RayHitPayload samplePayload = primaryPayload;
 
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo = {0.0f, 0.0f, 0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+        
         // Sample initial bounce
         float pdf;
         glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
             primaryPayload.worldNormal,
             -primaryRay.direction,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness,
             seed,
             pdf
         );
-
+        
         glm::vec3 brdf = MathUtils::CalculateBRDF(
             primaryPayload.worldNormal,
             -primaryRay.direction,
             newDir,
-            hitMaterial.albedo,
+            sampledAlbedo,
             hitMaterial.metallic,
             hitMaterial.roughness
         );
@@ -797,23 +909,39 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
                 break;
             }
 
+            // Sample albedo from albedo map is exist
+            sampledAlbedo = {0.0f, 0.0f, 0.0f};
+            if(material.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = hitMaterial.albedo;
+            }
+
             // Next bounce
             float bouncePdf;
             glm::vec3 bounceDir = MathUtils::BRDFSampleHemisphere(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
-                material.albedo,
+                sampledAlbedo,
                 material.metallic,
                 material.roughness,
                 seed,
                 bouncePdf
             );
-
+            
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
                 samplePayload.worldNormal,
                 -sampleRay.direction,
                 bounceDir,
-                material.albedo,
+                sampledAlbedo,
                 material.metallic,
                 material.roughness
             );
@@ -836,7 +964,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
     uint8_t maxBounces, uint8_t sampleCount,
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-    uint32_t imageWidth){
+    uint32_t imageWidth)
+{
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
 
@@ -1025,17 +1154,33 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             shadowRay.direction = lightDir;
 
             RayHitPayload shadowPayload = TraceRay(shadowRay, activeScene);
-
+            glm::vec3 sampledAlbedo{0.0f};
+            
             if (shadowPayload.hitDistance > 0.0f &&
                 static_cast<uint32_t>(shadowPayload.objectIndex) == sampled.emitterIndex)
             {
                 glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0, n1, n2);
 
+                // Sample albedo from albedo map is exist
+                if(mat.isUseAlbedoMap)
+                {
+                    Texture& albedoMap = activeScene->textures[mat.albedoMapIndex];
+                    uint32_t pixelBits = albedoMap.SampleBilinear(hit.u, hit.v);
+                    glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                    sampledAlbedo.r = color4.r;
+                    sampledAlbedo.g = color4.g;
+                    sampledAlbedo.b = color4.b;
+                }
+                else
+                {
+                    sampledAlbedo = mat.albedo;
+                }
+                
                 glm::vec3 brdf = MathUtils::CalculateBRDF(
                     hit.worldNormal,
                     -pathRay.direction,
                     lightDir,
-                    mat.albedo,
+                    sampledAlbedo,
                     mat.metallic,
                     mat.roughness
                 );
@@ -1048,7 +1193,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
                 float lightSolidAnglePDF = triAreaPDF * (dist * dist) / cosTheta_y;
 
                 pdfDirect = sampled.pmf * lightSolidAnglePDF;
-                pdfBRDF = MathUtils::BRDFHemispherePDF(hit.worldNormal, -pathRay.direction, lightDir, mat.albedo, mat.metallic, mat.roughness);
+                pdfBRDF = MathUtils::BRDFHemispherePDF(hit.worldNormal, -pathRay.direction, lightDir, sampledAlbedo, mat.metallic, mat.roughness);
 
                 glm::vec3 emission = activeScene->materials[lTri.materialIndex].GetEmission();
 
@@ -1073,7 +1218,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             glm::vec3 nextDir = MathUtils::BRDFSampleHemisphere(
                 hit.worldNormal,
                 -pathRay.direction,
-                mat.albedo,
+                sampledAlbedo,
                 mat.metallic,
                 mat.roughness,
                 seed,
@@ -1081,12 +1226,12 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             );
 
             pdfBRDF = glm::max(pdfBRDF, 1e-12f);
-
+            
             glm::vec3 brdf = MathUtils::CalculateBRDF(
                 hit.worldNormal,
                 -pathRay.direction,
                 nextDir,
-                mat.albedo,
+                sampledAlbedo,
                 mat.metallic,
                 mat.roughness
             );
