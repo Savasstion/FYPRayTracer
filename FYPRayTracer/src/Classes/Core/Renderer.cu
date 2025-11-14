@@ -343,9 +343,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
 
         // Sample albedo from albedo map is exist
         sampledAlbedo = {0.0f, 0.0f, 0.0f};
-        if(hitMaterial.isUseAlbedoMap)
+        if(material.isUseAlbedoMap)
         {
-            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
             uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
             glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
             sampledAlbedo.r = color4.r;
@@ -354,7 +354,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
         }
         else
         {
-            sampledAlbedo = hitMaterial.albedo;
+            sampledAlbedo = material.albedo;
         }
         
         glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
@@ -483,9 +483,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
 
             // Sample albedo from albedo map is exist
             sampledAlbedo = {0.0f, 0.0f, 0.0f};
-            if(hitMaterial.isUseAlbedoMap)
+            if(material.isUseAlbedoMap)
             {
-                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
                 uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
                 sampledAlbedo.r = color4.r;
@@ -494,7 +494,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_UniformSampling(
             }
             else
             {
-                sampledAlbedo = hitMaterial.albedo;
+                sampledAlbedo = material.albedo;
             }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
@@ -625,9 +625,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
 
             // Sample albedo from albedo map is exist
             sampledAlbedo = {0.0f, 0.0f, 0.0f};
-            if(hitMaterial.isUseAlbedoMap)
+            if(material.isUseAlbedoMap)
             {
-                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
                 uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
                 sampledAlbedo.r = color4.r;
@@ -636,7 +636,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_CosineWeightedSampling(
             }
             else
             {
-                sampledAlbedo = hitMaterial.albedo;
+                sampledAlbedo = material.albedo;
             }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
@@ -768,9 +768,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
 
             // Sample albedo from albedo map is exist
             sampledAlbedo = {0.0f, 0.0f, 0.0f};
-            if(hitMaterial.isUseAlbedoMap)
+            if(material.isUseAlbedoMap)
             {
-                Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+                Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
                 uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
                 sampledAlbedo.r = color4.r;
@@ -779,7 +779,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_GGXSampling(
             }
             else
             {
-                sampledAlbedo = hitMaterial.albedo;
+                sampledAlbedo = material.albedo;
             }
             
             glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
@@ -922,7 +922,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
             }
             else
             {
-                sampledAlbedo = hitMaterial.albedo;
+                sampledAlbedo = material.albedo;
             }
 
             // Next bounce
@@ -1126,6 +1126,22 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             const Triangle& tri = activeScene->triangles[hit.objectIndex];
             const Material& mat = activeScene->materials[tri.materialIndex];
 
+            // Sample albedo from albedo map is exist
+            glm::vec3 sampledAlbedo{0.0f};
+            if(mat.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[mat.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(hit.u, hit.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = mat.albedo;
+            }
+
             // -------------------------------
             // Direct Light Sampling (NEE)
             // -------------------------------
@@ -1152,29 +1168,14 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
             Ray shadowRay;
             shadowRay.origin = hit.worldPosition + hit.worldNormal * 1e-12f;
             shadowRay.direction = lightDir;
+            
 
             RayHitPayload shadowPayload = TraceRay(shadowRay, activeScene);
-            glm::vec3 sampledAlbedo{0.0f};
             
             if (shadowPayload.hitDistance > 0.0f &&
                 static_cast<uint32_t>(shadowPayload.objectIndex) == sampled.emitterIndex)
             {
                 glm::vec3 lightNormal = Triangle::GetTriangleNormal(n0, n1, n2);
-
-                // Sample albedo from albedo map is exist
-                if(mat.isUseAlbedoMap)
-                {
-                    Texture& albedoMap = activeScene->textures[mat.albedoMapIndex];
-                    uint32_t pixelBits = albedoMap.SampleBilinear(hit.u, hit.v);
-                    glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
-                    sampledAlbedo.r = color4.r;
-                    sampledAlbedo.g = color4.g;
-                    sampledAlbedo.b = color4.b;
-                }
-                else
-                {
-                    sampledAlbedo = mat.albedo;
-                }
                 
                 glm::vec3 brdf = MathUtils::CalculateBRDF(
                     hit.worldNormal,
