@@ -166,20 +166,20 @@ std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneMeshes() const
 std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
 {
     std::vector<LightTree::Node> leafNodes;
-    leafNodes.reserve(triangles.size() / 10);    //  allocated a quarter's worth first before needing to increase capacity automatically
+    leafNodes.reserve(emissiveTriangles.size());
     
-    for(uint32_t i = 0; i < triangles.size(); i++)
+    for(uint32_t i = 0; i < emissiveTriangles.size(); i++)
     {
-
-        if(glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
+        Triangle& tri = triangles[emissiveTriangles[i]];
+        if(glm::length2(materials[tri.materialIndex].GetEmission()) > 0.0f)
         {
-            auto& v0 = worldVertices[triangles[i].v0];
-            auto& v1 = worldVertices[triangles[i].v1];
-            auto& v2 = worldVertices[triangles[i].v2];
+            auto& v0 = worldVertices[tri.v0];
+            auto& v1 = worldVertices[tri.v1];
+            auto& v2 = worldVertices[tri.v2];
             constexpr float PIhalf = MathUtils::pi / 2.0f;
-            float emmisiveRadiance = materials[triangles[i].materialIndex].GetEmissionRadiance();
+            float emmisiveRadiance = materials[tri.materialIndex].GetEmissionRadiance();
             
-            uint32_t triIndex = triangles[i].v0 / 3;
+            uint32_t triIndex = tri.v0 / 3;
             glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
             ConeBounds bounds_o;
             bounds_o.theta_e = PIhalf;
@@ -188,7 +188,7 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
             float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
             float energy = area * emmisiveRadiance * MathUtils::pi;
             
-            leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[i].aabb, bounds_o, energy);
+            leafNodes.emplace_back(triIndex, baryCentricCoord, tri.aabb, bounds_o, energy);
         }
     }
 
@@ -241,5 +241,19 @@ uint32_t Scene::AddNewTexture(std::string& textureFilePath, Material& mat, Mater
     }
     
     return static_cast<uint32_t>(textures.size() - 1);
+}
+
+void Scene::InitSceneEmissiveTriangles()
+{
+    emissiveTriangles.clear();
+    emissiveTriangles.reserve(triangles.size() / 10);   //  arbitrarily reserve 1/10 worth of max possible space 
+    
+    for(uint32_t i = 0; i < triangles.size(); i++)
+    {
+        if(glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
+        {
+            emissiveTriangles.push_back(i);
+        }
+    }
 }
 

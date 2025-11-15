@@ -29,6 +29,7 @@ struct Scene
     std::vector<Vertex> worldVertices; //   vertices that has world transforms applied
     std::vector<uint32_t> triangleVertexIndices;    //  every three index of a vertex represents a triangle in this list of indices
     std::vector<Triangle> triangles;    //  used as a buffer to group triangles up for easier calculations like for ray intersection test or bvh
+    std::vector<uint32_t> emissiveTriangles;
     std::vector<Mesh> meshes;
     std::vector<Material> materials;
     std::vector<Texture> textures;
@@ -46,6 +47,7 @@ struct Scene
     std::vector<LightTree::Node> CreateLightTreeNodesFromEmissiveTriangles();  
     std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
     uint32_t AddNewTexture(std::string& textureFilePath, Material& mat, MaterialPropertiesEnum matProperty);
+    void InitSceneEmissiveTriangles();
 };
 
 #endif

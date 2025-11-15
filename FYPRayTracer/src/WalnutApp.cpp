@@ -420,6 +420,9 @@ public:
 		auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
 		m_Scene.tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
 
+		//	Init Scene Emissive Light Source list
+		m_Scene.InitSceneEmissiveTriangles();
+
 		//	Scene Light Tree TLAS Construction
 		auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromBLASLightTrees();
 		//auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmissiveTriangles();

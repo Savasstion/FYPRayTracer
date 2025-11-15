@@ -9,6 +9,7 @@ struct Scene_GPU
     Vertex* worldVertices;
     uint32_t* triangleVertexIndices;
     Triangle* triangles;
+    uint32_t* emissiveTriangles;
     Mesh_GPU* meshes;
     Material* materials;
     Texture* textures;
@@ -20,6 +21,7 @@ struct Scene_GPU
     uint32_t worldVertexCount;
     uint32_t triangleVertexIndexCount;
     uint32_t triangleCount;
+    uint32_t emissiveTriangleCount;
     uint32_t meshCount;
     uint32_t materialCount;
     uint32_t textureCount;

@@ -21,6 +21,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     gpuScene.worldVertices = nullptr;
     gpuScene.triangleVertexIndices = nullptr;
     gpuScene.triangles = nullptr;
+    gpuScene.emissiveTriangles = nullptr;
     gpuScene.meshes = nullptr;
     gpuScene.materials = nullptr;
     gpuScene.tlas = nullptr;
@@ -31,6 +32,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     CopyVectorToDevice(cpuScene.worldVertices, gpuScene.worldVertices, gpuScene.worldVertexCount);
     CopyVectorToDevice(cpuScene.triangleVertexIndices, gpuScene.triangleVertexIndices, gpuScene.triangleVertexIndexCount);
     CopyVectorToDevice(cpuScene.triangles, gpuScene.triangles, gpuScene.triangleCount);
+    CopyVectorToDevice(cpuScene.emissiveTriangles, gpuScene.emissiveTriangles, gpuScene.emissiveTriangleCount);
     CopyVectorToDevice(cpuScene.materials, gpuScene.materials, gpuScene.materialCount);
 
     //  Copy Meshes
@@ -114,11 +116,12 @@ void FreeSceneGPU(Scene_GPU* d_scene)
     }
 
     // Free other arrays
-    if (h_scene.vertices)              cudaFree(h_scene.vertices);
-    if (h_scene.worldVertices)         cudaFree(h_scene.worldVertices);
-    if (h_scene.triangleVertexIndices) cudaFree(h_scene.triangleVertexIndices);
-    if (h_scene.triangles)             cudaFree(h_scene.triangles);
-    if (h_scene.materials)             cudaFree(h_scene.materials);
+    if (h_scene.vertices)               cudaFree(h_scene.vertices);
+    if (h_scene.worldVertices)          cudaFree(h_scene.worldVertices);
+    if (h_scene.triangleVertexIndices)  cudaFree(h_scene.triangleVertexIndices);
+    if (h_scene.triangles)              cudaFree(h_scene.triangles);
+    if (h_scene.emissiveTriangles)      cudaFree(h_scene.emissiveTriangles);
+    if (h_scene.materials)              cudaFree(h_scene.materials);
 
     // Free TLAS
     if (h_scene.tlas) FreeBVH_GPU(h_scene.tlas);
