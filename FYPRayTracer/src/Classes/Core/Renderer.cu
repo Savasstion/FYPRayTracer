@@ -1362,7 +1362,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
     // ReSTIR DI
     seed = (seed + 1) * 27;
-    float simplePDF = 1.0f / static_cast<float>(activeScene->emissiveTriangleCount);
+    //float simplePDF = 1.0f / static_cast<float>(activeScene->emissiveTriangleCount);
     float complexPDF = 0.0f;
     ReSTIR_DI_Reservoir& pixelReservoir = di_reservoirs[y * imageWidth + x];
     pixelReservoir.ResetReservoir();
@@ -1428,7 +1428,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             GetEmission();
         complexPDF = glm::length(lightRadiance);
 
-        float weight = complexPDF / simplePDF;
+        //float weight = complexPDF / simplePDF;
+        float weight = complexPDF * static_cast<float>(activeScene->emissiveTriangleCount);     // no need for divisions, this is equivalent to dividing the inverse of emissive count  
 
         //  Update reservoir, this effectively does Reservoir Sampling
         pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
@@ -1517,11 +1518,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     {
         radiance = sampleThroughput * settings.skyColor;
     }
-    else
-    {
-        radiance = {0.0f, 0.0f, 0.0f};
-    }
-
+    
     return glm::vec4(radiance, 1.0f);
 }
 
