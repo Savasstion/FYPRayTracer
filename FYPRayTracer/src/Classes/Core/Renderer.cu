@@ -1430,7 +1430,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
         float weight = complexPDF / simplePDF;
 
-        //  Update reservoir
+        //  Update reservoir, this effectively does Reservoir Sampling
         pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
     }
 
