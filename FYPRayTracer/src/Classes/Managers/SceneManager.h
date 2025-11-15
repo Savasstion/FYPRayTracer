@@ -13,16 +13,15 @@ public:
               meshIndex(mesh_index)
         {
         }
+
         MeshUpdateParam() = default;
 
         bool meshTransformToBeUpdated = false, meshMatToBeUpdated = false;
         uint32_t meshIndex = -1;
-
-
     };
-    
-    std::vector<MeshUpdateParam> meshesToUpdate{500};   //  stores all indices of scene meshes to be updated
-    std::vector<uint32_t> materialsToUpdate{250};    //  stores all indices of scene materials to be updated
+
+    std::vector<MeshUpdateParam> meshesToUpdate{500}; //  stores all indices of scene meshes to be updated
+    std::vector<uint32_t> materialsToUpdate{250}; //  stores all indices of scene materials to be updated
 
 
     void PerformAllSceneUpdates();

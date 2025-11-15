@@ -4,13 +4,19 @@
 // We don't use cmath to prevent dependency issues
 #include "Vector3f.cuh"
 
-class Vector4f {
+class Vector4f
+{
 public:
     float x, y, z, w;
 
     // Constructors
-    Vector4f() : x(0.0f), y(0.0f), z(0.0f), w(0.0f) {}
-    Vector4f(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
+    Vector4f() : x(0.0f), y(0.0f), z(0.0f), w(0.0f)
+    {
+    }
+
+    Vector4f(float x, float y, float z, float w) : x(x), y(y), z(z), w(w)
+    {
+    }
 
     Vector4f Clamped(const float& min, const float& max)
     {
@@ -30,31 +36,36 @@ public:
         y = (y < min) ? min : (y > max) ? max : y;
         z = (z < min) ? min : (z > max) ? max : z;
         w = (w < min) ? min : (w > max) ? max : w;
-        
     }
-    
+
     // Magnitude (length)
-    float Magnitude() const {
+    float Magnitude() const
+    {
         return sqrtf(x * x + y * y + z * z + w * w); // Use MagnitudeSquared() when possible for performance
     }
 
-    float MagnitudeSquared() const {
+    float MagnitudeSquared() const
+    {
         return x * x + y * y + z * z + w * w;
     }
 
     // Normalize the vector (make it unit length)
-    Vector4f Normalized() const {
+    Vector4f Normalized() const
+    {
         float lenSq = MagnitudeSquared();
-        if (lenSq > 0.0f) {
+        if (lenSq > 0.0f)
+        {
             float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             return Vector4f(x * invMag, y * invMag, z * invMag, w * invMag);
         }
         return Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
-    void Normalize() {
+    void Normalize()
+    {
         float lenSq = MagnitudeSquared();
-        if (lenSq > 0.0f) {
+        if (lenSq > 0.0f)
+        {
             float invMag = MathUtils::fi_sqrt(lenSq * lenSq);
             x *= invMag;
             y *= invMag;
@@ -64,61 +75,75 @@ public:
     }
 
     // Dot product
-    float Dot(const Vector4f& other) const {
+    float Dot(const Vector4f& other) const
+    {
         return x * other.x + y * other.y + z * other.z + w * other.w;
     }
 
-    float Dot(const Vector3f& other) const {
+    float Dot(const Vector3f& other) const
+    {
         // Treat Vector3f as (x,y,z,0)
         return x * other.x + y * other.y + z * other.z;
     }
 
-    static float Dot(const Vector4f& a, const Vector4f& b) {
+    static float Dot(const Vector4f& a, const Vector4f& b)
+    {
         return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
     }
 
     // Operator overloading
-    Vector4f operator+(const Vector4f& other) const {
+    Vector4f operator+(const Vector4f& other) const
+    {
         return Vector4f(x + other.x, y + other.y, z + other.z, w + other.w);
     }
 
-    Vector4f operator+(const Vector3f& other) const {
+    Vector4f operator+(const Vector3f& other) const
+    {
         return Vector4f(x + other.x, y + other.y, z + other.z, w);
     }
 
-    Vector4f operator+(const Vector2f& other) const {
+    Vector4f operator+(const Vector2f& other) const
+    {
         return Vector4f(x + other.x, y + other.y, z, w);
     }
-    
-    Vector4f operator+(const float& scalar) const {
+
+    Vector4f operator+(const float& scalar) const
+    {
         return Vector4f(x + scalar, y + scalar, z + scalar, w + scalar);
     }
 
-    Vector4f operator-(const Vector4f& other) const {
+    Vector4f operator-(const Vector4f& other) const
+    {
         return Vector4f(x - other.x, y - other.y, z - other.z, w - other.w);
     }
 
-    Vector4f operator-(const Vector3f& other) const {
+    Vector4f operator-(const Vector3f& other) const
+    {
         return Vector4f(x - other.x, y - other.y, z - other.z, w);
     }
 
-    Vector4f operator-(const Vector2f& other) const {
+    Vector4f operator-(const Vector2f& other) const
+    {
         return Vector4f(x - other.x, y - other.y, z, w);
     }
 
-    Vector4f operator-(const float& scalar) const {
+    Vector4f operator-(const float& scalar) const
+    {
         return Vector4f(x - scalar, y - scalar, z - scalar, w - scalar);
     }
 
-    Vector4f operator*(float scalar) const {
+    Vector4f operator*(float scalar) const
+    {
         return Vector4f(x * scalar, y * scalar, z * scalar, w * scalar);
     }
 
-    Vector4f operator/(float scalar) const {
+    Vector4f operator/(float scalar) const
+    {
         return Vector4f(x / scalar, y / scalar, z / scalar, w / scalar);
     }
 
-    Vector4f& operator+=(const Vector4f& other) {
+    Vector4f& operator+=(const Vector4f& other)
+    {
         x += other.x;
         y += other.y;
         z += other.z;
@@ -126,20 +151,23 @@ public:
         return *this;
     }
 
-    Vector4f& operator+=(const Vector3f& other) {
+    Vector4f& operator+=(const Vector3f& other)
+    {
         x += other.x;
         y += other.y;
         z += other.z;
         return *this;
     }
 
-    Vector4f& operator+=(const Vector2f& other) {
+    Vector4f& operator+=(const Vector2f& other)
+    {
         x += other.x;
         y += other.y;
         return *this;
     }
 
-    Vector4f& operator+=(const float& scalar) {
+    Vector4f& operator+=(const float& scalar)
+    {
         x += scalar;
         y += scalar;
         z += scalar;
@@ -147,7 +175,8 @@ public:
         return *this;
     }
 
-    Vector4f& operator-=(const Vector4f& other) {
+    Vector4f& operator-=(const Vector4f& other)
+    {
         x -= other.x;
         y -= other.y;
         z -= other.z;
@@ -155,20 +184,23 @@ public:
         return *this;
     }
 
-    Vector4f& operator-=(const Vector3f& other) {
+    Vector4f& operator-=(const Vector3f& other)
+    {
         x -= other.x;
         y -= other.y;
         z -= other.z;
         return *this;
     }
 
-    Vector4f& operator-=(const Vector2f& other) {
+    Vector4f& operator-=(const Vector2f& other)
+    {
         x -= other.x;
         y -= other.y;
         return *this;
     }
 
-    Vector4f& operator-=(const float& scalar) {
+    Vector4f& operator-=(const float& scalar)
+    {
         x -= scalar;
         y -= scalar;
         z -= scalar;
@@ -176,7 +208,8 @@ public:
         return *this;
     }
 
-    Vector4f& operator*=(float scalar) {
+    Vector4f& operator*=(float scalar)
+    {
         x *= scalar;
         y *= scalar;
         z *= scalar;
@@ -184,7 +217,8 @@ public:
         return *this;
     }
 
-    Vector4f& operator/=(float scalar) {
+    Vector4f& operator/=(float scalar)
+    {
         x /= scalar;
         y /= scalar;
         z /= scalar;

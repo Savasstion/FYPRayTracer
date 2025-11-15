@@ -23,7 +23,7 @@ private:
     uint32_t m_FrameIndex = 1;
     bool isSceneUpdated = true;
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
-    ReSTIR_DI_Reservoir* di_reservoirs = nullptr;   //  for ReSTIR DI
+    ReSTIR_DI_Reservoir* di_reservoirs = nullptr; //  for ReSTIR DI
     uint32_t di_reservoir_count = 0;
 
 public:

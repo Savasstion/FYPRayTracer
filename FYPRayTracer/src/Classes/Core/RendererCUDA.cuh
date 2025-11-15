@@ -9,21 +9,21 @@
 struct RendererGPU
 {
     static Scene_GPU* d_currentScene;
-    
+
     __host__ __device__ static glm::vec4 PerPixel_BruteForce(
-            uint32_t x, uint32_t y,
-            uint8_t maxBounces,
-            uint32_t frameIndex, const RenderingSettings& settings,
-            const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-            uint32_t imageWidth);
+        uint32_t x, uint32_t y,
+        uint8_t maxBounces,
+        uint32_t frameIndex, const RenderingSettings& settings,
+        const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+        uint32_t imageWidth);
 
     __host__ __device__ static glm::vec4 PerPixel_UniformSampling(
-            uint32_t x, uint32_t y,
-            uint8_t maxBounces, uint8_t sampleCount,
-            uint32_t frameIndex, const RenderingSettings& settings,
-            const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-            uint32_t imageWidth);
-    
+        uint32_t x, uint32_t y,
+        uint8_t maxBounces, uint8_t sampleCount,
+        uint32_t frameIndex, const RenderingSettings& settings,
+        const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+        uint32_t imageWidth);
+
     __host__ __device__ static glm::vec4 PerPixel_CosineWeightedSampling(
         uint32_t x, uint32_t y,
         uint8_t maxBounces, uint8_t sampleCount,

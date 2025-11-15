@@ -12,7 +12,7 @@ enum SamplingTechniqueEnum
     NEE,
     RESTIR_DI,
     RESTIR_GI,
-    
+
     SamplingTechniqueEnum_COUNT //  used to determine total num of sampling techniques
 };
 

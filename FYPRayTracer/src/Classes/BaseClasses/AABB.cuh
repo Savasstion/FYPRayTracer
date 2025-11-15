@@ -8,24 +8,30 @@
 
 struct AABB
 {
-    Vector3f lowerBound;    // Bottom-left corner
-    Vector3f upperBound;    // Upper-right corner
+    Vector3f lowerBound; // Bottom-left corner
+    Vector3f upperBound; // Upper-right corner
     Vector3f centroidPos;
 
     __host__ __device__ AABB()
         : lowerBound(Vector3f(0, 0, 0)),
           upperBound(Vector3f(0, 0, 0)),
-          centroidPos(Vector3f(0, 0, 0)) {}
+          centroidPos(Vector3f(0, 0, 0))
+    {
+    }
 
     __host__ __device__ AABB(const Vector3f lowerBound, const Vector3f upperBound)
         : lowerBound(lowerBound),
           upperBound(upperBound),
-          centroidPos((lowerBound + upperBound) * 0.5f) {}
+          centroidPos((lowerBound + upperBound) * 0.5f)
+    {
+    }
 
     __host__ __device__ AABB(const glm::vec3 lowerBound, const glm::vec3 upperBound)
         : lowerBound(Vector3f(lowerBound)),
           upperBound(Vector3f(upperBound)),
-          centroidPos((Vector3f(lowerBound) + Vector3f(upperBound)) * 0.5f) {}
+          centroidPos((Vector3f(lowerBound) + Vector3f(upperBound)) * 0.5f)
+    {
+    }
 
     __host__ __device__ __forceinline__ static Vector3f FindCentroid(AABB& aabb)
     {
@@ -48,12 +54,12 @@ struct AABB
         );
         return c;
     }
-    
+
     __host__ __device__ __forceinline__ static bool isIntersect(const AABB& a, const AABB& b)
     {
         return !(a.upperBound.x < b.lowerBound.x || a.lowerBound.x > b.upperBound.x ||
-                 a.upperBound.y < b.lowerBound.y || a.lowerBound.y > b.upperBound.y ||
-                 a.upperBound.z < b.lowerBound.z || a.lowerBound.z > b.upperBound.z);
+            a.upperBound.y < b.lowerBound.y || a.lowerBound.y > b.upperBound.y ||
+            a.upperBound.z < b.lowerBound.z || a.lowerBound.z > b.upperBound.z);
     }
 
     __host__ __device__ __forceinline__ bool isIntersect(const AABB& other) const

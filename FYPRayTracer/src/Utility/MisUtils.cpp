@@ -8,9 +8,8 @@
 
 
 bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPixels, int width,
-                          int height)
+                             int height)
 {
-    
     // Each row must be padded to a multiple of 4 bytes
     int rowStride = ((width * 3 + 3) / 4) * 4;
     int pixelDataSize = rowStride * height;
@@ -18,11 +17,11 @@ bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPi
 
     // BMP Header (14 bytes)
     uint8_t fileHeader[14] = {
-        'B', 'M',                          // Signature
-        0, 0, 0, 0,                        // File size
-        0, 0,                              // Reserved
-        0, 0,                              // Reserved
-        54, 0, 0, 0                        // Pixel data offset
+        'B', 'M', // Signature
+        0, 0, 0, 0, // File size
+        0, 0, // Reserved
+        0, 0, // Reserved
+        54, 0, 0, 0 // Pixel data offset
     };
 
     // Fill in file size
@@ -33,26 +32,26 @@ bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPi
 
     // DIB Header (40 bytes)
     uint8_t dibHeader[40] = {
-        40, 0, 0, 0,                       // Header size
-        0, 0, 0, 0,                        // Width
-        0, 0, 0, 0,                        // Height
-        1, 0,                              // Color planes
-        24, 0,                             // Bits per pixel (BGR)
-        0, 0, 0, 0,                        // Compression (0 = none)
-        0, 0, 0, 0,                        // Image size (can be 0 for no compression)
-        0, 0, 0, 0,                        // X pixels per meter
-        0, 0, 0, 0,                        // Y pixels per meter
-        0, 0, 0, 0,                        // Total colors
-        0, 0, 0, 0                         // Important colors
+        40, 0, 0, 0, // Header size
+        0, 0, 0, 0, // Width
+        0, 0, 0, 0, // Height
+        1, 0, // Color planes
+        24, 0, // Bits per pixel (BGR)
+        0, 0, 0, 0, // Compression (0 = none)
+        0, 0, 0, 0, // Image size (can be 0 for no compression)
+        0, 0, 0, 0, // X pixels per meter
+        0, 0, 0, 0, // Y pixels per meter
+        0, 0, 0, 0, // Total colors
+        0, 0, 0, 0 // Important colors
     };
 
     // Fill in width and height (little endian)
-    dibHeader[4]  = width & 0xFF;
-    dibHeader[5]  = (width >> 8) & 0xFF;
-    dibHeader[6]  = (width >> 16) & 0xFF;
-    dibHeader[7]  = (width >> 24) & 0xFF;
-    dibHeader[8]  = height & 0xFF;
-    dibHeader[9]  = (height >> 8) & 0xFF;
+    dibHeader[4] = width & 0xFF;
+    dibHeader[5] = (width >> 8) & 0xFF;
+    dibHeader[6] = (width >> 16) & 0xFF;
+    dibHeader[7] = (width >> 24) & 0xFF;
+    dibHeader[8] = height & 0xFF;
+    dibHeader[9] = (height >> 8) & 0xFF;
     dibHeader[10] = (height >> 16) & 0xFF;
     dibHeader[11] = (height >> 24) & 0xFF;
 

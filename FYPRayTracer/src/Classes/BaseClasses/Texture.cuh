@@ -8,12 +8,16 @@
 
 struct Texture
 {
-    uint32_t* pixels = nullptr; //  ABGR format (not RGBA so first 8 bits at the left is alpha channel then subsequently blue, green, and red)
+    uint32_t* pixels = nullptr;
+    //  ABGR format (not RGBA so first 8 bits at the left is alpha channel then subsequently blue, green, and red)
     uint32_t width = 0, height = 0;
 
-    Texture(){}
+    Texture()
+    {
+    }
+
     Texture(std::string& imageFilePath);
-    
+
     void FreeTexture();
     __host__ void FreeTextureGPU();
     //  Nearest Neighbour Sampling

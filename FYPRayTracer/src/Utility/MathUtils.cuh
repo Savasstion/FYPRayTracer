@@ -15,7 +15,7 @@
 namespace MathUtils
 {
     static constexpr float pi = 3.1415926535f;
-    __host__ __device__ __forceinline__ float minFloat(const float a, const float b) 
+    __host__ __device__ __forceinline__ float minFloat(const float a, const float b)
     {
         return (a < b) ? a : b;
     }
@@ -34,30 +34,32 @@ namespace MathUtils
 
         x2 = number * 0.5F;
         y = number;
-        i = *(long*)&y;                       // evil floating point bit level hacking
-        i = 0x5f3759df - (i >> 1);               // what the fuck?
+        i = *(long*)&y; // evil floating point bit level hacking
+        i = 0x5f3759df - (i >> 1); // what the fuck?
         y = *(float*)&i;
-        y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+        y = y * (threehalfs - (x2 * y * y)); // 1st iteration
         //	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
 
         return y;
-    }   
-    
+    }
+
     //  quick random number generator
     __host__ __device__ __forceinline__ uint32_t pcg_hash(uint32_t input)
     {
         uint32_t state = input * 747796405u + 2891336453u;
         uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
         return (word >> 22u) ^ word;
-    }  
+    }
 
     __host__ __device__ __forceinline__ float randomFloat(uint32_t& seed)
     {
-        seed = pcg_hash(seed);  //  in case you wanna call this multiple times, so we gonna overwrite the seed to be reused
+        seed = pcg_hash(seed);
+        //  in case you wanna call this multiple times, so we gonna overwrite the seed to be reused
         return (float)seed / (float)UINT32_MAX; //  return a random float between 0 to 1
     }
 
-    __host__ __device__ __forceinline__ void BuildOrthonormalBasis(const glm::vec3& n, glm::vec3& tangent, glm::vec3& bitangent)
+    __host__ __device__ __forceinline__ void BuildOrthonormalBasis(const glm::vec3& n, glm::vec3& tangent,
+                                                                   glm::vec3& bitangent)
     {
         // Used to help build a local coordinate system
         if (n.x * n.x > n.z * n.z)
@@ -87,7 +89,10 @@ namespace MathUtils
         return glm::normalize(tangent * x + bitangent * y + normal * z);
     }
 
-    constexpr __host__ __device__ __forceinline__ float CosineHemispherePDF(const float& cosTheta){ return cosTheta / pi;}
+    constexpr __host__ __device__ __forceinline__ float CosineHemispherePDF(const float& cosTheta)
+    {
+        return cosTheta / pi;
+    }
 
     __host__ __device__ __forceinline__ glm::vec3 UniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed)
     {
@@ -108,9 +113,11 @@ namespace MathUtils
         return glm::normalize(tangent * x + bitangent * y + normal * z);
     }
 
-    constexpr __host__ __device__ __forceinline__ float UniformHemispherePDF() {return 1 / (2 * pi);}
+    constexpr __host__ __device__ __forceinline__ float UniformHemispherePDF() { return 1 / (2 * pi); }
 
-    __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewVector, float roughness, uint32_t& seed, float& outPDF)
+    __host__ __device__ __forceinline__ glm::vec3 GGXSampleHemisphere(const glm::vec3& normal,
+                                                                      const glm::vec3& viewVector, float roughness,
+                                                                      uint32_t& seed, float& outPDF)
     {
         // 1) RNG
         float u1 = MathUtils::randomFloat(seed); // implement or replace with your RNG
@@ -123,12 +130,12 @@ namespace MathUtils
         float phi = 2.0f * pi * u2;
 
         // stable expression for cos(theta) when alpha = roughness^2 and using a2 = alpha*alpha
-        float cosTheta = sqrtf( (1.0f - u1) / (1.0f + (alpha * alpha - 1.0f) * u1) );
+        float cosTheta = sqrtf((1.0f - u1) / (1.0f + (alpha * alpha - 1.0f) * u1));
         cosTheta = glm::clamp(cosTheta, 0.0f, 1.0f);
         float sinTheta = sqrtf(fmaxf(0.0f, 1.0f - cosTheta * cosTheta));
 
         // half-vector in tangent space (Ht)
-        glm::vec3 Ht = glm::vec3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
+        auto Ht = glm::vec3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
 
         // 4) build tangent/bitangent and transform to world space
         glm::vec3 T, B;
@@ -140,14 +147,16 @@ namespace MathUtils
 
         // 6) validate hemisphere and compute PDF
         float NdotL = glm::dot(normal, L);
-        if (NdotL <= 0.0f) {
+        if (NdotL <= 0.0f)
+        {
             outPDF = 0.0f;
             return glm::vec3(0.0f);
         }
 
         float NdotH = glm::dot(normal, H);
-        float VdotH = glm::dot(viewVector, H); 
-        if (VdotH <= 0.0f || NdotH <= 0.0f) {
+        float VdotH = glm::dot(viewVector, H);
+        if (VdotH <= 0.0f || NdotH <= 0.0f)
+        {
             outPDF = 0.0f;
             return glm::vec3(0.0f);
         }
@@ -160,11 +169,12 @@ namespace MathUtils
 
         // convert to PDF for L using Jacobian of reflection: p(L) = p(H) / (4 * V·H)
         outPDF = p_H / (4.0f * VdotH);
-        
+
         return L;
     }
 
-    __host__ __device__ __forceinline__ float GGXHemispherePDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, float roughness)
+    __host__ __device__ __forceinline__ float GGXHemispherePDF(const glm::vec3& N, const glm::vec3& V,
+                                                               const glm::vec3& L, float roughness)
     {
         glm::vec3 H = glm::normalize(V + L);
         float NdotH = glm::max(glm::dot(N, H), 0.0f);
@@ -179,18 +189,21 @@ namespace MathUtils
         return D * NdotH / (4.0f * VdotH);
     }
 
-    __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal, const glm::vec3& viewingVector, const glm::vec3& albedo, float metallic, float roughness, uint32_t& seed, float& outPDF)
+    __host__ __device__ __forceinline__ glm::vec3 BRDFSampleHemisphere(const glm::vec3& normal,
+                                                                       const glm::vec3& viewingVector,
+                                                                       const glm::vec3& albedo, float metallic,
+                                                                       float roughness, uint32_t& seed, float& outPDF)
     {
         glm::vec3 L;
         float pdfSpecular = 0.0f, pdfDiffuse = 0.0f;
-        
+
         // --- choose branch ---
         float wSpecular;
-        if(metallic == 1.0f)
+        if (metallic == 1.0f)
         {
             return GGXSampleHemisphere(normal, viewingVector, roughness, seed, outPDF);
         }
-        else if(metallic == 0.0f)
+        else if (metallic == 0.0f)
         {
             L = CosineSampleHemisphere(normal, seed);
             float cosTheta = glm::max(glm::dot(normal, L), 0.0f);
@@ -201,10 +214,10 @@ namespace MathUtils
         {
             //  Fresnel
             glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-            glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
+            glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - glm::max(glm::dot(normal, viewingVector), 0.0f), 5.0f);
             wSpecular = (F.x + F.y + F.z) / 3.0f;
         }
-        
+
         float rand = randomFloat(seed);
 
         if (rand <= wSpecular)
@@ -230,22 +243,26 @@ namespace MathUtils
         return L;
     }
 
-    __host__ __device__ __forceinline__ float BRDFHemispherePDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
+    __host__ __device__ __forceinline__ float BRDFHemispherePDF(const glm::vec3& N, const glm::vec3& V,
+                                                                const glm::vec3& L, const glm::vec3& albedo,
+                                                                float metallic, float roughness)
     {
         // perfect‐metal or perfect‐dielectric cases
-        if (metallic == 1.0f) {
+        if (metallic == 1.0f)
+        {
             return GGXHemispherePDF(N, V, L, roughness);
         }
-        if (metallic == 0.0f) {
+        if (metallic == 0.0f)
+        {
             float cosTheta = glm::max(glm::dot(N, L), 0.0f);
             return CosineHemispherePDF(cosTheta);
         }
 
         // Fresnel term to decide specular weight
         glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
-        float NdotV  = glm::max(glm::dot(N, V), 0.0f);
-        glm::vec3 F  = F0 + (1.0f - F0) * glm::pow(1.0f - NdotV, 5.0f);
-        float wSpec  = (F.x + F.y + F.z) * (1.0f / 3.0f);   // average the RGB
+        float NdotV = glm::max(glm::dot(N, V), 0.0f);
+        glm::vec3 F = F0 + (1.0f - F0) * glm::pow(1.0f - NdotV, 5.0f);
+        float wSpec = (F.x + F.y + F.z) * (1.0f / 3.0f); // average the RGB
 
         // individual PDFs
         float pdfSpec = GGXHemispherePDF(N, V, L, roughness);
@@ -256,12 +273,14 @@ namespace MathUtils
         return wSpec * pdfSpec + (1.0f - wSpec) * pdfDiff;
     }
 
-    __host__ __device__ __forceinline__ glm::vec3 CalculateBRDF(const glm::vec3& N, const glm::vec3& V, const glm::vec3& L, const glm::vec3& albedo, float metallic, float roughness)
+    __host__ __device__ __forceinline__ glm::vec3 CalculateBRDF(const glm::vec3& N, const glm::vec3& V,
+                                                                const glm::vec3& L, const glm::vec3& albedo,
+                                                                float metallic, float roughness)
     {
         constexpr float invPI = 1.0f / pi;
         float a = roughness * roughness;
         float a2 = a * a;
-    
+
         glm::vec3 H = glm::normalize(V + L);
         float NdotL = glm::max(glm::dot(N, L), 0.0f);
         float NdotV = glm::max(glm::dot(N, V), 0.0f);
@@ -280,7 +299,7 @@ namespace MathUtils
         float G_V = NdotV / (NdotV * (1.0f - k) + k);
         float G_L = NdotL / (NdotL * (1.0f - k) + k);
         float G = G_V * G_L;
-    
+
         // Lambertian diffuse
         glm::vec3 kD = (1.0f - F);
         glm::vec3 diffuse = kD * albedo * invPI;
@@ -288,7 +307,7 @@ namespace MathUtils
         // Normal Distribution (GGX / Trowbridge-Reitz)
         float denominator = (NdotH * NdotH) * (a2 - 1.0f) + 1.0f;
         float D = a2 * invPI / glm::max((denominator * denominator), 1e-12f);
-        
+
         //  Cook-Torrance specular
         glm::vec3 specular = (D * G * F) / glm::max((4.0f * NdotV * NdotL), 1e-12f);
 

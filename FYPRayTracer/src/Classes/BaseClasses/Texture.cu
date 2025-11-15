@@ -11,7 +11,7 @@ Texture::Texture(std::string& imageFilePath)
     if (!data)
         std::cerr << ("Failed to load image: " + imageFilePath) << std::endl;
 
-    width  = static_cast<uint32_t>(w);
+    width = static_cast<uint32_t>(w);
     height = static_cast<uint32_t>(h);
 
     pixels = new uint32_t[width * height];
@@ -34,30 +34,37 @@ Texture TextureToHostTextureGPU(const Texture& h_tex)
 {
     Texture h_gpuTex{};
     cudaError_t err;
-    
+
     // Basic members copying
     h_gpuTex.height = h_tex.height;
-    h_gpuTex.width  = h_tex.width;
+    h_gpuTex.width = h_tex.width;
 
     // Copy nodes array to device if available
-    if (h_gpuTex.height > 0 && h_gpuTex.width > 0) {
+    if (h_gpuTex.height > 0 && h_gpuTex.width > 0)
+    {
         uint32_t* d_pixels = nullptr;
         err = cudaMalloc(&d_pixels, h_gpuTex.height * h_gpuTex.width * sizeof(uint32_t));
-        if (err != cudaSuccess) {
+        if (err != cudaSuccess)
+        {
             std::cerr << "cudaMalloc d_pixels error: " << cudaGetErrorString(err) << std::endl;
-        } else {
+        }
+        else
+        {
             err = cudaMemcpy(d_pixels, h_tex.pixels,
                              h_gpuTex.height * h_gpuTex.width * sizeof(uint32_t),
                              cudaMemcpyHostToDevice);
-            if (err != cudaSuccess) {
+            if (err != cudaSuccess)
+            {
                 std::cerr << "cudaMemcpy d_pixels error: " << cudaGetErrorString(err) << std::endl;
             }
         }
         h_gpuTex.pixels = d_pixels;
-    } else {
+    }
+    else
+    {
         h_gpuTex.pixels = nullptr;
     }
-    
+
     return h_gpuTex;
 }
 
@@ -78,7 +85,7 @@ __host__ void Texture::FreeTextureGPU()
 __host__ __device__ uint32_t Texture::SampleNearest(float u, float v)
 {
     // u and v should be [0,1] texture coordinates
-    uint32_t x = static_cast<uint32_t>(u * (width  - 1));
+    uint32_t x = static_cast<uint32_t>(u * (width - 1));
     uint32_t y = static_cast<uint32_t>(v * (height - 1));
 
     return pixels[y * width + x];
@@ -91,12 +98,12 @@ __host__ __device__ uint32_t Texture::SampleBilinear(float u, float v)
     v = (v < 0.0f) ? 0.0f : (v > 1.0f ? 1.0f : v);
 
     // Transform into texture space
-    float x = u * (width  - 1);
+    float x = u * (width - 1);
     float y = v * (height - 1);
 
     int x0 = (int)x;
     int y0 = (int)y;
-    int x1 = (x0 + 1 < (int)width)  ? x0 + 1 : x0;
+    int x1 = (x0 + 1 < (int)width) ? x0 + 1 : x0;
     int y1 = (y0 + 1 < (int)height) ? y0 + 1 : y0;
 
     float tx = x - (float)x0;

@@ -12,14 +12,14 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     Mesh mesh;
     mesh.position = pos;
     mesh.rotation = rotation;
-    mesh.scale    = scale;
+    mesh.scale = scale;
     mesh.materialIndex = materialIndex;
 
     // --- offsets into scene global buffers ---
     mesh.vertexStart = static_cast<uint32_t>(vertices.size());
     mesh.vertexCount = static_cast<uint32_t>(meshVertices.size());
-    mesh.indexStart  = static_cast<uint32_t>(triangleVertexIndices.size());
-    mesh.indexCount  = static_cast<uint32_t>(meshTriangleVertexIndices.size());
+    mesh.indexStart = static_cast<uint32_t>(triangleVertexIndices.size());
+    mesh.indexCount = static_cast<uint32_t>(meshTriangleVertexIndices.size());
 
     // append local vertices
     vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
@@ -43,7 +43,7 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         glm::vec4 n = mesh.worldTransformMatrix * glm::vec4(v.normal, 0.0f);
 
         worldV.position = glm::vec3(p) / p.w;
-        worldV.normal   = glm::normalize(glm::vec3(n));
+        worldV.normal = glm::normalize(glm::vec3(n));
         worldVertices.push_back(worldV);
     }
 
@@ -82,23 +82,22 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
         mesh.aabb = meshBounds;
         mesh.aabb.centroidPos = AABB::FindCentroid(mesh.aabb);
     }
-    
+
 
     meshes.push_back(mesh);
     return &meshes.back();
 }
 
 
-
 void Scene::UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot,
-    const glm::vec3& newScale)
+                                     const glm::vec3& newScale)
 {
     if (meshIndex >= meshes.size()) return;
 
     Mesh& mesh = meshes[meshIndex];
     mesh.position = newPos;
     mesh.rotation = newRot;
-    mesh.scale    = newScale;
+    mesh.scale = newScale;
     mesh.isTransformed = true; // mark for update
 }
 
@@ -117,12 +116,12 @@ void Scene::UpdateAllTransformedSceneMeshes()
             Vertex& worldV = worldVertices[mesh.vertexStart + i];
 
             worldV.position = glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.position, 1.0f));
-            worldV.normal   = glm::normalize(glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.normal, 0.0f)));
-            worldV.uv       = localV.uv;
+            worldV.normal = glm::normalize(glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.normal, 0.0f)));
+            worldV.uv = localV.uv;
         }
 
         Mesh::UpdateMeshAABB(mesh, vertices, worldVertices, triangles, triangleVertexIndices);
-      
+
 
         // Mark as clean
         mesh.isTransformed = false;
@@ -167,18 +166,18 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
 {
     std::vector<LightTree::Node> leafNodes;
     leafNodes.reserve(emissiveTriangles.size());
-    
-    for(uint32_t i = 0; i < emissiveTriangles.size(); i++)
+
+    for (uint32_t i = 0; i < emissiveTriangles.size(); i++)
     {
         Triangle& tri = triangles[emissiveTriangles[i]];
-        if(glm::length2(materials[tri.materialIndex].GetEmission()) > 0.0f)
+        if (glm::length2(materials[tri.materialIndex].GetEmission()) > 0.0f)
         {
             auto& v0 = worldVertices[tri.v0];
             auto& v1 = worldVertices[tri.v1];
             auto& v2 = worldVertices[tri.v2];
             constexpr float PIhalf = MathUtils::pi / 2.0f;
             float emmisiveRadiance = materials[tri.materialIndex].GetEmissionRadiance();
-            
+
             uint32_t triIndex = tri.v0 / 3;
             glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
             ConeBounds bounds_o;
@@ -187,7 +186,7 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
             bounds_o.axis = Triangle::GetTriangleNormal(v0.normal, v1.normal, v2.normal);
             float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
             float energy = area * emmisiveRadiance * MathUtils::pi;
-            
+
             leafNodes.emplace_back(triIndex, baryCentricCoord, tri.aabb, bounds_o, energy);
         }
     }
@@ -198,16 +197,17 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromEmissiveTriangles()
 std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() const
 {
     std::vector<LightTree::Node> leafNodes;
-    leafNodes.reserve(meshes.size() / 10);    //  allocated a quarter's worth first before needing to increase capacity automatically
-    
-    for(uint32_t i = 0; i < meshes.size(); i++)
+    leafNodes.reserve(meshes.size() / 10);
+    //  allocated a quarter's worth first before needing to increase capacity automatically
+
+    for (uint32_t i = 0; i < meshes.size(); i++)
     {
         //  check if got valid or constructed light tree 
-        if(meshes[i].lightTree_blas.nodeCount > 0)
+        if (meshes[i].lightTree_blas.nodeCount > 0)
         {
             // get parent root node and convert it to a leaf node for the TLAS
             LightTree::Node node = meshes[i].lightTree_blas.nodes[meshes[i].lightTree_blas.rootIndex];
-            node.emitterIndex = i;  //  emmiterIndex will now refer to which mesh's lightTree_blas this node refers to
+            node.emitterIndex = i; //  emmiterIndex will now refer to which mesh's lightTree_blas this node refers to
             node.offset = 0;
             //  since no barycentric coords of a triangle, substitute with AABB centroid pos instead
             node.position.x = node.bounds_w.centroidPos.x;
@@ -224,36 +224,35 @@ std::vector<LightTree::Node> Scene::CreateLightTreeNodesFromBLASLightTrees() con
 
 uint32_t Scene::AddNewTexture(std::string& textureFilePath, Material& mat, MaterialPropertiesEnum matProperty)
 {
-    if(!textureFilePath.empty())
+    if (!textureFilePath.empty())
         textures.emplace_back(textureFilePath);
 
-    switch(matProperty)
+    switch (matProperty)
     {
     case ALBEDO:
         mat.isUseAlbedoMap = true;
         break;
-        
+
     case ROUGHNESS:
     case METALLIC:
         break;
     default:
         break;
     }
-    
+
     return static_cast<uint32_t>(textures.size() - 1);
 }
 
 void Scene::InitSceneEmissiveTriangles()
 {
     emissiveTriangles.clear();
-    emissiveTriangles.reserve(triangles.size() / 10);   //  arbitrarily reserve 1/10 worth of max possible space 
-    
-    for(uint32_t i = 0; i < triangles.size(); i++)
+    emissiveTriangles.reserve(triangles.size() / 10); //  arbitrarily reserve 1/10 worth of max possible space 
+
+    for (uint32_t i = 0; i < triangles.size(); i++)
     {
-        if(glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
+        if (glm::length2(materials[triangles[i].materialIndex].GetEmission()) > 0.0f)
         {
             emissiveTriangles.push_back(i);
         }
     }
 }
-

@@ -4,10 +4,10 @@
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
 {
-    if(m_FinalRenderImage)
+    if (m_FinalRenderImage)
     {
         //  no resize necessary
-        if(m_FinalRenderImage->GetWidth() == width && m_FinalRenderImage->GetHeight() == height)
+        if (m_FinalRenderImage->GetWidth() == width && m_FinalRenderImage->GetHeight() == height)
             return;
 
         m_FinalRenderImage->Resize(width, height);
@@ -28,13 +28,8 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
     m_ImageHorizontalIter.resize(width);
     m_ImageVerticalIter.resize(height);
-    for(uint32_t i = 0; i < width; i++)
+    for (uint32_t i = 0; i < width; i++)
         m_ImageHorizontalIter[i] = i;
-    for(uint32_t i = 0; i < height; i++)
+    for (uint32_t i = 0; i < height; i++)
         m_ImageVerticalIter[i] = i;
 }
-
-
-
-
-

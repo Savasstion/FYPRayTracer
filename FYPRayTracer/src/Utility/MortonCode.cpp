@@ -1,6 +1,1 @@
 ﻿#include "MortonCode.cuh"
-
-
-
-
- 

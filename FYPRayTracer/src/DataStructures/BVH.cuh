@@ -18,7 +18,12 @@ public:
         unsigned int mortonCode;
         size_t objectIndex;
     };
-    struct Bin { AABB box; size_t count = 0; }; //  for Surface Area Heuristic (SAH)
+
+    struct Bin
+    {
+        AABB box;
+        size_t count = 0;
+    }; //  for Surface Area Heuristic (SAH)
     struct Node
     {
         AABB box;
@@ -30,20 +35,28 @@ public:
         __host__ __device__ Node()
             : box(AABB()), objectIndex(static_cast<size_t>(-1)),
               child1(static_cast<size_t>(-1)), child2(static_cast<size_t>(-1)),
-              isLeaf(false) {}
+              isLeaf(false)
+        {
+        }
 
         __host__ __device__ Node(const size_t objectIndex, const AABB& box)
             : box(box), objectIndex(objectIndex),
               child1(static_cast<size_t>(-1)), child2(static_cast<size_t>(-1)),
-              isLeaf(true) {}
+              isLeaf(true)
+        {
+        }
 
         __host__ __device__ Node(const size_t leftChild, const size_t rightChild, const AABB& box)
             : box(box), objectIndex(static_cast<size_t>(-1)),
-              child1(leftChild), child2(rightChild), isLeaf(false) {}
+              child1(leftChild), child2(rightChild), isLeaf(false)
+        {
+        }
 
         __host__ __device__ Node(const size_t leftChild, const size_t rightChild)
             : box(AABB()), objectIndex(static_cast<size_t>(-1)),
-              child1(leftChild), child2(rightChild), isLeaf(false) {}
+              child1(leftChild), child2(rightChild), isLeaf(false)
+        {
+        }
     };
 
 
@@ -51,7 +64,8 @@ public:
     size_t nodeCount = 0;
     bool isNewValuesSet = true;
     size_t objectCount = 0;
-    size_t objectOffset = 0;    //  when building BLASes, nodes may not start from 0 first. Only needed when using morton codes to build the BVH
+    size_t objectOffset = 0;
+    //  when building BLASes, nodes may not start from 0 first. Only needed when using morton codes to build the BVH
     size_t rootIndex = static_cast<size_t>(-1);
 
     // buffers for CUDA parallelization, not needed to copy 
@@ -64,16 +78,19 @@ public:
 
     // Traversal
     void TraverseRayRecursive(size_t*& collisionList, size_t& collisionCount,
-                               const Ray& ray, size_t nodeIndex) const;
-    
+                              const Ray& ray, size_t nodeIndex) const;
+
     void ConstructBVH_MedianSplit(Node* objects, size_t objCount);
     void ConstructBVH_SAH(Node* objects, size_t objCount);
     void ClearBVH();
-    int LargestExtentAxis(const AABB& b);    // choose axis with largest extent
-    AABB RangeBounds(BVH::Node* arr, size_t first, size_t last);    // compute bounds of a range [first,last) 
-    size_t BuildHierarchyRecursively_MedianSplit(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last);    // recursive build into "outNodes", returns index of node created (median split BVH construction)
-    size_t BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first, size_t last); 
-    
+    int LargestExtentAxis(const AABB& b); // choose axis with largest extent
+    AABB RangeBounds(BVH::Node* arr, size_t first, size_t last); // compute bounds of a range [first,last) 
+    size_t BuildHierarchyRecursively_MedianSplit(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first,
+                                                 size_t last);
+    // recursive build into "outNodes", returns index of node created (median split BVH construction)
+    size_t BuildHierarchyRecursively_SAH(BVH::Node* outNodes, size_t& outCount, BVH::Node* work, size_t first,
+                                         size_t last);
+
     // // CUDA
     // __host__ void CUDA_ConstructBVHInParallel(Node* objects, size_t objectCount);
     // __host__ void CUDA_ClearBVH();
@@ -85,21 +102,23 @@ public:
     // __host__ void CUDA_CopyDeviceNodesToHost();
 
     // Utility to allocate host-side nodes
-    void AllocateHostNodes(size_t count) {
+    void AllocateHostNodes(size_t count)
+    {
         if (nodes) delete[] nodes;
         nodes = new Node[count];
         nodeCount = count;
     }
 
     // Utility to free host-side nodes
-    void FreeHostNodes() {
-        if (nodes) {
+    void FreeHostNodes()
+    {
+        if (nodes)
+        {
             delete[] nodes;
             nodes = nullptr;
             nodeCount = 0;
         }
     }
-    
 };
 
 __host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const AABB& box)
@@ -117,7 +136,7 @@ __host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const 
             // Ray is parallel to this slab; if origin not within bounds, no intersection
             if (origin < box.lowerBound[i] || origin > box.upperBound[i])
                 return false;
-            
+
             // Parallel and inside slab; t0/t1 are unbounded
             continue;
         }
@@ -133,7 +152,7 @@ __host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const 
             t0 = t1;
             t1 = tmp;
         }
-            
+
 
         tMin = fmaxf(tMin, t0);
         tMax = fminf(tMax, t1);
@@ -144,6 +163,7 @@ __host__ __device__ __forceinline__ bool IntersectRayAABB(const Ray& ray, const 
 
     return true;
 }
+
 __host__ __device__ int findSplit(BVH::MortonCodeEntry* morton, int first, int last);
 __host__ __device__ int2 determineRange(BVH::MortonCodeEntry* p_sortedMortonCodes, int objectCount, int idx);
 
@@ -169,43 +189,54 @@ __host__ __forceinline__ BVH* BVHToGPU(const BVH& h_bvh)
     // Allocate BVH struct on device
     BVH* d_bvh = nullptr;
     err = cudaMalloc(&d_bvh, sizeof(BVH));
-    if (err != cudaSuccess) {
+    if (err != cudaSuccess)
+    {
         std::cerr << "cudaMalloc BVH error: " << cudaGetErrorString(err) << std::endl;
         return nullptr;
     }
 
     // Prepare temporary host copy, zero-initialized
     BVH temp{};
-    
+
     // Copy only the necessary fields
-    temp.nodeCount      = h_bvh.nodeCount;
+    temp.nodeCount = h_bvh.nodeCount;
     temp.isNewValuesSet = h_bvh.isNewValuesSet;
-    temp.objectCount    = h_bvh.objectCount;
+    temp.objectCount = h_bvh.objectCount;
 
     // Safe rootIndex assignment
-    if (h_bvh.nodeCount > 0) {
+    if (h_bvh.nodeCount > 0)
+    {
         // Use CPU rootIndex if valid, otherwise default to 0
         temp.rootIndex = (h_bvh.rootIndex == static_cast<size_t>(-1)) ? 0 : h_bvh.rootIndex;
-    } else {
+    }
+    else
+    {
         temp.rootIndex = static_cast<size_t>(-1);
     }
 
     // Copy nodes array to device if available
-    if (h_bvh.nodes && h_bvh.nodeCount > 0) {
+    if (h_bvh.nodes && h_bvh.nodeCount > 0)
+    {
         BVH::Node* d_nodes = nullptr;
         err = cudaMalloc(&d_nodes, h_bvh.nodeCount * sizeof(BVH::Node));
-        if (err != cudaSuccess) {
+        if (err != cudaSuccess)
+        {
             std::cerr << "cudaMalloc BVH nodes error: " << cudaGetErrorString(err) << std::endl;
-        } else {
+        }
+        else
+        {
             err = cudaMemcpy(d_nodes, h_bvh.nodes,
                              h_bvh.nodeCount * sizeof(BVH::Node),
                              cudaMemcpyHostToDevice);
-            if (err != cudaSuccess) {
+            if (err != cudaSuccess)
+            {
                 std::cerr << "cudaMemcpy BVH nodes error: " << cudaGetErrorString(err) << std::endl;
             }
         }
         temp.nodes = d_nodes;
-    } else {
+    }
+    else
+    {
         temp.nodes = nullptr;
     }
 
@@ -218,7 +249,8 @@ __host__ __forceinline__ BVH* BVHToGPU(const BVH& h_bvh)
 
     // Copy fully patched struct to device
     err = cudaMemcpy(d_bvh, &temp, sizeof(BVH), cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
+    if (err != cudaSuccess)
+    {
         std::cerr << "cudaMemcpy BVH struct error: " << cudaGetErrorString(err) << std::endl;
     }
 

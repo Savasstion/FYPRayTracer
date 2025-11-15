@@ -7,9 +7,9 @@
 struct Material
 {
     bool isUseAlbedoMap = false;
-    glm::vec3 albedo{1.0f,0.0f,1.0f};
+    glm::vec3 albedo{1.0f, 0.0f, 1.0f};
     uint32_t albedoMapIndex = static_cast<uint32_t>(-1);
-    
+
     float roughness = 1.0f;
     float metallic = 0.0f;
     glm::vec3 emissionColor{0.0f};

@@ -1,7 +1,7 @@
 #ifndef SCENE_GPU_H
 #define SCENE_GPU_H
 #include "Mesh_GPU.h"
-#include "Scene.h" 
+#include "Scene.h"
 
 struct Scene_GPU
 {
@@ -28,13 +28,11 @@ struct Scene_GPU
 };
 
 
-
 // Convert CPU Scene to GPU Scene
 Scene_GPU* SceneToGPU(const Scene& cpuScene);
 
 // Free GPU Scene memory
 void FreeSceneGPU(Scene_GPU* d_scene);
-
 
 
 #endif

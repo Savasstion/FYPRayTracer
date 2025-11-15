@@ -4,8 +4,6 @@
 #include <glm/gtx/quaternion.hpp>
 
 
-
-
 void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
                               std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
 {
@@ -14,20 +12,20 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
 
     // Preallocate
     size_t vertexCount = 2 + (n_stacks - 1) * n_slices;
-    size_t indexCount  = 6 * (n_stacks - 2) * n_slices + 3 * 2 * n_slices;
+    size_t indexCount = 6 * (n_stacks - 2) * n_slices + 3 * 2 * n_slices;
     outVertices.resize(vertexCount);
     outIndices.resize(indexCount);
 
     // --- Top pole ---
-    outVertices[0] = Vertex{ glm::vec3(0, radius, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 1.0f) };
+    outVertices[0] = Vertex{glm::vec3(0, radius, 0), glm::vec3(0, 1, 0), glm::vec2(0.5f, 1.0f)};
     uint32_t topIndex = 0;
 
     // --- Bottom pole ---
     uint32_t bottomIndex = static_cast<uint32_t>(vertexCount - 1);
-    outVertices[bottomIndex] = Vertex{ glm::vec3(0, -radius, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.0f) };
+    outVertices[bottomIndex] = Vertex{glm::vec3(0, -radius, 0), glm::vec3(0, -1, 0), glm::vec2(0.5f, 0.0f)};
 
     // --- Generate ring vertices (parallelized outer loop) ---
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int i = 0; i < n_stacks - 1; ++i)
     {
         float phi = MathUtils::pi * float(i + 1) / float(n_stacks);
@@ -42,9 +40,9 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
 
             glm::vec3 pos = glm::vec3(x, y, z) * radius;
             glm::vec3 normal = glm::normalize(pos);
-            glm::vec2 uv = glm::vec2(float(j) / n_slices, 1.0f - float(i + 1) / n_stacks);
+            auto uv = glm::vec2(float(j) / n_slices, 1.0f - float(i + 1) / n_stacks);
 
-            outVertices[1 + i * n_slices + j] = Vertex{ pos, normal, uv };
+            outVertices[1 + i * n_slices + j] = Vertex{pos, normal, uv};
         }
     }
 
@@ -99,14 +97,15 @@ void Mesh::GenerateSphereMesh(float radius, int n_stacks, int n_slices,
 void Mesh::UpdateWorldTransform(Mesh& mesh)
 {
     glm::vec3 rotationRadians = glm::radians(mesh.rotation);
-    glm::quat q = glm::quat(rotationRadians);
+    auto q = glm::quat(rotationRadians);
     glm::mat4 R = glm::toMat4(q);
     glm::mat4 S = glm::scale(glm::mat4(1.0f), mesh.scale);
     glm::mat4 T = glm::translate(glm::mat4(1.0f), mesh.position);
     mesh.worldTransformMatrix = T * R * S;
 }
 
-void Mesh::UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector<Vertex>& worldVertices, std::vector<Triangle>& triangles, const std::vector<uint32_t>& triangleVertexIndices)
+void Mesh::UpdateMeshAABB(Mesh& mesh, std::vector<Vertex>& vertices, std::vector<Vertex>& worldVertices,
+                          std::vector<Triangle>& triangles, const std::vector<uint32_t>& triangleVertexIndices)
 {
     glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(mesh.worldTransformMatrix)));
 
@@ -152,8 +151,9 @@ std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
 {
     uint32_t meshTriangleStart = indexStart / 3;
     uint32_t meshTriangleCount = indexCount / 3;
-    *outObjectOffset = meshTriangleStart;   //  make sure BVH knows how much to offset to first triangle, only applicable for if BVH uses Morton Codes
-    
+    *outObjectOffset = meshTriangleStart;
+    //  make sure BVH knows how much to offset to first triangle, only applicable for if BVH uses Morton Codes
+
     std::vector<BVH::Node> leafNodes;
     leafNodes.reserve(meshTriangleCount);
 
@@ -165,32 +165,33 @@ std::vector<BVH::Node> Mesh::CreateBVHnodesFromMeshTriangles(
         // Create a leaf node for this triangle
         BVH::Node node(triIndex, tri.aabb);
         leafNodes.push_back(node);
-        
     }
 
     return leafNodes;
 }
 
-std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles(const std::vector<Triangle>& triangles, const std::vector<Material>& materials, const std::vector<Vertex>& worldVertices) const
+std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles(
+    const std::vector<Triangle>& triangles, const std::vector<Material>& materials,
+    const std::vector<Vertex>& worldVertices) const
 {
     uint32_t meshTriangleStart = indexStart / 3;
     uint32_t meshTriangleCount = indexCount / 3;
-    
+
     std::vector<LightTree::Node> leafNodes;
     leafNodes.reserve(meshTriangleCount);
 
     //  only do if emissive
-    if(glm::length2(materials[materialIndex].GetEmission()) > 0.0f)
+    if (glm::length2(materials[materialIndex].GetEmission()) > 0.0f)
         for (uint32_t i = 0; i < meshTriangleCount; i++)
         {
             uint32_t triIndex = meshTriangleStart + i;
-            
+
             auto& v0 = worldVertices[triangles[triIndex].v0];
             auto& v1 = worldVertices[triangles[triIndex].v1];
             auto& v2 = worldVertices[triangles[triIndex].v2];
             constexpr float PIhalf = MathUtils::pi / 2.0f;
             float emmisiveRadiance = materials[materialIndex].GetEmissionRadiance();
-            
+
             glm::vec3 baryCentricCoord = Triangle::GetBarycentricCoords(v0.position, v1.position, v2.position);
             ConeBounds bounds_o;
             bounds_o.theta_e = PIhalf;
@@ -198,7 +199,7 @@ std::vector<LightTree::Node> Mesh::CreateLightTreenodesFromEmmisiveMeshTriangles
             bounds_o.axis = Triangle::GetTriangleNormal(v0.normal, v1.normal, v2.normal);
             float area = Triangle::GetTriangleArea(v0.position, v1.position, v2.position);
             float energy = area * emmisiveRadiance * MathUtils::pi;
-            
+
             leafNodes.emplace_back(triIndex, baryCentricCoord, triangles[triIndex].aabb, bounds_o, energy);
         }
 
@@ -251,7 +252,7 @@ void Mesh::ProcessMesh(const aiMesh* mesh, std::vector<Vertex>& vertices, std::v
 }
 
 void Mesh::ProcessNode(const aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices,
-    std::vector<uint32_t>& indices)
+                       std::vector<uint32_t>& indices)
 {
     // Process all meshes in this node
     for (unsigned int i = 0; i < node->mNumMeshes; i++)
@@ -267,15 +268,16 @@ void Mesh::ProcessNode(const aiNode* node, const aiScene* scene, std::vector<Ver
     }
 }
 
-void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices, bool toFlipUV)
+void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVertices,
+                        std::vector<uint32_t>& outIndices, bool toFlipUV)
 {
     Assimp::Importer importer;
 
     const aiScene* scene = importer.ReadFile(
         filepath,
-        aiProcess_Triangulate | 
+        aiProcess_Triangulate |
         aiProcess_GenSmoothNormals |
-        aiProcess_FlipUVs |             // Flip UVs (OpenGL-style)
+        aiProcess_FlipUVs | // Flip UVs (OpenGL-style)
         aiProcess_JoinIdenticalVertices |
         aiProcess_CalcTangentSpace
     );
@@ -293,20 +295,19 @@ void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVer
 
     // Left-Handed Fix (for OpenGL-like systems) 
     // ASSIMP often loads in right-handed space
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
     {
         outVertices[i].position.z *= -1.0f;
-        outVertices[i].normal.z   *= -1.0f;
+        outVertices[i].normal.z *= -1.0f;
     }
-    
-    if(toFlipUV)
+
+    if (toFlipUV)
     {
-        #pragma omp parallel for
+#pragma omp parallel for
         for (int i = 0; i < static_cast<int>(outVertices.size()); i++)
         {
             outVertices[i].uv.y = 1.0f - outVertices[i].uv.y;
         }
     }
-    
 }
