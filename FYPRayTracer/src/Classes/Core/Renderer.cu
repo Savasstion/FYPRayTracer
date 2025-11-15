@@ -241,7 +241,7 @@ __host__ __device__ RayHitPayload RendererGPU::TraceRay(const Ray& ray, const Sc
  //  PURE BRUTE-FORCE
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_BruteForce(
     uint32_t x, uint32_t y,
-    uint8_t maxBounces, uint8_t sampleCount,
+    uint8_t maxBounces,
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth)
@@ -961,7 +961,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_BRDFSampling(
 //  LIGHT SOURCE SAMPLING
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_LightSourceSampling(
     uint32_t x, uint32_t y,
-    uint8_t maxBounces, uint8_t sampleCount,
+    uint8_t sampleCount,
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth)
@@ -1294,6 +1294,119 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
     return glm::vec4(radiance / float(sampleCount), 1.0f);
 }
 
+//  RESTIR DI
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
+    uint32_t x, uint32_t y,
+    uint32_t frameIndex, const RenderingSettings& settings,
+    const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth)
+{
+    uint32_t seed = x + y * imageWidth;
+    seed *= frameIndex;
+
+    glm::vec3 radiance{0.0f};
+
+    // PRIMARY RAY
+    Ray primaryRay;
+    primaryRay.origin = activeCamera->position;
+    primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
+
+    RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
+
+    // Miss: hit sky
+    if (primaryPayload.hitDistance < 0.0f)
+        return glm::vec4(settings.skyColor, 1.0f);
+
+    const Triangle& hitTri = activeScene->triangles[primaryPayload.objectIndex];
+    const Material& hitMaterial = activeScene->materials[hitTri.materialIndex];
+
+    // Hit emissive surface
+    if (glm::length(hitMaterial.GetEmission()) > 0.0f)
+        return glm::vec4(hitMaterial.GetEmission(), 1.0f);
+
+    seed = (seed + 1) * 27;
+        glm::vec3 sampleThroughput{1.0f};
+        Ray sampleRay;
+        RayHitPayload samplePayload = primaryPayload;
+
+        // sample direction to light source
+        LightTree::ShadingPointQuery sp;
+        sp.normal = primaryPayload.worldNormal;
+        sp.position = primaryPayload.worldPosition;
+        LightTree::SampledLight sampledLight = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+
+        //  get emmisive triangle data
+        glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;
+        glm::vec3 p1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].position;
+        glm::vec3 p2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].position;
+        glm::vec3 n0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].normal;
+        glm::vec3 n1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].normal;
+        glm::vec3 n2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].normal;
+
+        //  get new ray direction towards selected light source
+        glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+        glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+        float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+        newDir = newDir / distance;
+
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo{0.0f};
+        if(hitMaterial.isUseAlbedoMap)
+        {
+            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = hitMaterial.albedo;
+        }
+        
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
+            primaryPayload.worldNormal,
+            -primaryRay.direction,
+            newDir,
+            sampledAlbedo,
+            hitMaterial.metallic,
+            hitMaterial.roughness
+        );
+
+        //  rendering equation
+        float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+        float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
+        float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+        float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance);
+        
+        sampleThroughput *= brdf * cosTheta_x * cosTheta_y / totalPDF;
+        
+        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
+        sampleRay.direction = newDir;
+        
+        samplePayload = TraceRay(sampleRay, activeScene);
+
+        // Miss: hit sky
+        if (samplePayload.hitDistance < 0.0f)
+        {
+            radiance += sampleThroughput * settings.skyColor;
+        }
+        else if (static_cast<uint32_t>(samplePayload.objectIndex) == sampledLight.emitterIndex) //  check if ray actually hits light source
+        {
+            const Triangle& tri = activeScene->triangles[sampledLight.emitterIndex];
+            const Material& material = activeScene->materials[tri.materialIndex];
+
+            // Hit emissive
+            glm::vec3 emission = material.GetEmission();
+            float emmisiveRadiance = material.GetEmissionRadiance();
+            if (emmisiveRadiance > 0.0f)
+                radiance += sampleThroughput * emission;
+        }
+    
+    return glm::vec4(radiance, 1.0f);
+}
+
 __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
     const Ray& ray, float hitDistance, int objectIndex,
     float u, float v, const Scene_GPU* activeScene)
@@ -1349,7 +1462,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
     switch(settings.currentSamplingTechnique)
     {
     case BRUTE_FORCE:
-        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex, settings, scene, camera, width);
         break;
     case UNIFORM_SAMPLING:
         pixelColor = RendererGPU::PerPixel_UniformSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
@@ -1364,15 +1477,17 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         pixelColor = RendererGPU::PerPixel_BRDFSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
         break;
     case LIGHT_SOURCE_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
         break;
     case NEE:
         pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
         break;
-    //case RESTIR_DI:
+    case RESTIR_DI:
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width);
+        break;
     //case RESTIR_GI:
     default:
-        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
+        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex, settings, scene, camera, width);
     }
     
 

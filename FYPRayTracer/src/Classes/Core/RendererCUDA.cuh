@@ -10,7 +10,7 @@ struct RendererGPU
 {
     __host__ __device__ static glm::vec4 PerPixel_BruteForce(
             uint32_t x, uint32_t y,
-            uint8_t maxBounces, uint8_t sampleCount,
+            uint8_t maxBounces,
             uint32_t frameIndex, const RenderingSettings& settings,
             const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
             uint32_t imageWidth);
@@ -45,7 +45,7 @@ struct RendererGPU
 
     __host__ __device__ static glm::vec4 PerPixel_LightSourceSampling(
         uint32_t x, uint32_t y,
-        uint8_t maxBounces, uint8_t sampleCount,
+        uint8_t sampleCount,
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth);
@@ -53,6 +53,12 @@ struct RendererGPU
     __host__ __device__ static glm::vec4 PerPixel_NextEventEstimation(
         uint32_t x, uint32_t y,
         uint8_t maxBounces, uint8_t sampleCount,
+        uint32_t frameIndex, const RenderingSettings& settings,
+        const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+        uint32_t imageWidth);
+
+    __host__ __device__ static glm::vec4 PerPixel_ReSTIR_DI(
+        uint32_t x, uint32_t y,
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth);
