@@ -15,3 +15,11 @@ __host__ __device__ bool ReSTIR_DI_Reservoir::UpdateReservoir(uint32_t candidate
  
     return false;
 }
+
+__host__ __device__ void ReSTIR_DI_Reservoir::ResetReservoir()
+{
+    indexEmissive = 0;           
+    weightEmissive = 0.0f;             
+    weightSum = 0.0f;                  
+    emissiveProcessedCount = 0;  
+}

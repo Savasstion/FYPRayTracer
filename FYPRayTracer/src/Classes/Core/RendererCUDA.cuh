@@ -8,6 +8,8 @@
 
 struct RendererGPU
 {
+    static Scene_GPU* d_currentScene;
+    
     __host__ __device__ static glm::vec4 PerPixel_BruteForce(
             uint32_t x, uint32_t y,
             uint8_t maxBounces,
@@ -61,7 +63,8 @@ struct RendererGPU
         uint32_t x, uint32_t y,
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-        uint32_t imageWidth);
+        uint32_t imageWidth,
+        ReSTIR_DI_Reservoir* di_reservoirs);
 
     __host__ __device__ static RayHitPayload TraceRay(
         const Ray& ray, const Scene_GPU* activeScene);
@@ -72,8 +75,6 @@ struct RendererGPU
 
     __host__ __device__ static RayHitPayload Miss(
         const Ray& ray);
-
-    static Scene_GPU* d_currentScene;
 };
 
 __global__ void RenderKernel(
@@ -84,7 +85,7 @@ __global__ void RenderKernel(
     uint32_t frameIndex,
     RenderingSettings settings,
     const Scene_GPU* scene,
-    const Camera_GPU* camera
-);
+    const Camera_GPU* camera,
+    ReSTIR_DI_Reservoir* di_reservoirs);
 
 #endif

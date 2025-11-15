@@ -463,6 +463,7 @@ public:
 		bool rayTracingSettingsUpdated = false;
 		rayTracingSettingsUpdated |= ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f, 0, UINT8_MAX);
 		rayTracingSettingsUpdated |= ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1, UINT8_MAX);
+		rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Candidate Count", &m_Renderer.GetSettings().lightCandidateCount, 1.0f, 1, UINT16_MAX);
 		ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
 		ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
 		ImGui::Text("Vertices Count : %d", static_cast<uint32_t>(m_Scene.vertices.size()));

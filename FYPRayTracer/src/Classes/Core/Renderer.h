@@ -8,6 +8,8 @@
 #include "../BaseClasses/RenderingSettings.h"
 #include "../BaseClasses/Scene.h"
 #include "../BaseClasses/Camera.h"
+#include "../../DataStructures/ReSTIR_DI_Reservoir.cuh"
+
 
 class Renderer
 {
@@ -20,8 +22,9 @@ private:
     const Camera* m_ActiveCamera = nullptr;
     uint32_t m_FrameIndex = 1;
     bool isSceneUpdated = true;
-
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
+    ReSTIR_DI_Reservoir* di_reservoirs = nullptr;   //  for ReSTIR DI
+    uint32_t di_reservoir_count = 0;
 
 public:
     Renderer() = default;
@@ -33,6 +36,7 @@ public:
     RenderingSettings& GetSettings() { return m_Settings; }
     uint32_t GetCurrentFrameIndex() const { return m_FrameIndex; }
     uint32_t* GetRenderImageDataPtr() const { return m_RenderImageData; }
+    void ResizeDIReservoirs(uint32_t width, uint32_t height);
 };
 
 #endif

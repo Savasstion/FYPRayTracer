@@ -10,7 +10,10 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
         if(m_FinalRenderImage->GetWidth() == width && m_FinalRenderImage->GetHeight() == height)
             return;
 
-        m_FinalRenderImage->Resize(width, height); 
+        m_FinalRenderImage->Resize(width, height);
+
+        // Reset ReSTIR DI reservoirs
+        ResizeDIReservoirs(width, height);
     }
     else
     {

@@ -86,7 +86,8 @@ void Renderer::Render(Scene& scene, Camera& camera)
         m_FrameIndex,
         m_Settings,
         d_sceneGPU,
-        d_cameraGPU
+        d_cameraGPU,
+        di_reservoirs
     );
     
      err = cudaDeviceSynchronize();
@@ -131,6 +132,22 @@ void Renderer::Render(Scene& scene, Camera& camera)
     
     FreeCameraGPU(d_cameraGPU);
     
+}
+
+void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
+{
+    if(di_reservoirs)
+        cudaFree(di_reservoirs);
+    
+    //  each pixel gets its own reservoir
+    di_reservoir_count = width * height;
+    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+
+    if(err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+        return;
+    }
 }
 
 
@@ -1296,14 +1313,15 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_NextEventEstimation(
 
 //  RESTIR DI
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
-    uint32_t x, uint32_t y,
-    uint32_t frameIndex, const RenderingSettings& settings,
-    const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-    uint32_t imageWidth)
+        uint32_t x, uint32_t y,
+        uint32_t frameIndex, const RenderingSettings& settings,
+        const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+        uint32_t imageWidth,
+        ReSTIR_DI_Reservoir* di_reservoirs)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
-
+    
     glm::vec3 radiance{0.0f};
 
     // PRIMARY RAY
@@ -1324,24 +1342,30 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     if (glm::length(hitMaterial.GetEmission()) > 0.0f)
         return glm::vec4(hitMaterial.GetEmission(), 1.0f);
 
+    // ReSTIR DI
     seed = (seed + 1) * 27;
-        glm::vec3 sampleThroughput{1.0f};
-        Ray sampleRay;
-        RayHitPayload samplePayload = primaryPayload;
+    float simplePDF = 1.0f /  static_cast<float>(activeScene->emissiveTriangleCount);
+    float complexPDF = 0.0f;
+    ReSTIR_DI_Reservoir& pixelReservoir = di_reservoirs[y * imageWidth + x];
+    pixelReservoir.ResetReservoir();
 
-        // sample direction to light source
-        LightTree::ShadingPointQuery sp;
-        sp.normal = primaryPayload.worldNormal;
-        sp.position = primaryPayload.worldPosition;
-        LightTree::SampledLight sampledLight = PickLight_TLAS(activeScene->meshes, activeScene->lightTree_tlas, sp, seed);
+    //  Generate and sample light candidates into reservoir
+    uint32_t candidateCount = static_cast<uint32_t>(settings.lightCandidateCount);
+    for(uint32_t i = 0; i < candidateCount; i++)
+    {
+        //  randomly select a light source
+        uint32_t randomEmissiveIndex = static_cast<uint32_t>(static_cast<float>(activeScene->emissiveTriangleCount - 1) * MathUtils::randomFloat(seed));
 
-        //  get emmisive triangle data
-        glm::vec3 p0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].position;
-        glm::vec3 p1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].position;
-        glm::vec3 p2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].position;
-        glm::vec3 n0 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v0].normal;
-        glm::vec3 n1 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v1].normal;
-        glm::vec3 n2 = activeScene->worldVertices[activeScene->triangles[sampledLight.emitterIndex].v2].normal;
+        //  calculate complex PDF
+        //  get emissive triangle data
+        uint32_t indexTri = activeScene->emissiveTriangles[randomEmissiveIndex];
+        const Triangle& emissiveTri = activeScene->triangles[indexTri];
+        glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+        glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+        glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+        glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+        glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+        glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
 
         //  get new ray direction towards selected light source
         glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
@@ -1354,7 +1378,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         if(hitMaterial.isUseAlbedoMap)
         {
             Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
-            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
             glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
             sampledAlbedo.r = color4.r;
             sampledAlbedo.g = color4.g;
@@ -1366,43 +1390,111 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         }
         
         glm::vec3 brdf = MathUtils::CalculateBRDF(
-            primaryPayload.worldNormal,
-            -primaryRay.direction,
-            newDir,
-            sampledAlbedo,
-            hitMaterial.metallic,
-            hitMaterial.roughness
+        primaryPayload.worldNormal,
+        -primaryRay.direction,
+        newDir,
+        sampledAlbedo,
+        hitMaterial.metallic,
+        hitMaterial.roughness
         );
 
         //  rendering equation
+        const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
         float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
         float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
         float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
-        float totalPDF = sampledLight.pmf * triAreaPDF * (distance * distance);
-        
-        sampleThroughput *= brdf * cosTheta_x * cosTheta_y / totalPDF;
-        
-        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
-        sampleRay.direction = newDir;
-        
-        samplePayload = TraceRay(sampleRay, activeScene);
+        float solidAnglePDF = triAreaPDF * (distance * distance);
+        glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / (solidAnglePDF * simplePDF) * emissiveMat.GetEmission();
+        complexPDF = glm::length(lightRadiance);
+        float weight = complexPDF / simplePDF;
 
+        //  Update reservoir
+        pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
+    }
+
+    //  Get sample from reservoir
+    uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
+    const Triangle& emissiveTri = activeScene->triangles[indexTri];
+
+    //  get emissive triangle data
+    glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+    glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+    glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+    glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+    glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+    glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
+
+    //  get new ray direction towards selected light source
+    glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+    glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+    float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+    newDir = newDir / distance;
+    
+    //  Compute radiance
+    // Sample albedo from albedo map is exist
+    glm::vec3 sampledAlbedo{0.0f};
+    if(hitMaterial.isUseAlbedoMap)
+    {
+        Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+        uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
+        glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+        sampledAlbedo.r = color4.r;
+        sampledAlbedo.g = color4.g;
+        sampledAlbedo.b = color4.b;
+    }
+    else
+    {
+        sampledAlbedo = hitMaterial.albedo;
+    }
+        
+    glm::vec3 brdf = MathUtils::CalculateBRDF(
+    primaryPayload.worldNormal,
+    -primaryRay.direction,
+    newDir,
+    sampledAlbedo,
+    hitMaterial.metallic,
+    hitMaterial.roughness
+    );
+
+    //  rendering equation
+    float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+    float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0,n1,n2)), 0.0f);
+    float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0,p1,p2);  //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+    float solidAnglePDF = triAreaPDF * (distance * distance);
+    glm::vec3  sampleThroughput = brdf * cosTheta_x * cosTheta_y / (solidAnglePDF * simplePDF);
+
+    //  Trace ray and determine visibility term
+    Ray sampleRay;
+    RayHitPayload samplePayload = primaryPayload;
+    sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
+    sampleRay.direction = newDir;
+    samplePayload = TraceRay(sampleRay, activeScene);
+    bool visibilityTerm = static_cast<uint32_t>(samplePayload.objectIndex) == indexTri; //  check if ray actually hits target light source
+
+    //  Compute radiance
+    if(visibilityTerm)
+    {
         // Miss: hit sky
         if (samplePayload.hitDistance < 0.0f)
         {
             radiance += sampleThroughput * settings.skyColor;
         }
-        else if (static_cast<uint32_t>(samplePayload.objectIndex) == sampledLight.emitterIndex) //  check if ray actually hits light source
+        else
         {
-            const Triangle& tri = activeScene->triangles[sampledLight.emitterIndex];
-            const Material& material = activeScene->materials[tri.materialIndex];
-
             // Hit emissive
-            glm::vec3 emission = material.GetEmission();
-            float emmisiveRadiance = material.GetEmissionRadiance();
-            if (emmisiveRadiance > 0.0f)
-                radiance += sampleThroughput * emission;
+            const Material& mat = activeScene->materials[emissiveTri.materialIndex];
+            if (mat.GetEmissionRadiance() > 0.0f)
+            {
+                radiance = sampleThroughput * mat.GetEmission();
+                float radianceLength = glm::length(radiance);
+
+                // calculate the weight of this light
+                pixelReservoir.weightEmissive = radianceLength > 0.0f ? (1.0f / radianceLength) * pixelReservoir.weightSum / static_cast<float>(pixelReservoir.emissiveProcessedCount) : 0.0f;
+                radiance *= pixelReservoir.weightEmissive;
+            }
+                
         }
+    }
     
     return glm::vec4(radiance, 1.0f);
 }
@@ -1448,7 +1540,7 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
     return payload;
 }
 
-__global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+__global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera, ReSTIR_DI_Reservoir* di_reservoirs)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1483,7 +1575,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces), static_cast<uint8_t>(settings.sampleCount), frameIndex, settings, scene, camera, width);
         break;
     case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width);
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs);
         break;
     //case RESTIR_GI:
     default:
