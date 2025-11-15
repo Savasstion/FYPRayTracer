@@ -1372,8 +1372,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     for (uint32_t i = 0; i < candidateCount; i++)
     {
         //  randomly select a light source
-        uint32_t randomEmissiveIndex = static_cast<uint32_t>(static_cast<float>(activeScene->emissiveTriangleCount - 1)
-            * MathUtils::randomFloat(seed));
+        uint32_t randomEmissiveIndex = static_cast<uint32_t>(roundf(static_cast<float>(activeScene->emissiveTriangleCount - 1)
+            * MathUtils::randomFloat(seed)));
 
         //  calculate complex PDF
         //  get emissive triangle data
@@ -1427,6 +1427,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
             GetEmission();
         complexPDF = glm::length(lightRadiance);
+
         float weight = complexPDF / simplePDF;
 
         //  Update reservoir
@@ -1494,7 +1495,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
     bool visibilityTerm = static_cast<uint32_t>(samplePayload.objectIndex) == indexTri;
     //  check if ray actually hits target light source
-    if (visibilityTerm)
+    if (visibilityTerm && samplePayload.hitDistance >= 0.0f)
     {
         // Hit emissive
         const Material& mat = activeScene->materials[emissiveTri.materialIndex];
@@ -1511,6 +1512,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
             radiance *= pixelReservoir.weightEmissive;
         }
+    }
+    else if(samplePayload.hitDistance < 0.0f)   //  Miss : hit sky
+    {
+        radiance = sampleThroughput * settings.skyColor;
     }
     else
     {
