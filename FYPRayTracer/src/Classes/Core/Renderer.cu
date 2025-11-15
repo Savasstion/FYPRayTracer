@@ -1424,7 +1424,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
         //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
         float solidAnglePDF = triAreaPDF * (distance * distance);
-        glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / (solidAnglePDF * simplePDF) * emissiveMat.
+        glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
             GetEmission();
         complexPDF = glm::length(lightRadiance);
         float weight = complexPDF / simplePDF;
@@ -1483,7 +1483,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
     //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
     float solidAnglePDF = triAreaPDF * (distance * distance);
-    glm::vec3 sampleThroughput = brdf * cosTheta_x * cosTheta_y / (solidAnglePDF * simplePDF);
+    glm::vec3 sampleThroughput = brdf * cosTheta_x * cosTheta_y / solidAnglePDF;
 
     //  Trace ray and determine visibility term
     Ray sampleRay;
@@ -1491,34 +1491,30 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
     sampleRay.direction = newDir;
     samplePayload = TraceRay(sampleRay, activeScene);
+
     bool visibilityTerm = static_cast<uint32_t>(samplePayload.objectIndex) == indexTri;
     //  check if ray actually hits target light source
-
-    //  Compute radiance
     if (visibilityTerm)
     {
-        // Miss: hit sky
-        if (samplePayload.hitDistance < 0.0f)
+        // Hit emissive
+        const Material& mat = activeScene->materials[emissiveTri.materialIndex];
+        if (mat.GetEmissionRadiance() > 0.0f)
         {
-            radiance += sampleThroughput * settings.skyColor;
-        }
-        else
-        {
-            // Hit emissive
-            const Material& mat = activeScene->materials[emissiveTri.materialIndex];
-            if (mat.GetEmissionRadiance() > 0.0f)
-            {
-                radiance = sampleThroughput * mat.GetEmission();
-                float radianceLength = glm::length(radiance);
+            radiance = sampleThroughput * mat.GetEmission();
+            float radianceLength = glm::length(radiance);
 
-                // calculate the weight of this light
-                pixelReservoir.weightEmissive = radianceLength > 0.0f
-                                                    ? (1.0f / radianceLength) * pixelReservoir.weightSum / static_cast<
-                                                        float>(pixelReservoir.emissiveProcessedCount)
-                                                    : 0.0f;
-                radiance *= pixelReservoir.weightEmissive;
-            }
+            //calculate the weight of this light
+            pixelReservoir.weightEmissive = radianceLength > 0.0f
+                                                ? (1.0f / radianceLength) * pixelReservoir.weightSum / static_cast<
+                                                    float>(pixelReservoir.emissiveProcessedCount)
+                                                : 0.0f;
+
+            radiance *= pixelReservoir.weightEmissive;
         }
+    }
+    else
+    {
+        radiance = {0.0f, 0.0f, 0.0f};
     }
 
     return glm::vec4(radiance, 1.0f);
