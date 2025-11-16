@@ -376,18 +376,14 @@ namespace MathUtils
     __host__ __device__ __forceinline__ glm::vec2 GetNormalizedDeviceCoords(const glm::mat4& projection, const glm::mat4& view, const glm::vec3& worldPos)
     {
         // Calc Clip Space
-        glm::vec4 clipPos = projection * view * glm::vec4(worldPos, 1.0f);
+        glm::vec4 clip = projection * view * glm::vec4(worldPos, 1.0f);
 
         // Avoid divide zero
-        if (clipPos.w == 0.0f)
+        if (clip.w == 0.0f)
             return {0.0f, 0.0f};
 
-        // Clip to NDC (perspective divide)
-        glm::vec3 ndc = glm::vec3(
-            clipPos.x / clipPos.w,
-            clipPos.y / clipPos.w,
-            clipPos.z / clipPos.w
-        );
+        // divide x,y,z by w
+        glm::vec3 ndc = glm::vec3(clip) / clip.w;
 
         // 4. Return only xy
         return {ndc.x, ndc.y};

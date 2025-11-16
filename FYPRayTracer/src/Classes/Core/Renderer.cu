@@ -148,7 +148,6 @@ void Renderer::Render(Scene& scene, Camera& camera)
 
 void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 {
-
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
@@ -172,7 +171,7 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 
 void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 {
-    if(depthBuffers)
+    if (depthBuffers)
         cudaFree(depthBuffers);
 
     //  each pixel has its own depth buffer
@@ -193,7 +192,7 @@ void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 
 void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
 {
-    if(normalBuffers)
+    if (normalBuffers)
         cudaFree(normalBuffers);
 
     //  each pixel has its own depth buffer
@@ -215,28 +214,27 @@ void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
 void Renderer::FreeDynamicallyAllocatedMemory()
 {
     //  Free all memory regarding the renderer
-    
-    if(RendererGPU::d_currentScene)
+
+    if (RendererGPU::d_currentScene)
         cudaFree(RendererGPU::d_currentScene);
 
-    if(m_RenderImageData)
+    if (m_RenderImageData)
         delete[] m_RenderImageData;
 
-    if(m_AccumulationData)
+    if (m_AccumulationData)
         delete[] m_AccumulationData;
 
     m_ActiveScene = nullptr;
     m_ActiveCamera = nullptr;
 
-    if(normalBuffers)
+    if (normalBuffers)
         cudaFree(normalBuffers);
 
-    if(depthBuffers)
+    if (depthBuffers)
         cudaFree(depthBuffers);
 
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
-    
 }
 
 
@@ -1428,11 +1426,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
-    
+
     // Miss: hit sky
     if (primaryPayload.hitDistance < 0.0f)
         return glm::vec4(settings.skyColor, 1.0f);
-    
+
     const Triangle& primaryHitTri = activeScene->triangles[primaryPayload.objectIndex];
     const Material& primaryHitMaterial = activeScene->materials[primaryHitTri.materialIndex];
 
@@ -1452,7 +1450,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     for (uint32_t i = 0; i < candidateCount; i++)
     {
         //  randomly select a light source
-        uint32_t randomEmissiveIndex = static_cast<uint32_t>(roundf(static_cast<float>(activeScene->emissiveTriangleCount - 1)
+        uint32_t randomEmissiveIndex = static_cast<uint32_t>(roundf(
+            static_cast<float>(activeScene->emissiveTriangleCount - 1)
             * MathUtils::randomFloat(seed)));
 
         //  calculate complex PDF
@@ -1509,13 +1508,229 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         complexPDF = glm::length(lightRadiance);
 
         //float weight = complexPDF / simplePDF;
-        float weight = complexPDF * static_cast<float>(activeScene->emissiveTriangleCount);     // no need for divisions, this is equivalent to dividing the inverse of emissive count  
+        float weight = complexPDF * static_cast<float>(activeScene->emissiveTriangleCount);
+        // no need for divisions, this is equivalent to dividing the inverse of emissive count  
 
         //  Update reservoir, this effectively does Reservoir Sampling
         pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
     }
 
-    //  Sample from reservoir
+    // //  Temporal resampling
+    // ReSTIR_DI_Reservoir temporalReservoir;
+    // temporalReservoir.ResetReservoir();
+    // if(frameIndex > 0)
+    // {
+    //     //  Reproject using the motion vectors.
+    //     glm::vec2 uvPrev = MathUtils::GetUVFromNDC(activeCamera->prevProjection, activeCamera->prevView,
+    //                                                primaryPayload.worldPosition);
+    //     glm::vec2 prevScreenPos = uvPrev * activeCamera->viewportSize;
+    //
+    //     //  Get prev frame's data
+    //     glm::vec3 prevNormal = MathUtils::DecodeOctahedral(
+    //         normalBuffers[static_cast<uint32_t>(prevScreenPos.y * static_cast<float>(imageWidth) + prevScreenPos.x)]);
+    //     ReSTIR_DI_Reservoir& prevReservoir = di_prev_reservoirs[static_cast<uint32_t>(prevScreenPos.y * static_cast<
+    //         float>(imageWidth) + prevScreenPos.x)];
+    //
+    //     //  Restrict influence from past samples
+    //     prevReservoir.emissiveProcessedCount =
+    //         (20.f * pixelReservoir.emissiveProcessedCount < prevReservoir.emissiveProcessedCount)
+    //             ? 20.f * pixelReservoir.emissiveProcessedCount
+    //             : prevReservoir.emissiveProcessedCount; //  return a < b ? a : b;
+    //
+    //     //  Some simple rejection based on normals' divergence, can be improved
+    //     bool validHistory = glm::dot(prevNormal, primaryPayload.worldNormal) >= 0.99;
+    //
+    //     if (validHistory)
+    //     {
+    //         //  Add current sample to temporal reservoir
+    //         //  Calc complex pdf of current reservoir's sample to be added into temporal reservoir later
+    //         {
+    //             //  get emissive triangle data
+    //             uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
+    //             const Triangle& emissiveTri = activeScene->triangles[indexTri];
+    //             glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+    //             glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+    //             glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+    //             glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+    //             glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+    //             glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
+    //
+    //             //  get new ray direction towards selected light source
+    //             glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+    //             glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+    //             float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+    //             newDir = newDir / distance;
+    //
+    //             // Sample albedo from albedo map is exist
+    //             glm::vec3 sampledAlbedo{0.0f};
+    //             if (primaryHitMaterial.isUseAlbedoMap)
+    //             {
+    //                 Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
+    //                 uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
+    //                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+    //                 sampledAlbedo.r = color4.r;
+    //                 sampledAlbedo.g = color4.g;
+    //                 sampledAlbedo.b = color4.b;
+    //             }
+    //             else
+    //             {
+    //                 sampledAlbedo = primaryHitMaterial.albedo;
+    //             }
+    //
+    //             glm::vec3 brdf = MathUtils::CalculateBRDF(
+    //                 primaryPayload.worldNormal,
+    //                 -primaryRay.direction,
+    //                 newDir,
+    //                 sampledAlbedo,
+    //                 primaryHitMaterial.metallic,
+    //                 primaryHitMaterial.roughness
+    //             );
+    //
+    //             //  rendering equation
+    //             const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
+    //             float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+    //             float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
+    //             float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
+    //             //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+    //             float solidAnglePDF = triAreaPDF * (distance * distance);
+    //             glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
+    //                 GetEmission();
+    //
+    //             //  Add current reservoir sample
+    //             temporalReservoir.UpdateReservoir(pixelReservoir.indexEmissive,
+    //                                               glm::length(lightRadiance) * pixelReservoir.weightEmissive *
+    //                                               pixelReservoir.emissiveProcessedCount,
+    //                                               pixelReservoir.emissiveProcessedCount, seed);
+    //         }
+    //
+    //         //  Add sample from previous frame
+    //         //  Calc complex pdf of previous reservoir's sample
+    //         {
+    //             //  get emissive triangle data
+    //             uint32_t indexTri = activeScene->emissiveTriangles[prevReservoir.indexEmissive];
+    //             const Triangle& emissiveTri = activeScene->triangles[indexTri];
+    //             glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+    //             glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+    //             glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+    //             glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+    //             glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+    //             glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
+    //
+    //             //  get new ray direction towards selected light source
+    //             glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+    //             glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+    //             float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+    //             newDir = newDir / distance;
+    //
+    //             // Sample albedo from albedo map is exist
+    //             glm::vec3 sampledAlbedo{0.0f};
+    //             if (primaryHitMaterial.isUseAlbedoMap)
+    //             {
+    //                 Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
+    //                 uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
+    //                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+    //                 sampledAlbedo.r = color4.r;
+    //                 sampledAlbedo.g = color4.g;
+    //                 sampledAlbedo.b = color4.b;
+    //             }
+    //             else
+    //             {
+    //                 sampledAlbedo = primaryHitMaterial.albedo;
+    //             }
+    //
+    //             glm::vec3 brdf = MathUtils::CalculateBRDF(
+    //                 primaryPayload.worldNormal,
+    //                 -primaryRay.direction,
+    //                 newDir,
+    //                 sampledAlbedo,
+    //                 primaryHitMaterial.metallic,
+    //                 primaryHitMaterial.roughness
+    //             );
+    //
+    //             //  rendering equation
+    //             const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
+    //             float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+    //             float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
+    //             float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
+    //             //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+    //             float solidAnglePDF = triAreaPDF * (distance * distance);
+    //             glm::vec3 prevLightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
+    //                 GetEmission();
+    //
+    //             //  Add sample from previous frame
+    //             temporalReservoir.UpdateReservoir(prevReservoir.indexEmissive,
+    //                                               glm::length(prevLightRadiance) * prevReservoir.weightEmissive *
+    //                                               prevReservoir.emissiveProcessedCount,
+    //                                               prevReservoir.emissiveProcessedCount, seed);
+    //         }
+    //
+    //         //  Calc weight of the selected light
+    //         //  Calc complex pdf of updated temporal reservoir's sample
+    //         {
+    //             //  get emissive triangle data
+    //             uint32_t indexTri = activeScene->emissiveTriangles[temporalReservoir.indexEmissive];
+    //             const Triangle& emissiveTri = activeScene->triangles[indexTri];
+    //             glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+    //             glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+    //             glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+    //             glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+    //             glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+    //             glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
+    //
+    //             //  get new ray direction towards selected light source
+    //             glm::vec3 emmisivePoint = Triangle::GetRandomPointOnTriangle(p0, p1, p2, seed);
+    //             glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+    //             float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+    //             newDir = newDir / distance;
+    //
+    //             // Sample albedo from albedo map is exist
+    //             glm::vec3 sampledAlbedo{0.0f};
+    //             if (primaryHitMaterial.isUseAlbedoMap)
+    //             {
+    //                 Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
+    //                 uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
+    //                 glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+    //                 sampledAlbedo.r = color4.r;
+    //                 sampledAlbedo.g = color4.g;
+    //                 sampledAlbedo.b = color4.b;
+    //             }
+    //             else
+    //             {
+    //                 sampledAlbedo = primaryHitMaterial.albedo;
+    //             }
+    //
+    //             glm::vec3 brdf = MathUtils::CalculateBRDF(
+    //                 primaryPayload.worldNormal,
+    //                 -primaryRay.direction,
+    //                 newDir,
+    //                 sampledAlbedo,
+    //                 primaryHitMaterial.metallic,
+    //                 primaryHitMaterial.roughness
+    //             );
+    //
+    //             //  rendering equation
+    //             const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
+    //             float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+    //             float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
+    //             float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
+    //             //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+    //             float solidAnglePDF = triAreaPDF * (distance * distance);
+    //             glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
+    //                 GetEmission();
+    //             float lenRadiance = glm::length(lightRadiance);
+    //
+    //             //  Calc weight of the selected lights                
+    //             temporalReservoir.weightEmissive = lenRadiance > 0.0 ? (1.0f / lenRadiance) * temporalReservoir.weightSum / static_cast<float>(temporalReservoir.emissiveProcessedCount) : 0.0;
+    //         }
+    //
+    //         //  Update pixel reserevoir with temporal
+    //         pixelReservoir = temporalReservoir;
+    //         
+    //     }
+    // }
+
+
+    //  Final Step: Sample from reservoir
     uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
     const Triangle& emissiveTri = activeScene->triangles[indexTri];
 
@@ -1594,15 +1809,19 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             radiance *= pixelReservoir.weightEmissive;
         }
     }
-    else if(samplePayload.hitDistance < 0.0f)   //  Miss : hit sky
+    else if (samplePayload.hitDistance < 0.0f) //  Miss : hit sky
     {
         radiance = sampleThroughput * settings.skyColor;
     }
 
     //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
-    depthBuffers[x + y * imageWidth] = MathUtils::LinearizeDepth(primaryPayload.hitDistance, activeCamera->nearClip, activeCamera->farClip);
+    depthBuffers[x + y * imageWidth] = MathUtils::LinearizeDepth(primaryPayload.hitDistance, activeCamera->nearClip,
+                                                                 activeCamera->farClip);
     normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
-    
+
+    //  Update prev reservoir with current one
+    di_prev_reservoirs[x + y * imageWidth] = pixelReservoir;
+
     return glm::vec4(radiance, 1.0f);
 }
 
@@ -1644,12 +1863,13 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 {
     RayHitPayload payload;
     payload.hitDistance = -1.0f;
-    payload.worldNormal = {0.0f,0.0f,0.0f};
+    payload.worldNormal = {0.0f, 0.0f, 0.0f};
     return payload;
 }
 
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-                             uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                             uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                             const Camera_GPU* camera,
                              ReSTIR_DI_Reservoir* di_prev_reservoirs,
                              float* depthBuffers, glm::vec2* normalBuffers)
 {
@@ -1698,7 +1918,8 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
                                                                settings, scene, camera, width);
         break;
     case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_prev_reservoirs, depthBuffers, normalBuffers);
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
+                                                     di_prev_reservoirs, depthBuffers, normalBuffers);
         break;
     //case RESTIR_GI:
     default:
