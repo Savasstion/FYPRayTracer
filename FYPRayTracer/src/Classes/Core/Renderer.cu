@@ -1663,6 +1663,7 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 {
     RayHitPayload payload;
     payload.hitDistance = -1.0f;
+    payload.worldNormal = {0.0f,0.0f,0.0f};
     return payload;
 }
 
