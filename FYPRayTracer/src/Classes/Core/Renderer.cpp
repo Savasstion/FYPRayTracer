@@ -12,6 +12,10 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
         m_FinalRenderImage->Resize(width, height);
 
+        //  Reset Depth Buffer
+        ResizeDepthBuffers(width, height);
+        //  Reset Normal Buffer
+        ResizeNormalBuffers(width, height);
         // Reset ReSTIR DI reservoirs
         ResizeDIReservoirs(width, height);
     }

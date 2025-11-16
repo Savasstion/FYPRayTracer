@@ -92,7 +92,8 @@ void Renderer::Render(Scene& scene, Camera& camera)
         m_Settings,
         d_sceneGPU,
         d_cameraGPU,
-        di_reservoirs
+        di_reservoirs,
+        di_temporary_reservoirs
     );
 
     err = cudaDeviceSynchronize();
@@ -149,15 +150,82 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
     if (di_reservoirs)
         cudaFree(di_reservoirs);
 
-    //  each pixel gets its own reservoir
-    di_reservoir_count = width * height;
-    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (di_temporary_reservoirs)
+        cudaFree(di_temporary_reservoirs);
 
+    //  each pixel gets its own reservoir
+    uint32_t di_reservoir_count = width * height;
+    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
         return;
     }
+
+    err = cudaMalloc((void**)&di_temporary_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+        return;
+    }
+}
+
+void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
+{
+    if(depthBuffers)
+        cudaFree(depthBuffers);
+
+    //  each pixel has its own depth buffer
+    uint32_t bufferCount = width * height;
+    cudaError_t err = cudaMalloc((void**)&depthBuffers, bufferCount * sizeof(float));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+    }
+}
+
+void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
+{
+    if(normalBuffers)
+        cudaFree(normalBuffers);
+
+    //  each pixel has its own depth buffer
+    uint32_t bufferCount = width * height;
+    cudaError_t err = cudaMalloc((void**)&normalBuffers, bufferCount * sizeof(glm::vec2));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+    }
+}
+
+void Renderer::FreeDynamicallyAllocatedMemory()
+{
+    //  Free all memory regarding the renderer
+    
+    if(RendererGPU::d_currentScene)
+        cudaFree(RendererGPU::d_currentScene);
+
+    if(m_RenderImageData)
+        delete[] m_RenderImageData;
+
+    if(m_AccumulationData)
+        delete[] m_AccumulationData;
+
+    m_ActiveScene = nullptr;
+    m_ActiveCamera = nullptr;
+
+    if(normalBuffers)
+        cudaFree(normalBuffers);
+
+    if(depthBuffers)
+        cudaFree(depthBuffers);
+
+    if (di_reservoirs)
+        cudaFree(di_reservoirs);
+
+    if (di_temporary_reservoirs)
+        cudaFree(di_temporary_reservoirs);
+    
 }
 
 
@@ -1335,7 +1403,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth,
-    ReSTIR_DI_Reservoir* di_reservoirs)
+    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
@@ -1353,12 +1421,12 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     if (primaryPayload.hitDistance < 0.0f)
         return glm::vec4(settings.skyColor, 1.0f);
 
-    const Triangle& hitTri = activeScene->triangles[primaryPayload.objectIndex];
-    const Material& hitMaterial = activeScene->materials[hitTri.materialIndex];
+    const Triangle& primaryHitTri = activeScene->triangles[primaryPayload.objectIndex];
+    const Material& primaryHitMaterial = activeScene->materials[primaryHitTri.materialIndex];
 
     // Hit emissive surface
-    if (glm::length(hitMaterial.GetEmission()) > 0.0f)
-        return glm::vec4(hitMaterial.GetEmission(), 1.0f);
+    if (glm::length(primaryHitMaterial.GetEmission()) > 0.0f)
+        return glm::vec4(primaryHitMaterial.GetEmission(), 1.0f);
 
     // ReSTIR DI
     seed = (seed + 1) * 27;
@@ -1394,9 +1462,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
         // Sample albedo from albedo map is exist
         glm::vec3 sampledAlbedo{0.0f};
-        if (hitMaterial.isUseAlbedoMap)
+        if (primaryHitMaterial.isUseAlbedoMap)
         {
-            Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+            Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
             uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
             glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
             sampledAlbedo.r = color4.r;
@@ -1405,7 +1473,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         }
         else
         {
-            sampledAlbedo = hitMaterial.albedo;
+            sampledAlbedo = primaryHitMaterial.albedo;
         }
 
         glm::vec3 brdf = MathUtils::CalculateBRDF(
@@ -1413,8 +1481,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             -primaryRay.direction,
             newDir,
             sampledAlbedo,
-            hitMaterial.metallic,
-            hitMaterial.roughness
+            primaryHitMaterial.metallic,
+            primaryHitMaterial.roughness
         );
 
         //  rendering equation
@@ -1456,9 +1524,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     //  Compute radiance
     // Sample albedo from albedo map is exist
     glm::vec3 sampledAlbedo{0.0f};
-    if (hitMaterial.isUseAlbedoMap)
+    if (primaryHitMaterial.isUseAlbedoMap)
     {
-        Texture& albedoMap = activeScene->textures[hitMaterial.albedoMapIndex];
+        Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
         uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
         glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
         sampledAlbedo.r = color4.r;
@@ -1467,7 +1535,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     }
     else
     {
-        sampledAlbedo = hitMaterial.albedo;
+        sampledAlbedo = primaryHitMaterial.albedo;
     }
 
     glm::vec3 brdf = MathUtils::CalculateBRDF(
@@ -1475,8 +1543,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         -primaryRay.direction,
         newDir,
         sampledAlbedo,
-        hitMaterial.metallic,
-        hitMaterial.roughness
+        primaryHitMaterial.metallic,
+        primaryHitMaterial.roughness
     );
 
     //  rendering equation
@@ -1564,8 +1632,8 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 }
 
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-                             uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
-                             const Camera_GPU* camera, ReSTIR_DI_Reservoir* di_reservoirs)
+                             uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1612,7 +1680,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
                                                                settings, scene, camera, width);
         break;
     case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs);
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs, di_temporal_reservoirs);
         break;
     //case RESTIR_GI:
     default:
