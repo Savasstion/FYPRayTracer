@@ -93,7 +93,9 @@ void Renderer::Render(Scene& scene, Camera& camera)
         d_sceneGPU,
         d_cameraGPU,
         di_reservoirs,
-        di_temporary_reservoirs
+        di_temporary_reservoirs,
+        depthBuffers,
+        normalBuffers
     );
 
     err = cudaDeviceSynchronize();
@@ -168,6 +170,20 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
         std::cerr << "cudaMalloc failed!\n";
         return;
     }
+
+    //  Properly initialize reservoirs
+    //  Technically, di_reservoirs dont need this here since every pixel every frame will reset fields to zero at the render function anyway but better safe than sorry
+    err = cudaMemset(di_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
+
+    err = cudaMemset(di_temporary_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
 }
 
 void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
@@ -182,6 +198,13 @@ void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
     {
         std::cerr << "cudaMalloc failed!\n";
     }
+
+    // Initialize all depth values to 0.0f
+    cudaMemset(depthBuffers, 0.0f, bufferCount * sizeof(float));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
 }
 
 void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
@@ -195,6 +218,13 @@ void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
+    }
+
+    // Initialize all normal values to glm::vec2{0.0f, 0.0f}
+    err = cudaMemset(normalBuffers, 0, bufferCount * sizeof(glm::vec2));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
     }
 }
 
@@ -1403,7 +1433,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth,
-    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs)
+    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs,
+    float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex;
@@ -1416,11 +1447,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
-
+    
     // Miss: hit sky
     if (primaryPayload.hitDistance < 0.0f)
         return glm::vec4(settings.skyColor, 1.0f);
-
+    
     const Triangle& primaryHitTri = activeScene->triangles[primaryPayload.objectIndex];
     const Material& primaryHitMaterial = activeScene->materials[primaryHitTri.materialIndex];
 
@@ -1558,7 +1589,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     //  Trace ray and determine visibility term
     Ray sampleRay;
     RayHitPayload samplePayload = primaryPayload;
-    sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
+    sampleRay.origin = samplePayload.worldPosition + samplePayload.worldNormal * 1e-12f;
     sampleRay.direction = newDir;
     samplePayload = TraceRay(sampleRay, activeScene);
 
@@ -1586,6 +1617,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     {
         radiance = sampleThroughput * settings.skyColor;
     }
+
+    //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
+    depthBuffers[x + y * imageWidth] = MathUtils::LinearizeDepth(primaryPayload.hitDistance, activeCamera->nearClip, activeCamera->farClip);
+    normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
     
     return glm::vec4(radiance, 1.0f);
 }
@@ -1633,7 +1668,8 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
                              uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
-                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs)
+                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs,
+                             float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1680,7 +1716,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
                                                                settings, scene, camera, width);
         break;
     case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs, di_temporal_reservoirs);
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs, di_temporal_reservoirs, depthBuffers, normalBuffers);
         break;
     //case RESTIR_GI:
     default:
