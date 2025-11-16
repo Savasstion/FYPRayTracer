@@ -15,6 +15,7 @@ struct ReSTIR_DI_Reservoir
     uint32_t emissiveProcessedCount; // number of lights processed for this reservoir
 
     __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t count, uint32_t& randSeed);
     __host__ __device__ void ResetReservoir();
 };
 

@@ -17,6 +17,22 @@ __host__ __device__ bool ReSTIR_DI_Reservoir::UpdateReservoir(uint32_t candidate
     return false;
 }
 
+__host__ __device__ bool ReSTIR_DI_Reservoir::UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t count, uint32_t& randSeed)
+{
+    //  the parameter 'weight' passed in should be the amount of light contribution calculated using the rendering equation without the Visibility Term
+
+    weightSum += weight;
+    emissiveProcessedCount += count;
+
+    if (MathUtils::randomFloat(randSeed) < weight / weightSum)
+    {
+        indexEmissive = candidateEmissiveIndex;
+        return true;
+    }
+
+    return false;
+}
+
 __host__ __device__ void ReSTIR_DI_Reservoir::ResetReservoir()
 {
     indexEmissive = 0;
