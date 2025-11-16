@@ -92,8 +92,7 @@ void Renderer::Render(Scene& scene, Camera& camera)
         m_Settings,
         d_sceneGPU,
         d_cameraGPU,
-        di_reservoirs,
-        di_temporary_reservoirs,
+        di_prev_reservoirs,
         depthBuffers,
         normalBuffers
     );
@@ -149,22 +148,14 @@ void Renderer::Render(Scene& scene, Camera& camera)
 
 void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 {
-    if (di_reservoirs)
-        cudaFree(di_reservoirs);
 
-    if (di_temporary_reservoirs)
-        cudaFree(di_temporary_reservoirs);
+    if (di_prev_reservoirs)
+        cudaFree(di_prev_reservoirs);
 
     //  each pixel gets its own reservoir
     uint32_t di_reservoir_count = width * height;
-    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
-    if (err != cudaSuccess)
-    {
-        std::cerr << "cudaMalloc failed!\n";
-        return;
-    }
 
-    err = cudaMalloc((void**)&di_temporary_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    cudaError_t err = cudaMalloc((void**)&di_prev_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
@@ -172,14 +163,7 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
     }
 
     //  Properly initialize reservoirs
-    //  Technically, di_reservoirs dont need this here since every pixel every frame will reset fields to zero at the render function anyway but better safe than sorry
-    err = cudaMemset(di_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
-    if (err != cudaSuccess)
-    {
-        std::cerr << "cudaMemset failed!\n";
-    }
-
-    err = cudaMemset(di_temporary_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    err = cudaMemset(di_prev_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -250,11 +234,8 @@ void Renderer::FreeDynamicallyAllocatedMemory()
     if(depthBuffers)
         cudaFree(depthBuffers);
 
-    if (di_reservoirs)
-        cudaFree(di_reservoirs);
-
-    if (di_temporary_reservoirs)
-        cudaFree(di_temporary_reservoirs);
+    if (di_prev_reservoirs)
+        cudaFree(di_prev_reservoirs);
     
 }
 
@@ -1433,7 +1414,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth,
-    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs,
+    ReSTIR_DI_Reservoir* di_prev_reservoirs,
     float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t seed = x + y * imageWidth;
@@ -1463,7 +1444,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     seed = (seed + 1) * 27;
     //float simplePDF = 1.0f / static_cast<float>(activeScene->emissiveTriangleCount);
     float complexPDF = 0.0f;
-    ReSTIR_DI_Reservoir& pixelReservoir = di_reservoirs[y * imageWidth + x];
+    ReSTIR_DI_Reservoir pixelReservoir;
     pixelReservoir.ResetReservoir();
 
     //  Generate and sample light candidates into reservoir
@@ -1534,7 +1515,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
     }
 
-    //  Get sample from reservoir
+    //  Sample from reservoir
     uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
     const Triangle& emissiveTri = activeScene->triangles[indexTri];
 
@@ -1669,7 +1650,7 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
                              uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
-                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_temporal_reservoirs,
+                             ReSTIR_DI_Reservoir* di_prev_reservoirs,
                              float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1717,7 +1698,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
                                                                settings, scene, camera, width);
         break;
     case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_reservoirs, di_temporal_reservoirs, depthBuffers, normalBuffers);
+        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width, di_prev_reservoirs, depthBuffers, normalBuffers);
         break;
     //case RESTIR_GI:
     default:

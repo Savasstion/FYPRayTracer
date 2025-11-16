@@ -29,8 +29,7 @@ private:
     glm::vec2* normalBuffers = nullptr;  //  Octahedron-normal vector encoded so stores Vec2, not Vec3 (saves one float worth of memory)
 
     //  for ReSTIR DI (device ptrs)
-    ReSTIR_DI_Reservoir* di_reservoirs = nullptr;
-    ReSTIR_DI_Reservoir* di_temporary_reservoirs = nullptr;
+    ReSTIR_DI_Reservoir* di_prev_reservoirs = nullptr;
 
 public:
     Renderer() = default;
