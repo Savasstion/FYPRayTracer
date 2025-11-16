@@ -8,6 +8,7 @@
 
 #include "cuda_runtime.h"
 #include <device_launch_parameters.h>
+#include <glm/vec2.hpp>
 
 
 //  in case you dont wanna use CUDA's built-in math functions or just dont want to bother with libraries
@@ -314,6 +315,63 @@ namespace MathUtils
         //diffuse + specular should be max 1, if its above 1 then more energy is created than it should conserve
         //return glm::min(diffuse + specular, glm::vec3(1.0f));
         return diffuse + specular;
+    }
+
+    __host__ __device__ __forceinline__ float LinearizeDepth(float depth, float near, float far)
+    {
+        float z = depth * 2.0 - 1.0; // depth (0..1) to NDC (-1..1)
+        float linerizedDepth = (2.0 * near * far) / (far + near - z * (far - near));
+        
+        return (linerizedDepth * 0.5f) + 0.5f;    //  remapped from -1...1 to 0...1
+        
+    }
+
+     __host__ __device__ __forceinline__ glm::vec2 EncodeOctahedral(glm::vec3 v)
+    {
+        v /= (fabsf(v.x) + fabsf(v.y) + fabsf(v.z));
+
+        glm::vec2 enc(v.x, v.y);
+
+        if (v.z < 0.0f)
+        {
+            float ex = enc.x;
+            float ey = enc.y;
+
+            // (1 - abs(v.yx))
+            float xx = 1.0f - fabsf(ey);
+            float yy = 1.0f - fabsf(ex);
+
+            // signs based on original enc.x, enc.y
+            float sx = (ex >= 0.0f) ? 1.0f : -1.0f;
+            float sy = (ey >= 0.0f) ? 1.0f : -1.0f;
+
+            enc.x = xx * sx;
+            enc.y = yy * sy;
+        }
+
+        return enc;
+    }
+
+    __host__ __device__ __forceinline__ glm::vec3 DecodeOctahedral(glm::vec2 e)
+    {
+        float ex = e.x;
+        float ey = e.y;
+
+        glm::vec3 v(ex, ey, 1.0f - fabsf(ex) - fabsf(ey));
+
+        if (v.z < 0.0f)
+        {
+            float sx = (ex >= 0.0f) ? 1.0f : -1.0f;
+            float sy = (ey >= 0.0f) ? 1.0f : -1.0f;
+
+            float newX = (1.0f - fabsf(ey)) * sx;
+            float newY = (1.0f - fabsf(ex)) * sy;
+
+            v.x = newX;
+            v.y = newY;
+        }
+
+        return glm::normalize(v);
     }
 }
 
