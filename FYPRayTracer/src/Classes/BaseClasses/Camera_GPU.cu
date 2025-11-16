@@ -1,4 +1,4 @@
-#include "Camera_GPU.h"
+#include "Camera_GPU.cuh"
 #include <iostream>
 
 __host__ Camera_GPU* CameraToGPU(Camera& cpuCam)
@@ -15,6 +15,8 @@ __host__ Camera_GPU* CameraToGPU(Camera& cpuCam)
     Camera_GPU gpuCam{};
     gpuCam.projection = cpuCam.GetProjection();
     gpuCam.view = cpuCam.GetView();
+    gpuCam.prevProjection = cpuCam.GetPrevProjection();
+    gpuCam.prevView = cpuCam.GetPrevView();
     gpuCam.inverseProjection = cpuCam.GetInverseProjection();
     gpuCam.inverseView = cpuCam.GetInverseView();
     gpuCam.verticalFOV = 45.0f; // Or cpuCam.GetVerticalFOV() if you have a getter

@@ -2,14 +2,13 @@
 #define MATHUTILS_H
 #include <cstdint>
 #define GLM_FORCE_CUDA
+#define GLM_FORCE_INLINE
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
-
 #include "cuda_runtime.h"
 #include <device_launch_parameters.h>
-#include <glm/vec2.hpp>
-
+#include <glm/gtc/matrix_transform.hpp>
 
 //  in case you dont wanna use CUDA's built-in math functions or just dont want to bother with libraries
 
@@ -373,6 +372,32 @@ namespace MathUtils
 
         return glm::normalize(v);
     }
+
+    __host__ __device__ __forceinline__ glm::vec2 GetNormalizedDeviceCoords(const glm::mat4& projection, const glm::mat4& view, const glm::vec3& worldPos)
+    {
+        // Calc Clip Space
+        glm::vec4 clipPos = projection * view * glm::vec4(worldPos, 1.0f);
+
+        // Avoid divide zero
+        if (clipPos.w == 0.0f)
+            return {0.0f, 0.0f};
+
+        // Clip to NDC (perspective divide)
+        glm::vec3 ndc = glm::vec3(
+            clipPos.x / clipPos.w,
+            clipPos.y / clipPos.w,
+            clipPos.z / clipPos.w
+        );
+
+        // 4. Return only xy
+        return {ndc.x, ndc.y};
+    }
+
+    __host__ __device__ __forceinline__ glm::vec2 GetUVFromNDC(const glm::mat4& projection, const glm::mat4& view, const glm::vec3& worldPos)
+    {
+        return GetNormalizedDeviceCoords(projection, view, worldPos) * 0.5f + 0.5f;
+    }
+    
 }
 
 

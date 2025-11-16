@@ -9,6 +9,8 @@ class Camera
 private:
     glm::mat4 m_Projection{1.0f};
     glm::mat4 m_View{1.0f};
+    glm::mat4 m_PrevProjection{1.0f};
+    glm::mat4 m_PrevView{1.0f};
     glm::mat4 m_InverseProjection{1.0f};
     glm::mat4 m_InverseView{1.0f};
 
@@ -38,8 +40,10 @@ public:
     void UpdateCameraView();
 
     const glm::mat4& GetProjection() const { return m_Projection; }
+    const glm::mat4& GetPrevProjection() const { return m_PrevProjection; }
     const glm::mat4& GetInverseProjection() const { return m_InverseProjection; }
     const glm::mat4& GetView() const { return m_View; }
+    const glm::mat4& GetPrevView() const { return m_PrevView; }
     const glm::mat4& GetInverseView() const { return m_InverseView; }
 
     glm::vec3& GetPosition() { return m_Position; }
@@ -55,6 +59,16 @@ public:
     {
         m_ForwardDirection = m_forward_direction;
         UpdateCameraView();
+    }
+
+    void SetPrevProjection(const glm::mat4& m_prev_projection)
+    {
+        m_PrevProjection = m_prev_projection;
+    }
+
+    void SetPrevView(const glm::mat4& m_prev_view)
+    {
+        m_PrevView = m_prev_view;
     }
 
     const std::vector<glm::vec3>& GetRayDirections() const { return m_RayDirections; }

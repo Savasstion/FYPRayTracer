@@ -647,6 +647,10 @@ public:
             stopRender = true;
             SaveBenchmarkResults();
         }
+
+        //  Set Prev buffers
+        m_Camera.SetPrevProjection(m_Camera.GetProjection());
+        m_Camera.SetPrevView(m_Camera.GetView());
     }
 };
 

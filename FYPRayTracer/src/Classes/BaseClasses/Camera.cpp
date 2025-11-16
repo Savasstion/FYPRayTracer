@@ -109,6 +109,10 @@ void Camera::UpdateCameraView()
 {
     RecalculateView();
     RecalculateRayDirections();
+
+    //  Reset Prev Buffers
+    m_PrevProjection = m_Projection;
+    m_PrevView = m_View;
 }
 
 float Camera::GetRotationSpeed()
