@@ -151,7 +151,7 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 {
     if (di_reservoirs)
         cudaFree(di_reservoirs);
-    
+
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
@@ -164,7 +164,7 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
         std::cerr << "cudaMalloc failed!\n";
         return;
     }
-    
+
     err = cudaMalloc((void**)&di_prev_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
@@ -178,7 +178,7 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
     {
         std::cerr << "cudaMemset failed!\n";
     }
-    
+
     err = cudaMemset(di_prev_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
@@ -252,7 +252,7 @@ void Renderer::FreeDynamicallyAllocatedMemory()
 
     if (di_reservoirs)
         cudaFree(di_reservoirs);
-    
+
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 }
@@ -1473,7 +1473,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             static_cast<float>(activeScene->emissiveTriangleCount - 1)
             * MathUtils::randomFloat(seed)));
 
-        //  calculate complex PDF
+        //  calculate PDF
         //  get emissive triangle data
         uint32_t indexTri = activeScene->emissiveTriangles[randomEmissiveIndex];
         const Triangle& emissiveTri = activeScene->triangles[indexTri];
@@ -1524,50 +1524,50 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         float solidAnglePDF = triAreaPDF * (distance * distance);
         glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
             GetEmission();
-        float lenRadiance = glm::length(lightRadiance);
+        float pdf = glm::length(lightRadiance);
 
         //float weight = complexPDF / simplePDF;
-        float weight = lenRadiance * static_cast<float>(activeScene->emissiveTriangleCount);
+        float weight = pdf * static_cast<float>(activeScene->emissiveTriangleCount);
         // no need for divisions, this is equivalent to dividing the inverse of emissive count  
 
         //  Update reservoir, this effectively does Reservoir Sampling
         bool isUpdated = pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
 
         // calculate the weight of this light
-        if(isUpdated)
-            pixelReservoir.weightEmissive = lenRadiance > 0.0f
-                                                ? (1.0f / lenRadiance) * pixelReservoir.weightSum / static_cast<
+        if (isUpdated)
+            pixelReservoir.weightEmissive = pdf > 0.0f
+                                                ? (1.0f / pdf) * pixelReservoir.weightSum / static_cast<
                                                     float>(pixelReservoir.emissiveProcessedCount)
                                                 : 0.0f;
     }
 
     //  Temporal resampling
     bool useTemporalReuse = true;
-    if(useTemporalReuse)
+    if (useTemporalReuse)
     {
         //  Reproject using the motion vectors.
         glm::vec2 uvPrev = MathUtils::GetUVFromNDC(activeCamera->prevProjection, activeCamera->prevView,
-                                                                primaryPayload.worldPosition);
+                                                   primaryPayload.worldPosition);
         glm::vec2 prevScreenPos = uvPrev * activeCamera->viewportSize;
-        
+
         uint32_t viewportW = static_cast<uint32_t>(activeCamera->viewportSize.x);
         uint32_t viewportH = static_cast<uint32_t>(activeCamera->viewportSize.y);
-        
+
         int px = static_cast<int>(glm::floor(prevScreenPos.x));
         int py = static_cast<int>(glm::floor(prevScreenPos.y));
         px = glm::clamp(px, 0, (int)viewportW - 1);
         py = glm::clamp(py, 0, (int)viewportH - 1);
-    
+
         //  Get normal buffer and prev reservoir of previous screen pos
         uint32_t prevIdx = static_cast<uint32_t>(py) * viewportW + static_cast<uint32_t>(px);
         glm::vec3 prevNormal = MathUtils::DecodeOctahedral(normalBuffers[prevIdx]);
         ReSTIR_DI_Reservoir& prevReservoir = di_prev_reservoirs[prevIdx];
-        
+
         //  Some simple rejection based on normals' divergence, can be improved
         bool validHistory = glm::dot(prevNormal, primaryPayload.worldNormal) >= 0.99;
         ReSTIR_DI_Reservoir temporalReservoir;
         temporalReservoir.ResetReservoir();
-        
+
         if (validHistory && prevReservoir.CheckIfValid())
         {
             //  Set history limit
@@ -1575,12 +1575,12 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 (20 * pixelReservoir.emissiveProcessedCount < prevReservoir.emissiveProcessedCount)
                     ? 20 * pixelReservoir.emissiveProcessedCount
                     : prevReservoir.emissiveProcessedCount; //  return a < b ? a : b;
-            
+
             //  Unbiased equation parameters from ReSTIR DI paper algorithm 6
             uint32_t Z = 0;
             float m = 0.0f;
-    
-            //  Calc complex pdf of current reservoir's sample
+
+            //  Calc pdf of current reservoir's sample
             {
                 //  get emissive triangle data
                 uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
@@ -1591,13 +1591,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
                 glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
                 glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-    
+
                 //  get new ray direction towards selected light source
                 glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
                 glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
                 float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
                 newDir = newDir / distance;
-    
+
                 // Sample albedo from albedo map is exist
                 glm::vec3 sampledAlbedo{0.0f};
                 if (primaryHitMaterial.isUseAlbedoMap)
@@ -1613,7 +1613,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 {
                     sampledAlbedo = primaryHitMaterial.albedo;
                 }
-    
+
                 glm::vec3 brdf = MathUtils::CalculateBRDF(
                     primaryPayload.worldNormal,
                     -primaryRay.direction,
@@ -1622,7 +1622,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                     primaryHitMaterial.metallic,
                     primaryHitMaterial.roughness
                 );
-    
+
                 //  rendering equation
                 const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
                 float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
@@ -1632,18 +1632,18 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 float solidAnglePDF = triAreaPDF * (distance * distance);
                 glm::vec3 currentLightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
                     GetEmission();
-                float lenRadiance = glm::length(currentLightRadiance);
-    
+                float pdf = glm::length(currentLightRadiance);
+
                 temporalReservoir.UpdateReservoir(pixelReservoir.indexEmissive,
-                                                  lenRadiance * pixelReservoir.weightEmissive * pixelReservoir.
+                                                  pdf * pixelReservoir.weightEmissive * pixelReservoir.
                                                   emissiveProcessedCount,
                                                   pixelReservoir.emissiveProcessedCount,
                                                   seed);
-                Z += lenRadiance > 0.0f ? pixelReservoir.emissiveProcessedCount : 0;
+                Z += pdf > 0.0f ? pixelReservoir.emissiveProcessedCount : 0;
             }
-    
+
             //  Add sample from previous frame
-            //  Calc complex pdf of previous reservoir's sample
+            //  Calc pdf of previous reservoir's sample
             {
                 //  get emissive triangle data
                 uint32_t indexTri = activeScene->emissiveTriangles[prevReservoir.indexEmissive];
@@ -1654,13 +1654,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
                 glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
                 glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-    
+
                 //  get new ray direction towards selected light source
                 glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
                 glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
                 float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
                 newDir = newDir / distance;
-    
+
                 // Sample albedo from albedo map is exist
                 glm::vec3 sampledAlbedo{0.0f};
                 if (primaryHitMaterial.isUseAlbedoMap)
@@ -1676,7 +1676,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 {
                     sampledAlbedo = primaryHitMaterial.albedo;
                 }
-    
+
                 glm::vec3 brdf = MathUtils::CalculateBRDF(
                     primaryPayload.worldNormal,
                     -primaryRay.direction,
@@ -1685,7 +1685,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                     primaryHitMaterial.metallic,
                     primaryHitMaterial.roughness
                 );
-    
+
                 //  rendering equation
                 const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
                 float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
@@ -1695,18 +1695,18 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 float solidAnglePDF = triAreaPDF * (distance * distance);
                 glm::vec3 prevLightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
                     GetEmission();
-                float lenRadiance = glm::length(prevLightRadiance);
-    
+                float pdf = glm::length(prevLightRadiance);
+
                 //  Add sample from previous frame
                 temporalReservoir.UpdateReservoir(prevReservoir.indexEmissive,
-                                                  lenRadiance * prevReservoir.weightEmissive *
+                                                  pdf * prevReservoir.weightEmissive *
                                                   prevReservoir.emissiveProcessedCount,
                                                   prevReservoir.emissiveProcessedCount,
                                                   seed);
-                Z += lenRadiance > 0.0f ? prevReservoir.emissiveProcessedCount : 0;
+                Z += pdf > 0.0f ? prevReservoir.emissiveProcessedCount : 0;
             }
-            
-            //  Calc current updated selected sample
+
+            //  Calc current updated selected sample pdf and weight
             {
                 //  get emissive triangle data
                 uint32_t indexTri = activeScene->emissiveTriangles[temporalReservoir.indexEmissive];
@@ -1717,13 +1717,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
                 glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
                 glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-    
+
                 //  get new ray direction towards selected light source
                 glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
                 glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
                 float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
                 newDir = newDir / distance;
-    
+
                 // Sample albedo from albedo map is exist
                 glm::vec3 sampledAlbedo{0.0f};
                 if (primaryHitMaterial.isUseAlbedoMap)
@@ -1739,7 +1739,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 {
                     sampledAlbedo = primaryHitMaterial.albedo;
                 }
-    
+
                 glm::vec3 brdf = MathUtils::CalculateBRDF(
                     primaryPayload.worldNormal,
                     -primaryRay.direction,
@@ -1748,7 +1748,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                     primaryHitMaterial.metallic,
                     primaryHitMaterial.roughness
                 );
-    
+
                 //  rendering equation
                 const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
                 float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
@@ -1758,19 +1758,19 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                 float solidAnglePDF = triAreaPDF * (distance * distance);
                 glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
                     GetEmission();
-                float lenRadiance = glm::length(lightRadiance);
-    
+                float pdf = glm::length(lightRadiance);
+
                 m = 1.0f / static_cast<float>(Z);
                 // temporalReservoir.weightEmissive = lenRadiance > 0.0f
                 //                                        ? (1.0f / lenRadiance) * (1.0f / temporalReservoir.
                 //                                            emissiveProcessedCount * temporalReservoir.weightSum)
                 //                                        : 0.0f;
                 //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
-                temporalReservoir.weightEmissive = lenRadiance > 0.0f ?
-                    (1.0f / lenRadiance) * (m * temporalReservoir.weightSum)
-                    : 0.0f;
+                temporalReservoir.weightEmissive = pdf > 0.0f
+                                                       ? (1.0f / pdf) * (m * temporalReservoir.weightSum)
+                                                       : 0.0f;
             }
-            
+
             //  Use combined reservoir as the default reservoir
             pixelReservoir = temporalReservoir;
         }
@@ -1778,9 +1778,78 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
     //  Spatial resampling
     bool useSpatialReuse = true;
-    if(useSpatialReuse)
+    constexpr uint8_t numNeighbors = 5;     //  num of neighbours to sample
+    constexpr uint8_t radius = 30;          //  pixel radius
+    if (useSpatialReuse)
     {
-        
+        //  Get current sample's pdf
+        {
+            //  get emissive triangle data
+            uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
+            const Triangle& emissiveTri = activeScene->triangles[indexTri];
+            glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
+            glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
+            glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
+            glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
+            glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
+            glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
+
+            //  get new ray direction towards selected light source
+            glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
+            glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
+            float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
+            newDir = newDir / distance;
+
+            // Sample albedo from albedo map is exist
+            glm::vec3 sampledAlbedo{0.0f};
+            if (primaryHitMaterial.isUseAlbedoMap)
+            {
+                Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = primaryHitMaterial.albedo;
+            }
+
+            glm::vec3 brdf = MathUtils::CalculateBRDF(
+                primaryPayload.worldNormal,
+                -primaryRay.direction,
+                newDir,
+                sampledAlbedo,
+                primaryHitMaterial.metallic,
+                primaryHitMaterial.roughness
+            );
+
+            //  rendering equation
+            const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
+            float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+            float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
+            float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
+            //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
+            float solidAnglePDF = triAreaPDF * (distance * distance);
+            glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
+                GetEmission();
+            float pdf = glm::length(lightRadiance);
+        }
+
+        ReSTIR_DI_Reservoir spatialReservoir;
+        spatialReservoir.ResetReservoir();
+
+        {
+            glm::float2 offset{2.0f * MathUtils::randomFloat(seed) - 1.0f, 2.0f * MathUtils::randomFloat(seed) - 1.0f};
+            offset.x = x + int(offset.x * radius);
+            offset.y = y + int(offset.y * radius);
+
+            offset.x = fmaxf(0, fminf(activeCamera->viewportSize.x - 1, offset.x));
+            offset.y = fmaxf(0, fminf(activeCamera->viewportSize.y - 1, offset.y));
+
+            float neighbourDepthLinear = MathUtils::LinearizeDepth(depthBuffers[static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) * imageWidth], activeCamera->nearClip, activeCamera->farClip);
+        }
     }
 
     //  Final Step: Sample from reservoir
