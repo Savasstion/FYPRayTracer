@@ -51,7 +51,7 @@ public:
         Material& matWhiteEmissive = m_Scene.materials.emplace_back();
         matWhiteEmissive.albedo = {1, 1, 1};
         matWhiteEmissive.emissionColor = matWhiteEmissive.albedo;
-        matWhiteEmissive.emissionPower = 20.0f;
+        matWhiteEmissive.emissionPower = 40.0f;
 
         Material& matRed = m_Scene.materials.emplace_back();
         matRed.albedo = {1.0f, 0.0f, 0.0f};
@@ -390,7 +390,7 @@ public:
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
         }
-        for (int i = 0; i < 1; i++)
+        for (int i = -4; i < 4; i++)
         {
             std::vector<Vertex> planeVertices = {
                 {{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
@@ -404,9 +404,9 @@ public:
             };
 
             //	Set transforms
-            glm::vec3 pos{i * 20, 9, 0};
+            glm::vec3 pos{i * 2, 9, 0};
             glm::vec3 rot{180, 0, 0};
-            glm::vec3 scale{5, 5, 5};
+            glm::vec3 scale{1.5, 1.5, 1.5};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
