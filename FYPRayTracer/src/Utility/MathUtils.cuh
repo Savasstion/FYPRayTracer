@@ -391,7 +391,14 @@ namespace MathUtils
 
     __host__ __device__ __forceinline__ glm::vec2 GetUVFromNDC(const glm::mat4& projection, const glm::mat4& view, const glm::vec3& worldPos)
     {
+        //  -1...1
         return GetNormalizedDeviceCoords(projection, view, worldPos) * 0.5f + 0.5f;
+    }
+
+    __host__ __device__ __forceinline__ glm::vec2 GetUVFromNDC(const glm::vec2& ndc)
+    {
+        //  0...1
+        return ndc * 0.5f + 0.5f;
     }
     
 }
