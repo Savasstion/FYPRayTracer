@@ -17,6 +17,7 @@ struct ReSTIR_DI_Reservoir
     __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t& randSeed);
     __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t count, uint32_t& randSeed);
     __host__ __device__ void ResetReservoir();
+    __host__ __device__ bool CheckIfValid();
 };
 
 #endif

@@ -64,7 +64,7 @@ struct RendererGPU
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth,
-        ReSTIR_DI_Reservoir* di_prev_reservoirs,
+        ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
         float* depthBuffers, glm::vec2* normalBuffers);
 
     __host__ __device__ static RayHitPayload TraceRay(
@@ -87,6 +87,7 @@ __global__ void RenderKernel(
     RenderingSettings settings,
     const Scene_GPU* scene,
     const Camera_GPU* camera,
+    ReSTIR_DI_Reservoir* di_reservoirs,
     ReSTIR_DI_Reservoir* di_prev_reservoirs,
     float* depthBuffers, glm::vec2* normalBuffers);
 

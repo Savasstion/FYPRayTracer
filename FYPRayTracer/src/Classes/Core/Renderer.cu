@@ -92,9 +92,10 @@ void Renderer::Render(Scene& scene, Camera& camera)
         m_Settings,
         d_sceneGPU,
         d_cameraGPU,
+        di_reservoirs,
         di_prev_reservoirs,
-        depthBuffers,
-        normalBuffers
+        prevDepthBuffers,
+        prevNormalBuffers
     );
 
     err = cudaDeviceSynchronize();
@@ -148,13 +149,23 @@ void Renderer::Render(Scene& scene, Camera& camera)
 
 void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 {
+    if (di_reservoirs)
+        cudaFree(di_reservoirs);
+    
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
     //  each pixel gets its own reservoir
     uint32_t di_reservoir_count = width * height;
 
-    cudaError_t err = cudaMalloc((void**)&di_prev_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+        return;
+    }
+    
+    err = cudaMalloc((void**)&di_prev_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
@@ -162,6 +173,12 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
     }
 
     //  Properly initialize reservoirs
+    err = cudaMemset(di_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
+    
     err = cudaMemset(di_prev_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
@@ -171,19 +188,19 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 
 void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 {
-    if (depthBuffers)
-        cudaFree(depthBuffers);
+    if (prevDepthBuffers)
+        cudaFree(prevDepthBuffers);
 
     //  each pixel has its own depth buffer
     uint32_t bufferCount = width * height;
-    cudaError_t err = cudaMalloc((void**)&depthBuffers, bufferCount * sizeof(float));
+    cudaError_t err = cudaMalloc((void**)&prevDepthBuffers, bufferCount * sizeof(float));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
     }
 
     // Initialize all depth values to 0.0f
-    cudaMemset(depthBuffers, 0.0f, bufferCount * sizeof(float));
+    cudaMemset(prevDepthBuffers, 0.0f, bufferCount * sizeof(float));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -192,19 +209,19 @@ void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 
 void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
 {
-    if (normalBuffers)
-        cudaFree(normalBuffers);
+    if (prevNormalBuffers)
+        cudaFree(prevNormalBuffers);
 
     //  each pixel has its own depth buffer
     uint32_t bufferCount = width * height;
-    cudaError_t err = cudaMalloc((void**)&normalBuffers, bufferCount * sizeof(glm::vec2));
+    cudaError_t err = cudaMalloc((void**)&prevNormalBuffers, bufferCount * sizeof(glm::vec2));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
     }
 
     // Initialize all normal values to glm::vec2{0.0f, 0.0f}
-    err = cudaMemset(normalBuffers, 0, bufferCount * sizeof(glm::vec2));
+    err = cudaMemset(prevNormalBuffers, 0, bufferCount * sizeof(glm::vec2));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -227,12 +244,15 @@ void Renderer::FreeDynamicallyAllocatedMemory()
     m_ActiveScene = nullptr;
     m_ActiveCamera = nullptr;
 
-    if (normalBuffers)
-        cudaFree(normalBuffers);
+    if (prevNormalBuffers)
+        cudaFree(prevNormalBuffers);
 
-    if (depthBuffers)
-        cudaFree(depthBuffers);
+    if (prevDepthBuffers)
+        cudaFree(prevDepthBuffers);
 
+    if (di_reservoirs)
+        cudaFree(di_reservoirs);
+    
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 }
@@ -1412,11 +1432,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     uint32_t frameIndex, const RenderingSettings& settings,
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth,
-    ReSTIR_DI_Reservoir* di_prev_reservoirs,
+    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
     float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t seed = x + y * imageWidth;
-    seed *= frameIndex;
+    seed *= frameIndex + 1;
 
     glm::vec3 radiance{0.0f};
 
@@ -1441,7 +1461,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     // ReSTIR DI
     seed = (seed + 1) * 27;
     //float simplePDF = 1.0f / static_cast<float>(activeScene->emissiveTriangleCount);
-    ReSTIR_DI_Reservoir pixelReservoir;
+    ReSTIR_DI_Reservoir& pixelReservoir = di_reservoirs[x + y * imageWidth];
     pixelReservoir.ResetReservoir();
 
     //  Generate and sample light candidates into reservoir
@@ -1548,7 +1568,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         ReSTIR_DI_Reservoir temporalReservoir;
         temporalReservoir.ResetReservoir();
         
-        if (validHistory && prevReservoir.emissiveProcessedCount != 0)
+        if (validHistory && prevReservoir.CheckIfValid())
         {
             //  Set history limit
             prevReservoir.emissiveProcessedCount =
@@ -1756,6 +1776,12 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         }
     }
 
+    //  Spatial resampling
+    bool useSpatialReuse = true;
+    if(useSpatialReuse)
+    {
+        
+    }
 
     //  Final Step: Sample from reservoir
     uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
@@ -1889,7 +1915,7 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
 __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
                              uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
                              const Camera_GPU* camera,
-                             ReSTIR_DI_Reservoir* di_prev_reservoirs,
+                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
                              float* depthBuffers, glm::vec2* normalBuffers)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1938,7 +1964,7 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
         break;
     case RESTIR_DI:
         pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
-                                                     di_prev_reservoirs, depthBuffers, normalBuffers);
+                                                     di_reservoirs, di_prev_reservoirs, depthBuffers, normalBuffers);
         break;
     //case RESTIR_GI:
     default:
