@@ -25,8 +25,8 @@ private:
     std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 
     //  GPU Buffers (device ptrs)
-    float* prevDepthBuffers = nullptr;
-    glm::vec2* prevNormalBuffers = nullptr;  //  Octahedron-normal vector encoded so stores Vec2, not Vec3 (saves one float worth of memory)
+    float* depthBuffers = nullptr;
+    glm::vec2* normalBuffers = nullptr;  //  Octahedron-normal vector encoded so stores Vec2, not Vec3 (saves one float worth of memory)
 
     //  for ReSTIR DI (device ptrs)
     ReSTIR_DI_Reservoir* di_reservoirs = nullptr;

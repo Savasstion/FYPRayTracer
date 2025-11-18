@@ -94,8 +94,8 @@ void Renderer::Render(Scene& scene, Camera& camera)
         d_cameraGPU,
         di_reservoirs,
         di_prev_reservoirs,
-        prevDepthBuffers,
-        prevNormalBuffers
+        depthBuffers,
+        normalBuffers
     );
 
     err = cudaDeviceSynchronize();
@@ -188,19 +188,19 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
 
 void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 {
-    if (prevDepthBuffers)
-        cudaFree(prevDepthBuffers);
+    if (depthBuffers)
+        cudaFree(depthBuffers);
 
     //  each pixel has its own depth buffer
     uint32_t bufferCount = width * height;
-    cudaError_t err = cudaMalloc((void**)&prevDepthBuffers, bufferCount * sizeof(float));
+    cudaError_t err = cudaMalloc((void**)&depthBuffers, bufferCount * sizeof(float));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
     }
 
     // Initialize all depth values to 0.0f
-    cudaMemset(prevDepthBuffers, 0.0f, bufferCount * sizeof(float));
+    cudaMemset(depthBuffers, 0.0f, bufferCount * sizeof(float));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -209,19 +209,19 @@ void Renderer::ResizeDepthBuffers(uint32_t width, uint32_t height)
 
 void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
 {
-    if (prevNormalBuffers)
-        cudaFree(prevNormalBuffers);
+    if (normalBuffers)
+        cudaFree(normalBuffers);
 
     //  each pixel has its own depth buffer
     uint32_t bufferCount = width * height;
-    cudaError_t err = cudaMalloc((void**)&prevNormalBuffers, bufferCount * sizeof(glm::vec2));
+    cudaError_t err = cudaMalloc((void**)&normalBuffers, bufferCount * sizeof(glm::vec2));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
     }
 
     // Initialize all normal values to glm::vec2{0.0f, 0.0f}
-    err = cudaMemset(prevNormalBuffers, 0, bufferCount * sizeof(glm::vec2));
+    err = cudaMemset(normalBuffers, 0, bufferCount * sizeof(glm::vec2));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -244,11 +244,11 @@ void Renderer::FreeDynamicallyAllocatedMemory()
     m_ActiveScene = nullptr;
     m_ActiveCamera = nullptr;
 
-    if (prevNormalBuffers)
-        cudaFree(prevNormalBuffers);
+    if (normalBuffers)
+        cudaFree(normalBuffers);
 
-    if (prevDepthBuffers)
-        cudaFree(prevDepthBuffers);
+    if (depthBuffers)
+        cudaFree(depthBuffers);
 
     if (di_reservoirs)
         cudaFree(di_reservoirs);
