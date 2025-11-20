@@ -1687,7 +1687,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         if (validHistory && prevReservoir.CheckIfValid())
         {
             //  Set history limit
-            constexpr uint8_t historyLimit = 2;
+            uint8_t historyLimit = static_cast<uint8_t>(settings.temporalHistoryLimit);
             prevReservoir.emissiveProcessedCount =
                 (historyLimit * pixelReservoir.emissiveProcessedCount < prevReservoir.emissiveProcessedCount)
                     ? historyLimit * pixelReservoir.emissiveProcessedCount

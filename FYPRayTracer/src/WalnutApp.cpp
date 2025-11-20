@@ -483,6 +483,8 @@ public:
                                                     UINT8_MAX);
         rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Candidate Count",
                                                     &m_Renderer.GetSettings().lightCandidateCount, 1.0f, 1, UINT16_MAX);
+        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Temporal History Limit",
+                                            &m_Renderer.GetSettings().temporalHistoryLimit, 1.0f, 1, UINT8_MAX);
         rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Temporal Reuse",
                         &m_Renderer.GetSettings().useTemporalReuse);
         rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Spatial Reuse",

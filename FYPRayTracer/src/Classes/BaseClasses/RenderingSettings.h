@@ -14,6 +14,7 @@ struct RenderingSettings
     //  ReSTIR Settings
     bool useTemporalReuse = false;
     bool useSpatialReuse = false;
+    int temporalHistoryLimit = 2;
 };
 
 
