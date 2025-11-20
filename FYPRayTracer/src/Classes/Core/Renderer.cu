@@ -87,107 +87,107 @@ void Renderer::Render(Scene& scene, Camera& camera)
     {
     case BRUTE_FORCE:
         ShadeBruteForce_Kernel<<<numBlocks, threadsPerBlock>>>(
-                d_accumulationData,
-                d_renderImageData,
-                width,
-                height,
-                m_FrameIndex,
-                m_Settings,
-                d_sceneGPU,
-                d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case UNIFORM_SAMPLING:
         ShadeUniformSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
-                        d_accumulationData,
-                        d_renderImageData,
-                        width,
-                        height,
-                        m_FrameIndex,
-                        m_Settings,
-                        d_sceneGPU,
-                        d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case COSINE_WEIGHTED_SAMPLING:
         ShadeCosineWeightedSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                d_accumulationData,
-                                d_renderImageData,
-                                width,
-                                height,
-                                m_FrameIndex,
-                                m_Settings,
-                                d_sceneGPU,
-                                d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case GGX_SAMPLING:
         ShadeGGXSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                        d_accumulationData,
-                                        d_renderImageData,
-                                        width,
-                                        height,
-                                        m_FrameIndex,
-                                        m_Settings,
-                                        d_sceneGPU,
-                                        d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case BRDF_SAMPLING:
         ShadeBRDFSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                        d_accumulationData,
-                                        d_renderImageData,
-                                        width,
-                                        height,
-                                        m_FrameIndex,
-                                        m_Settings,
-                                        d_sceneGPU,
-                                        d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case LIGHT_SOURCE_SAMPLING:
         ShadeLightSourceSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                        d_accumulationData,
-                                        d_renderImageData,
-                                        width,
-                                        height,
-                                        m_FrameIndex,
-                                        m_Settings,
-                                        d_sceneGPU,
-                                        d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case NEE:
         ShadeNEE_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                        d_accumulationData,
-                                        d_renderImageData,
-                                        width,
-                                        height,
-                                        m_FrameIndex,
-                                        m_Settings,
-                                        d_sceneGPU,
-                                        d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
         break;
     case RESTIR_DI:
         ShadeReSTIR_DI_Kernel<<<numBlocks, threadsPerBlock>>>(
-                                                d_accumulationData,
-                                                d_renderImageData,
-                                                width,
-                                                height,
-                                                m_FrameIndex,
-                                                m_Settings,
-                                                d_sceneGPU,
-                                                d_cameraGPU,
-                                                di_reservoirs,
-                                                di_prev_reservoirs,
-                                                depthBuffers,
-                                                normalBuffers);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU,
+            di_reservoirs,
+            di_prev_reservoirs,
+            depthBuffers,
+            normalBuffers);
         break;
     // case RESTIR_GI:
     default:
         ShadeBruteForce_Kernel<<<numBlocks, threadsPerBlock>>>(
-                d_accumulationData,
-                d_renderImageData,
-                width,
-                height,
-                m_FrameIndex,
-                m_Settings,
-                d_sceneGPU,
-                d_cameraGPU);
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU);
     }
 
     err = cudaDeviceSynchronize();
@@ -1623,15 +1623,14 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         // no need for divisions, this is equivalent to dividing the inverse of emissive count  
 
         //  Update reservoir, this effectively does Reservoir Sampling
-        bool isUpdated = pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, seed);
-
-        // calculate the weight of this light
-        if (isUpdated)
-            pixelReservoir.weightEmissive = pdf > 0.0f
-                                                ? (1.0f / pdf) * pixelReservoir.weightSum / static_cast<
-                                                    float>(pixelReservoir.emissiveProcessedCount)
-                                                : 0.0f;
+        pixelReservoir.UpdateReservoir(randomEmissiveIndex, weight, pdf, seed);
     }
+
+    //  Updated current reservoir's weight
+    pixelReservoir.weightEmissive = pixelReservoir.emissivePDF > 0.0f
+                                ? (1.0f / pixelReservoir.emissivePDF) * pixelReservoir.weightSum / static_cast<
+                                    float>(pixelReservoir.emissiveProcessedCount)
+                                : 0.0f;
 
     //  Temporal resampling
     bool useTemporalReuse = true;
@@ -1672,65 +1671,14 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             uint32_t Z = 0;
             float m = 0.0f;
 
-            //  Calc pdf of current reservoir's sample
+            //  Update temporalReservoir with current reservoir
             {
-                //  get emissive triangle data
-                uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
-                const Triangle& emissiveTri = activeScene->triangles[indexTri];
-                glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
-                glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
-                glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
-                glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
-                glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
-                glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-
-                //  get new ray direction towards selected light source
-                glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
-                glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
-                float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
-                newDir = newDir / distance;
-
-                // Sample albedo from albedo map is exist
-                glm::vec3 sampledAlbedo{0.0f};
-                if (primaryHitMaterial.isUseAlbedoMap)
-                {
-                    Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
-                    uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
-                    glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
-                    sampledAlbedo.r = color4.r;
-                    sampledAlbedo.g = color4.g;
-                    sampledAlbedo.b = color4.b;
-                }
-                else
-                {
-                    sampledAlbedo = primaryHitMaterial.albedo;
-                }
-
-                glm::vec3 brdf = MathUtils::CalculateBRDF(
-                    primaryPayload.worldNormal,
-                    -primaryRay.direction,
-                    newDir,
-                    sampledAlbedo,
-                    primaryHitMaterial.metallic,
-                    primaryHitMaterial.roughness
-                );
-
-                //  rendering equation
-                const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
-                float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-                float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
-                float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
-                //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
-                float solidAnglePDF = triAreaPDF * (distance * distance);
-                glm::vec3 currentLightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
-                    GetEmission();
-                float pdf = glm::length(currentLightRadiance);
-
+                float pdf = pixelReservoir.emissivePDF; //  obtain pixelReservoir pdf
                 temporalReservoir.UpdateReservoir(pixelReservoir.indexEmissive,
                                                   pdf * pixelReservoir.weightEmissive * pixelReservoir.
                                                   emissiveProcessedCount,
                                                   pixelReservoir.emissiveProcessedCount,
-                                                  seed);
+                                                  pdf, seed);
                 Z += pdf > 0.0f ? pixelReservoir.emissiveProcessedCount : 0;
             }
 
@@ -1794,73 +1742,15 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                                                   pdf * prevReservoir.weightEmissive *
                                                   prevReservoir.emissiveProcessedCount,
                                                   prevReservoir.emissiveProcessedCount,
-                                                  seed);
+                                                  pdf, seed);
+
                 Z += pdf > 0.0f ? prevReservoir.emissiveProcessedCount : 0;
-            }
-
-            //  Calc current updated selected sample pdf and weight
-            {
-                //  get emissive triangle data
-                uint32_t indexTri = activeScene->emissiveTriangles[temporalReservoir.indexEmissive];
-                const Triangle& emissiveTri = activeScene->triangles[indexTri];
-                glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
-                glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
-                glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
-                glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
-                glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
-                glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-
-                //  get new ray direction towards selected light source
-                glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
-                glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
-                float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
-                newDir = newDir / distance;
-
-                // Sample albedo from albedo map is exist
-                glm::vec3 sampledAlbedo{0.0f};
-                if (primaryHitMaterial.isUseAlbedoMap)
-                {
-                    Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
-                    uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
-                    glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
-                    sampledAlbedo.r = color4.r;
-                    sampledAlbedo.g = color4.g;
-                    sampledAlbedo.b = color4.b;
-                }
-                else
-                {
-                    sampledAlbedo = primaryHitMaterial.albedo;
-                }
-
-                glm::vec3 brdf = MathUtils::CalculateBRDF(
-                    primaryPayload.worldNormal,
-                    -primaryRay.direction,
-                    newDir,
-                    sampledAlbedo,
-                    primaryHitMaterial.metallic,
-                    primaryHitMaterial.roughness
-                );
-
-                //  rendering equation
-                const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
-                float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-                float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
-                float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
-                //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
-                float solidAnglePDF = triAreaPDF * (distance * distance);
-                glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
-                    GetEmission();
-                float pdf = glm::length(lightRadiance);
-
                 m = 1.0f / static_cast<float>(Z);
-                // temporalReservoir.weightEmissive = lenRadiance > 0.0f
-                //                                        ? (1.0f / lenRadiance) * (1.0f / temporalReservoir.
-                //                                            emissiveProcessedCount * temporalReservoir.weightSum)
-                //                                        : 0.0f;
+
                 //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
-                temporalReservoir.weightEmissive = pdf > 0.0f
-                                                       ? (1.0f / pdf) * (m * temporalReservoir.weightSum)
-                                                       : 0.0f;
+                temporalReservoir.weightEmissive = temporalReservoir.emissivePDF > 0.0f
+                                                       ? (1.0f / temporalReservoir.emissivePDF) * (m * temporalReservoir.weightSum)
+                                                       : 0.0f;                
             }
 
             //  Use combined reservoir as the default reservoir
@@ -1870,14 +1760,54 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
 
     //  Spatial resampling, TODO: make this another kernel to prevent race condition
     bool useSpatialReuse = false;
-    constexpr uint8_t numNeighbors = 5;     //  num of neighbours to sample
-    constexpr uint8_t radius = 30;          //  pixel radius
     if (useSpatialReuse)
     {
+        constexpr uint8_t numNeighbors = 5; //  num of neighbours to sample
+        constexpr uint8_t radius = 30; //  pixel radius
+        //  Unbiased equation parameters from ReSTIR DI paper algorithm 6
+        uint32_t Z = 0;
+        float m = 0.0f;
+        ReSTIR_DI_Reservoir spatialReservoir;
+        spatialReservoir.ResetReservoir();
+
+        //  Update spatial reservoir with current pixel reservoir
         //  Get current sample's pdf
         {
+            float pdf = pixelReservoir.emissivePDF;
+            spatialReservoir.UpdateReservoir(pixelReservoir.indexEmissive, pdf * pixelReservoir.weightEmissive * pixelReservoir.emissiveProcessedCount, pixelReservoir.emissiveProcessedCount, pdf, seed);
+            Z += pdf > 0.0f ? pixelReservoir.emissiveProcessedCount : 0;
+        }
+
+        //  Update spatial reservoir with neighbors' reservoirs
+        for (uint8_t i = 0; i < numNeighbors; i++)
+        {
+            glm::float2 offset{2.0f * MathUtils::randomFloat(seed) - 1.0f, 2.0f * MathUtils::randomFloat(seed) - 1.0f};
+            offset.x = x + int(offset.x * radius);
+            offset.y = y + int(offset.y * radius);
+
+            offset.x = fmaxf(0, fminf(activeCamera->viewportSize.x - 1, offset.x));
+            offset.y = fmaxf(0, fminf(activeCamera->viewportSize.y - 1, offset.y));
+
+            uint32_t neighborIndex = static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) * imageWidth;
+            uint32_t pixelIndex = x + y * imageWidth;
+
+            float neighbourDepthLinear = MathUtils::LinearizeDepth(depthBuffers[neighborIndex], activeCamera->nearClip,
+                                                                   activeCamera->farClip);
+            float pixelDepthLinear = MathUtils::LinearizeDepth(depthBuffers[pixelIndex], activeCamera->nearClip,
+                                                               activeCamera->farClip);
+
+            if ((neighbourDepthLinear > 1.1f * pixelDepthLinear || neighbourDepthLinear < 0.9f * pixelDepthLinear) ||
+                glm::dot(primaryPayload.worldNormal, MathUtils::DecodeOctahedral(normalBuffers[neighborIndex])) < 0.906)
+            {
+                // skip this neighbour sample if not suitable
+                continue;
+            }
+
+            ReSTIR_DI_Reservoir neighbourReservoir = di_reservoirs[neighborIndex];
+
+            //  calculate PDF
             //  get emissive triangle data
-            uint32_t indexTri = activeScene->emissiveTriangles[pixelReservoir.indexEmissive];
+            uint32_t indexTri = activeScene->emissiveTriangles[neighbourReservoir.indexEmissive];
             const Triangle& emissiveTri = activeScene->triangles[indexTri];
             glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
             glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
@@ -1927,21 +1857,21 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
                 GetEmission();
             float pdf = glm::length(lightRadiance);
+
+            spatialReservoir.UpdateReservoir(neighbourReservoir.indexEmissive, pdf * neighbourReservoir.weightEmissive * neighbourReservoir.emissiveProcessedCount, neighbourReservoir.emissiveProcessedCount, pdf, seed);
+
+            Z += pdf > 0.0f ? neighbourReservoir.emissiveProcessedCount : 0;
         }
+        
+        //  Calc weight
+        m = 1.0f / static_cast<float>(Z);
+        //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
+        spatialReservoir.weightEmissive = spatialReservoir.emissivePDF > 0.0f
+                                               ? (1.0f / spatialReservoir.emissivePDF) * (m * spatialReservoir.weightSum)
+                                               : 0.0f;   
 
-        ReSTIR_DI_Reservoir spatialReservoir;
-        spatialReservoir.ResetReservoir();
-
-        {
-            glm::float2 offset{2.0f * MathUtils::randomFloat(seed) - 1.0f, 2.0f * MathUtils::randomFloat(seed) - 1.0f};
-            offset.x = x + int(offset.x * radius);
-            offset.y = y + int(offset.y * radius);
-
-            offset.x = fmaxf(0, fminf(activeCamera->viewportSize.x - 1, offset.x));
-            offset.y = fmaxf(0, fminf(activeCamera->viewportSize.y - 1, offset.y));
-
-            float neighbourDepthLinear = MathUtils::LinearizeDepth(depthBuffers[static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) * imageWidth], activeCamera->nearClip, activeCamera->farClip);
-        }
+        //  Update default reservoir with updated spatial reservoir
+        pixelReservoir = spatialReservoir;
     }
 
     //  Final Step: Sample from reservoir
@@ -2073,8 +2003,10 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
     return payload;
 }
 
-__global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+__global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+                                       uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                                       const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2084,7 +2016,8 @@ __global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* re
 
     size_t index = x + y * width;
 
-    glm::vec4 pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex,
+    glm::vec4 pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces),
+                                                            frameIndex,
                                                             settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
@@ -2108,7 +2041,8 @@ __global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* re
 }
 
 __global__ void ShadeUniformSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
-    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+                                            uint32_t height, uint32_t frameIndex, RenderingSettings settings,
+                                            const Scene_GPU* scene, const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2119,43 +2053,8 @@ __global__ void ShadeUniformSampling_Kernel(glm::vec4* accumulationData, uint32_
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_UniformSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                           settings, scene, camera, width);
-
-        // Prevent NaNs or Infs from propagating
-    if (!glm::all(glm::isfinite(pixelColor)))
-        pixelColor = glm::vec4(0.0f);
-
-    // Accumulate pixel color
-    accumulationData[index] += pixelColor;
-
-    // Average over frames
-    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
-
-    // Simple tone mapping for HDR
-    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
-
-    // Clamp to valid range
-    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
-
-    // Convert to packed RGBA
-    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
-}
-
-__global__ void ShadeCosineWeightedSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
-    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
-{
-    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (x >= width || y >= height)
-        return;
-
-    size_t index = x + y * width;
-
-    glm::vec4 pixelColor = RendererGPU::PerPixel_CosineWeightedSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                           settings, scene, camera, width);
+                                                                 static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                                 settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))
@@ -2177,8 +2076,48 @@ __global__ void ShadeCosineWeightedSampling_Kernel(glm::vec4* accumulationData, 
     renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
 }
 
-__global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+__global__ void ShadeCosineWeightedSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData,
+                                                   uint32_t width,
+                                                   uint32_t height, uint32_t frameIndex, RenderingSettings settings,
+                                                   const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_CosineWeightedSampling(
+        x, y, static_cast<uint8_t>(settings.lightBounces),
+        static_cast<uint8_t>(settings.sampleCount), frameIndex,
+        settings, scene, camera, width);
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+                                        uint32_t height,
+                                        uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                                        const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2189,8 +2128,8 @@ __global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* r
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_GGXSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                           settings, scene, camera, width);
+                                                             static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                             settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))
@@ -2212,8 +2151,10 @@ __global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* r
     renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
 }
 
-__global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+__global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+                                         uint32_t height,
+                                         uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                                         const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2224,8 +2165,8 @@ __global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* 
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_BRDFSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                           settings, scene, camera, width);
+                                                              static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                              settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))
@@ -2248,7 +2189,8 @@ __global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* 
 }
 
 __global__ void ShadeLightSourceSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
-    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+                                                uint32_t height, uint32_t frameIndex, RenderingSettings settings,
+                                                const Scene_GPU* scene, const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2259,7 +2201,7 @@ __global__ void ShadeLightSourceSampling_Kernel(glm::vec4* accumulationData, uin
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.sampleCount),
-                                                               frameIndex, settings, scene, camera, width);
+                                                                     frameIndex, settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))
@@ -2282,7 +2224,8 @@ __global__ void ShadeLightSourceSampling_Kernel(glm::vec4* accumulationData, uin
 }
 
 __global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+                                uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                                const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2293,8 +2236,9 @@ __global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderIma
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                               static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                               settings, scene, camera, width);
+                                                                     static_cast<uint8_t>(settings.sampleCount),
+                                                                     frameIndex,
+                                                                     settings, scene, camera, width);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))
@@ -2316,10 +2260,13 @@ __global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderIma
     renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
 }
 
-__global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
-    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs, float* depthBuffers,
-    glm::vec2* normalBuffers)
+__global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+                                      uint32_t height,
+                                      uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
+                                      const Camera_GPU* camera,
+                                      ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
+                                      float* depthBuffers,
+                                      glm::vec2* normalBuffers)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2330,7 +2277,8 @@ __global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* ren
     size_t index = x + y * width;
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
-                                                     di_reservoirs, di_prev_reservoirs, depthBuffers, normalBuffers);
+                                                           di_reservoirs, di_prev_reservoirs, depthBuffers,
+                                                           normalBuffers);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))

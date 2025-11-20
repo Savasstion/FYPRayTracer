@@ -11,11 +11,12 @@ struct ReSTIR_DI_Reservoir
     uint32_t indexEmissive;
     // index of most important light, the index stores here refers to the index of emissiveTriangle list
     float weightEmissive; // light weight
+    float emissivePDF = 0.0f;   //  pdf or radiance length of emissive light
     float weightSum; // sum of all weights for all lights processed
     uint32_t emissiveProcessedCount; // number of lights processed for this reservoir
 
-    __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t& randSeed);
-    __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t count, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, float pdf, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(uint32_t candidateEmissiveIndex, float weight, uint32_t count, float pdf, uint32_t& randSeed);
     __host__ __device__ void ResetReservoir();
     __host__ __device__ bool CheckIfValid();
 };
