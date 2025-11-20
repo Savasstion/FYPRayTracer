@@ -404,7 +404,7 @@ public:
             };
 
             //	Set transforms
-            glm::vec3 pos{i * 2, 9, 0};
+            glm::vec3 pos{i * 2, 8.99999f, 0};
             glm::vec3 rot{180, 0, 0};
             glm::vec3 scale{1.5, 1.5, 1.5};
 
