@@ -15,6 +15,8 @@ struct RenderingSettings
     bool useTemporalReuse = false;
     bool useSpatialReuse = false;
     int temporalHistoryLimit = 2;
+    int spatialNeighborNum = 5;
+    int spatialNeighborRadius = 30;
 };
 
 
