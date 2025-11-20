@@ -483,6 +483,11 @@ public:
                                                     UINT8_MAX);
         rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Candidate Count",
                                                     &m_Renderer.GetSettings().lightCandidateCount, 1.0f, 1, UINT16_MAX);
+        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Temporal Reuse",
+                        &m_Renderer.GetSettings().useTemporalReuse);
+        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Spatial Reuse",
+                        &m_Renderer.GetSettings().useSpatialReuse);
+        
         ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
         ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
         ImGui::Text("Vertices Count : %d", static_cast<uint32_t>(m_Scene.vertices.size()));

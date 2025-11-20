@@ -1659,8 +1659,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
                                 : 0.0f;
 
     //  Temporal resampling
-    bool useTemporalReuse = true;
-    if (useTemporalReuse)
+    if (settings.useTemporalReuse)
     {
         //  Reproject using the motion vectors.
         glm::vec2 uvPrev = MathUtils::GetUVFromNDC(activeCamera->prevProjection, activeCamera->prevView,
@@ -1786,8 +1785,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     }
 
     //  Spatial resampling, TODO: make this another kernel to prevent race condition
-    bool useSpatialReuse = false;
-    if (useSpatialReuse)
+    if (settings.useSpatialReuse)
     {
         constexpr uint8_t numNeighbors = 5; //  num of neighbours to sample
         constexpr uint8_t radius = 30; //  pixel radius
