@@ -175,7 +175,8 @@ void Renderer::Render(Scene& scene, Camera& camera)
             di_reservoirs,
             di_prev_reservoirs,
             depthBuffers,
-            normalBuffers);
+            normalBuffers,
+            primaryHitPayloadBuffers);
         break;
     // case RESTIR_GI:
     default:
@@ -320,6 +321,27 @@ void Renderer::ResizeNormalBuffers(uint32_t width, uint32_t height)
     }
 }
 
+void Renderer::ResizePrimaryHitPayloadBuffers(uint32_t width, uint32_t height)
+{
+    if (primaryHitPayloadBuffers)
+        cudaFree(primaryHitPayloadBuffers);
+
+    //  each pixel has its own depth buffer
+    uint32_t bufferCount = width * height;
+    cudaError_t err = cudaMalloc((void**)&primaryHitPayloadBuffers, bufferCount * sizeof(RayHitPayload));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+    }
+
+    // Initialize all normal values to glm::vec2{0.0f, 0.0f}
+    err = cudaMemset(primaryHitPayloadBuffers, 0, bufferCount * sizeof(RayHitPayload));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
+}
+
 void Renderer::FreeDynamicallyAllocatedMemory()
 {
     //  Free all memory regarding the renderer
@@ -341,6 +363,9 @@ void Renderer::FreeDynamicallyAllocatedMemory()
 
     if (depthBuffers)
         cudaFree(depthBuffers);
+
+    if(primaryHitPayloadBuffers)
+        cudaFree(primaryHitPayloadBuffers);
 
     if (di_reservoirs)
         cudaFree(di_reservoirs);
@@ -1525,7 +1550,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth,
     ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
-    float* depthBuffers, glm::vec2* normalBuffers)
+    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1;
@@ -1538,6 +1563,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
+    primaryHitPayloadBuffers[x + y * imageWidth] = primaryPayload;
 
     // Miss: hit sky
     if (primaryPayload.hitDistance < 0.0f)
@@ -1900,8 +1926,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
     }
 
     //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
-    depthBuffers[x + y * imageWidth] = MathUtils::LinearizeDepth(primaryPayload.hitDistance, activeCamera->nearClip,
-                                                                 activeCamera->farClip);
+    depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
     normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
 
     //  Update prev reservoir with current one
@@ -2215,7 +2240,7 @@ __global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* ren
                                       const Camera_GPU* camera,
                                       ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
                                       float* depthBuffers,
-                                      glm::vec2* normalBuffers)
+                                      glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -2227,7 +2252,7 @@ __global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* ren
 
     glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
                                                            di_reservoirs, di_prev_reservoirs, depthBuffers,
-                                                           normalBuffers);
+                                                           normalBuffers, primaryHitPayloadBuffers);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))

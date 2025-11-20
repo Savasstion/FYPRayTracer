@@ -16,6 +16,8 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
         ResizeDepthBuffers(width, height);
         //  Reset Normal Buffer
         ResizeNormalBuffers(width, height);
+        //  Reset Primary Hit Payload Data Buffer
+        ResizePrimaryHitPayloadBuffers(width, height);
         // Reset ReSTIR DI reservoirs
         ResizeDIReservoirs(width, height);
     }

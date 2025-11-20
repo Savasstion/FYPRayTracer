@@ -27,6 +27,7 @@ private:
     //  GPU Buffers (device ptrs)
     float* depthBuffers = nullptr;
     glm::vec2* normalBuffers = nullptr;  //  Octahedron-normal vector encoded so stores Vec2, not Vec3 (saves one float worth of memory)
+    RayHitPayload* primaryHitPayloadBuffers = nullptr;
 
     //  for ReSTIR DI (device ptrs)
     ReSTIR_DI_Reservoir* di_reservoirs = nullptr;
@@ -45,6 +46,7 @@ public:
     void ResizeDIReservoirs(uint32_t width, uint32_t height);
     void ResizeDepthBuffers(uint32_t width, uint32_t height);
     void ResizeNormalBuffers(uint32_t width, uint32_t height);
+    void ResizePrimaryHitPayloadBuffers(uint32_t width, uint32_t height);
     void FreeDynamicallyAllocatedMemory();
 };
 

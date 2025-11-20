@@ -65,7 +65,7 @@ struct RendererGPU
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth,
         ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
-        float* depthBuffers, glm::vec2* normalBuffers);
+        float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
 
     __host__ __device__ static RayHitPayload TraceRay(
         const Ray& ray, const Scene_GPU* activeScene);
@@ -100,7 +100,8 @@ __global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderIma
     uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
 
 __global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
-ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs, float* depthBuffers, glm::vec2* normalBuffers);
+                                      uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                                      ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
+                                      float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
 
 #endif
