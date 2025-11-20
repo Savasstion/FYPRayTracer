@@ -41,6 +41,7 @@ __host__ __device__ void ReSTIR_DI_Reservoir::ResetReservoir()
     weightEmissive = 0.0f;
     weightSum = 0.0f;
     emissiveProcessedCount = 0;
+    emissivePDF = 0.0f;
 }
 
 __host__ __device__ bool ReSTIR_DI_Reservoir::CheckIfValid()
