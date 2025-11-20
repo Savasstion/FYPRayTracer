@@ -83,20 +83,112 @@ void Renderer::Render(Scene& scene, Camera& camera)
     );
 
     //  Do per pixel rendering task in parallel for all pixels
-    RenderKernel<<<numBlocks, threadsPerBlock>>>(
-        d_accumulationData,
-        d_renderImageData,
-        width,
-        height,
-        m_FrameIndex,
-        m_Settings,
-        d_sceneGPU,
-        d_cameraGPU,
-        di_reservoirs,
-        di_prev_reservoirs,
-        depthBuffers,
-        normalBuffers
-    );
+    switch (m_Settings.currentSamplingTechnique)
+    {
+    case BRUTE_FORCE:
+        ShadeBruteForce_Kernel<<<numBlocks, threadsPerBlock>>>(
+                d_accumulationData,
+                d_renderImageData,
+                width,
+                height,
+                m_FrameIndex,
+                m_Settings,
+                d_sceneGPU,
+                d_cameraGPU);
+        break;
+    case UNIFORM_SAMPLING:
+        ShadeUniformSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
+                        d_accumulationData,
+                        d_renderImageData,
+                        width,
+                        height,
+                        m_FrameIndex,
+                        m_Settings,
+                        d_sceneGPU,
+                        d_cameraGPU);
+        break;
+    case COSINE_WEIGHTED_SAMPLING:
+        ShadeCosineWeightedSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                d_accumulationData,
+                                d_renderImageData,
+                                width,
+                                height,
+                                m_FrameIndex,
+                                m_Settings,
+                                d_sceneGPU,
+                                d_cameraGPU);
+        break;
+    case GGX_SAMPLING:
+        ShadeGGXSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                        d_accumulationData,
+                                        d_renderImageData,
+                                        width,
+                                        height,
+                                        m_FrameIndex,
+                                        m_Settings,
+                                        d_sceneGPU,
+                                        d_cameraGPU);
+        break;
+    case BRDF_SAMPLING:
+        ShadeBRDFSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                        d_accumulationData,
+                                        d_renderImageData,
+                                        width,
+                                        height,
+                                        m_FrameIndex,
+                                        m_Settings,
+                                        d_sceneGPU,
+                                        d_cameraGPU);
+        break;
+    case LIGHT_SOURCE_SAMPLING:
+        ShadeLightSourceSampling_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                        d_accumulationData,
+                                        d_renderImageData,
+                                        width,
+                                        height,
+                                        m_FrameIndex,
+                                        m_Settings,
+                                        d_sceneGPU,
+                                        d_cameraGPU);
+        break;
+    case NEE:
+        ShadeNEE_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                        d_accumulationData,
+                                        d_renderImageData,
+                                        width,
+                                        height,
+                                        m_FrameIndex,
+                                        m_Settings,
+                                        d_sceneGPU,
+                                        d_cameraGPU);
+        break;
+    case RESTIR_DI:
+        ShadeReSTIR_DI_Kernel<<<numBlocks, threadsPerBlock>>>(
+                                                d_accumulationData,
+                                                d_renderImageData,
+                                                width,
+                                                height,
+                                                m_FrameIndex,
+                                                m_Settings,
+                                                d_sceneGPU,
+                                                d_cameraGPU,
+                                                di_reservoirs,
+                                                di_prev_reservoirs,
+                                                depthBuffers,
+                                                normalBuffers);
+        break;
+    // case RESTIR_GI:
+    default:
+        ShadeBruteForce_Kernel<<<numBlocks, threadsPerBlock>>>(
+                d_accumulationData,
+                d_renderImageData,
+                width,
+                height,
+                m_FrameIndex,
+                m_Settings,
+                d_sceneGPU,
+                d_cameraGPU);
+    }
 
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess)
@@ -1776,8 +1868,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         }
     }
 
-    //  Spatial resampling
-    bool useSpatialReuse = true;
+    //  Spatial resampling, TODO: make this another kernel to prevent race condition
+    bool useSpatialReuse = false;
     constexpr uint8_t numNeighbors = 5;     //  num of neighbours to sample
     constexpr uint8_t radius = 30;          //  pixel radius
     if (useSpatialReuse)
@@ -1981,11 +2073,8 @@ __host__ __device__ RayHitPayload RendererGPU::Miss(const Ray& ray)
     return payload;
 }
 
-__global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
-                             uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene,
-                             const Camera_GPU* camera,
-                             ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
-                             float* depthBuffers, glm::vec2* normalBuffers)
+__global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
 {
     uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1995,52 +2084,253 @@ __global__ void RenderKernel(glm::vec4* accumulationData, uint32_t* renderImageD
 
     size_t index = x + y * width;
 
-    glm::vec4 pixelColor{0.0f};
-    switch (settings.currentSamplingTechnique)
-    {
-    case BRUTE_FORCE:
-        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex,
-                                                      settings, scene, camera, width);
-        break;
-    case UNIFORM_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_UniformSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
+    glm::vec4 pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex,
+                                                            settings, scene, camera, width);
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeUniformSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_UniformSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
                                                            static_cast<uint8_t>(settings.sampleCount), frameIndex,
                                                            settings, scene, camera, width);
-        break;
-    case COSINE_WEIGHTED_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_CosineWeightedSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                                  static_cast<uint8_t>(settings.sampleCount),
-                                                                  frameIndex, settings, scene, camera, width);
-        break;
-    case GGX_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_GGXSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                       static_cast<uint8_t>(settings.sampleCount), frameIndex, settings,
-                                                       scene, camera, width);
-        break;
-    case BRDF_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_BRDFSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
-                                                        static_cast<uint8_t>(settings.sampleCount), frameIndex,
-                                                        settings, scene, camera, width);
-        break;
-    case LIGHT_SOURCE_SAMPLING:
-        pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.sampleCount),
+
+        // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeCosineWeightedSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_CosineWeightedSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
+                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                           settings, scene, camera, width);
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_GGXSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
+                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                           settings, scene, camera, width);
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_BRDFSampling(x, y, static_cast<uint8_t>(settings.lightBounces),
+                                                           static_cast<uint8_t>(settings.sampleCount), frameIndex,
+                                                           settings, scene, camera, width);
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeLightSourceSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width,
+    uint32_t height, uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_LightSourceSampling(x, y, static_cast<uint8_t>(settings.sampleCount),
                                                                frameIndex, settings, scene, camera, width);
-        break;
-    case NEE:
-        pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces),
+
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_NextEventEstimation(x, y, static_cast<uint8_t>(settings.lightBounces),
                                                                static_cast<uint8_t>(settings.sampleCount), frameIndex,
                                                                settings, scene, camera, width);
-        break;
-    case RESTIR_DI:
-        pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
-                                                     di_reservoirs, di_prev_reservoirs, depthBuffers, normalBuffers);
-        break;
-    //case RESTIR_GI:
-    default:
-        pixelColor = RendererGPU::PerPixel_BruteForce(x, y, static_cast<uint8_t>(settings.lightBounces), frameIndex,
-                                                      settings, scene, camera, width);
-    }
 
+    // Prevent NaNs or Infs from propagating
+    if (!glm::all(glm::isfinite(pixelColor)))
+        pixelColor = glm::vec4(0.0f);
+
+    // Accumulate pixel color
+    accumulationData[index] += pixelColor;
+
+    // Average over frames
+    glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+    // Simple tone mapping for HDR
+    accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+    // Clamp to valid range
+    accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+    // Convert to packed RGBA
+    renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+}
+
+__global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+    ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs, float* depthBuffers,
+    glm::vec2* normalBuffers)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_DI(x, y, frameIndex, settings, scene, camera, width,
+                                                     di_reservoirs, di_prev_reservoirs, depthBuffers, normalBuffers);
 
     // Prevent NaNs or Infs from propagating
     if (!glm::all(glm::isfinite(pixelColor)))

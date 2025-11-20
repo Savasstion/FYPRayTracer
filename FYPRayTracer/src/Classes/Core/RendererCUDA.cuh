@@ -58,7 +58,7 @@ struct RendererGPU
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth);
-
+    
     __host__ __device__ static glm::vec4 PerPixel_ReSTIR_DI(
         uint32_t x, uint32_t y,
         uint32_t frameIndex, const RenderingSettings& settings,
@@ -78,17 +78,29 @@ struct RendererGPU
         const Ray& ray);
 };
 
-__global__ void RenderKernel(
-    glm::vec4* accumulationData,
-    uint32_t* renderImageData,
-    uint32_t width,
-    uint32_t height,
-    uint32_t frameIndex,
-    RenderingSettings settings,
-    const Scene_GPU* scene,
-    const Camera_GPU* camera,
-    ReSTIR_DI_Reservoir* di_reservoirs,
-    ReSTIR_DI_Reservoir* di_prev_reservoirs,
-    float* depthBuffers, glm::vec2* normalBuffers);
+__global__ void ShadeBruteForce_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeUniformSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeCosineWeightedSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeGGXSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeBRDFSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeLightSourceSampling_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeNEE_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+    uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera);
+
+__global__ void ShadeReSTIR_DI_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs, float* depthBuffers, glm::vec2* normalBuffers);
 
 #endif
