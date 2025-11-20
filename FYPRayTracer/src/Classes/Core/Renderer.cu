@@ -1804,59 +1804,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
             }
 
             ReSTIR_DI_Reservoir neighbourReservoir = di_reservoirs[neighborIndex];
-
-            //  calculate PDF
-            //  get emissive triangle data
-            uint32_t indexTri = activeScene->emissiveTriangles[neighbourReservoir.indexEmissive];
-            const Triangle& emissiveTri = activeScene->triangles[indexTri];
-            glm::vec3 p0 = activeScene->worldVertices[emissiveTri.v0].position;
-            glm::vec3 p1 = activeScene->worldVertices[emissiveTri.v1].position;
-            glm::vec3 p2 = activeScene->worldVertices[emissiveTri.v2].position;
-            glm::vec3 n0 = activeScene->worldVertices[emissiveTri.v0].normal;
-            glm::vec3 n1 = activeScene->worldVertices[emissiveTri.v1].normal;
-            glm::vec3 n2 = activeScene->worldVertices[emissiveTri.v2].normal;
-
-            //  get new ray direction towards selected light source
-            glm::vec3 emmisivePoint = Triangle::GetBarycentricCoords(p0, p1, p2);
-            glm::vec3 newDir = emmisivePoint - primaryPayload.worldPosition;
-            float distance = glm::distance(emmisivePoint, primaryPayload.worldPosition);
-            newDir = newDir / distance;
-
-            // Sample albedo from albedo map is exist
-            glm::vec3 sampledAlbedo{0.0f};
-            if (primaryHitMaterial.isUseAlbedoMap)
-            {
-                Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
-                uint32_t pixelBits = albedoMap.SampleBilinear(primaryPayload.u, primaryPayload.v);
-                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
-                sampledAlbedo.r = color4.r;
-                sampledAlbedo.g = color4.g;
-                sampledAlbedo.b = color4.b;
-            }
-            else
-            {
-                sampledAlbedo = primaryHitMaterial.albedo;
-            }
-
-            glm::vec3 brdf = MathUtils::CalculateBRDF(
-                primaryPayload.worldNormal,
-                -primaryRay.direction,
-                newDir,
-                sampledAlbedo,
-                primaryHitMaterial.metallic,
-                primaryHitMaterial.roughness
-            );
-
-            //  rendering equation
-            const Material& emissiveMat = activeScene->materials[emissiveTri.materialIndex];
-            float cosTheta_x = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-            float cosTheta_y = glm::max(glm::dot(-newDir, Triangle::GetTriangleNormal(n0, n1, n2)), 0.0f);
-            float triAreaPDF = 1.0f / Triangle::GetTriangleArea(p0, p1, p2);
-            //  probably could just precompute the triangle's area but that is one more float or two to store per triangle, need to test for memory cost vs performance benefits.
-            float solidAnglePDF = triAreaPDF * (distance * distance);
-            glm::vec3 lightRadiance = brdf * cosTheta_x * cosTheta_y / solidAnglePDF * emissiveMat.
-                GetEmission();
-            float pdf = glm::length(lightRadiance);
+            //  get neighbourReservoir PDF
+            float pdf = neighbourReservoir.emissivePDF;
 
             spatialReservoir.UpdateReservoir(neighbourReservoir.indexEmissive, pdf * neighbourReservoir.weightEmissive * neighbourReservoir.emissiveProcessedCount, neighbourReservoir.emissiveProcessedCount, pdf, seed);
 
