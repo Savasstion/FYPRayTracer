@@ -1688,9 +1688,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI(
         if (validHistory && prevReservoir.CheckIfValid())
         {
             //  Set history limit
+            constexpr uint8_t historyLimit = 2;
             prevReservoir.emissiveProcessedCount =
-                (20 * pixelReservoir.emissiveProcessedCount < prevReservoir.emissiveProcessedCount)
-                    ? 20 * pixelReservoir.emissiveProcessedCount
+                (historyLimit * pixelReservoir.emissiveProcessedCount < prevReservoir.emissiveProcessedCount)
+                    ? historyLimit * pixelReservoir.emissiveProcessedCount
                     : prevReservoir.emissiveProcessedCount; //  return a < b ? a : b;
 
             //  Unbiased equation parameters from ReSTIR DI paper algorithm 6
