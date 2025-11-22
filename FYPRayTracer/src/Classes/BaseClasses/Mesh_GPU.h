@@ -32,7 +32,6 @@ inline Mesh_GPU MeshToHostMeshGPU(const Mesh& h_mesh)
     h_gpuMesh.rotation = h_mesh.rotation;
     h_gpuMesh.scale = h_mesh.scale;
     h_gpuMesh.worldTransformMatrix = h_mesh.worldTransformMatrix;
-    h_gpuMesh.isTransformed = h_mesh.isTransformed;
 
     h_gpuMesh.vertexStart = h_mesh.vertexStart;
     h_gpuMesh.vertexCount = h_mesh.vertexCount;

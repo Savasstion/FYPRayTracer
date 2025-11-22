@@ -311,6 +311,8 @@ void LightTree::FreeNodes()
         delete[] nodes;
         nodeCount = 0;
     }
+
+    nodes = nullptr;
 }
 
 float LightTree::GetOrientationBoundsAreaMeasure(float theta_o, float theta_e)

@@ -133,6 +133,8 @@ public:
                                                       scale,
                                                       7);
 
+            Walnut::Timer timer;
+            
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
             auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
@@ -147,6 +149,8 @@ public:
             else
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+
+            std::cerr << "Banana BVHs build time : " << timer.ElapsedMillis() << "(ms)\n";
         }
         std::vector<Vertex> boxVertices = {
             // Bottom (-Y)
@@ -431,7 +435,9 @@ public:
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
         }
-
+        
+        Walnut::Timer timer;
+        
         //	Scene TLAS Construction
         auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
         m_Scene.tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
@@ -445,6 +451,7 @@ public:
         m_Scene.lightTree_tlas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                   static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 
+        std::cerr << "Scene TLASs build time : " << timer.ElapsedMillis() << "(ms)\n";
 
         //	Set Starting Camera Position and Direction
         m_Camera.SetPosition(glm::vec3{-0.206f, 8.288f, -9.494f});
@@ -560,8 +567,11 @@ public:
                                                  (int)m_Scene.materials.size() - 1);
 
             if (meshMatToBeUpdated || meshTransformToBeUpdated)
+            {
                 m_Scene.sceneManager.meshesToUpdate.emplace_back(meshTransformToBeUpdated, meshMatToBeUpdated, i);
-
+                //std::cerr << "object index " << i << " is updated\n";
+            }
+            
             ImGui::Separator();
             ImGui::PopID();
         }
@@ -608,7 +618,12 @@ public:
         ImGui::End();
         ImGui::PopStyleVar();
 
-        m_Scene.sceneManager.PerformAllSceneUpdates();
+        //  uint32_t triOffset = 0;
+        //  auto blasObjectNodes = m_Scene.meshes[0].CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+        //  m_Scene.meshes[0].blas.objectOffset = triOffset;
+        //  m_Scene.meshes[0].blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+        
+        m_Scene.sceneManager.PerformAllSceneUpdates(m_Scene, m_Renderer);
         Render();
     }
 

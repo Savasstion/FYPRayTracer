@@ -131,6 +131,28 @@ void FreeSceneGPU(Scene_GPU* d_scene)
     if (h_scene.emissiveTriangles) cudaFree(h_scene.emissiveTriangles);
     if (h_scene.materials) cudaFree(h_scene.materials);
 
+    //  Free all textures
+    if (h_scene.textures && h_scene.textureCount > 0)
+    {
+        // Copy textures array from GPU → CPU (because we need to read pointers)
+        Texture* h_textures = new Texture[h_scene.textureCount];
+        cudaMemcpy(h_textures, h_scene.textures,
+                   sizeof(Texture) * h_scene.textureCount,
+                   cudaMemcpyDeviceToHost);
+
+        // Free each pixel buffer on device
+        for (uint32_t i = 0; i < h_scene.textureCount; i++)
+        {
+            if (h_textures[i].pixels)
+                cudaFree(h_textures[i].pixels);
+        }
+
+        delete[] h_textures;
+
+        // Free device textures array
+        cudaFree(h_scene.textures);
+    }
+
     // Free TLAS
     if (h_scene.tlas) FreeBVH_GPU(h_scene.tlas);
     // Free Light Tree

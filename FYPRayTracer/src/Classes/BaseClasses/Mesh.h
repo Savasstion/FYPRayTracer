@@ -22,8 +22,6 @@ struct Mesh
     glm::vec3 rotation{0, 0, 0};
     glm::vec3 scale{1, 1, 1};
     glm::mat4 worldTransformMatrix;
-    bool isTransformed = false;
-    //  if any of the transform data is modified, this should be true and then only need to do calculations to retransform the object 
 
     uint32_t vertexStart;
     uint32_t vertexCount;

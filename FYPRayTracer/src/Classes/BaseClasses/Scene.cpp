@@ -33,7 +33,6 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
     glm::mat4 scaling = glm::scale(glm::mat4(1.0f), scale);
 
     mesh.worldTransformMatrix = translation * rotationMat * scaling;
-    mesh.isTransformed = true;
 
     // append world vertices (transformed)
     for (const auto& v : meshVertices)
@@ -86,46 +85,6 @@ Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
 
     meshes.push_back(mesh);
     return &meshes.back();
-}
-
-
-void Scene::UpdateSceneMeshTransform(uint32_t meshIndex, const glm::vec3& newPos, const glm::vec3& newRot,
-                                     const glm::vec3& newScale)
-{
-    if (meshIndex >= meshes.size()) return;
-
-    Mesh& mesh = meshes[meshIndex];
-    mesh.position = newPos;
-    mesh.rotation = newRot;
-    mesh.scale = newScale;
-    mesh.isTransformed = true; // mark for update
-}
-
-void Scene::UpdateAllTransformedSceneMeshes()
-{
-    for (Mesh& mesh : meshes)
-    {
-        if (!mesh.isTransformed) continue;
-
-        Mesh::UpdateWorldTransform(mesh);
-
-        // Re-apply to worldVertices
-        for (uint32_t i = 0; i < mesh.vertexCount; ++i)
-        {
-            const Vertex& localV = vertices[mesh.vertexStart + i];
-            Vertex& worldV = worldVertices[mesh.vertexStart + i];
-
-            worldV.position = glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.position, 1.0f));
-            worldV.normal = glm::normalize(glm::vec3(mesh.worldTransformMatrix * glm::vec4(localV.normal, 0.0f)));
-            worldV.uv = localV.uv;
-        }
-
-        Mesh::UpdateMeshAABB(mesh, vertices, worldVertices, triangles, triangleVertexIndices);
-
-
-        // Mark as clean
-        mesh.isTransformed = false;
-    }
 }
 
 std::vector<BVH::Node> Scene::CreateBVHnodesFromSceneTriangles() const

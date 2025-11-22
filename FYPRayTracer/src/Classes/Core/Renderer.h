@@ -48,6 +48,7 @@ public:
     void ResizeNormalBuffers(uint32_t width, uint32_t height);
     void ResizePrimaryHitPayloadBuffers(uint32_t width, uint32_t height);
     void FreeDynamicallyAllocatedMemory();
+    void SetSceneToBeUpdatedFlag(bool flag){isSceneUpdated = flag;}
 };
 
 #endif

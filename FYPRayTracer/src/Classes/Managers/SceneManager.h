@@ -2,6 +2,8 @@
 #define SCENE_MANAGER_H
 #include <vector>
 
+struct Scene;
+class Renderer;
 class SceneManager
 {
 public:
@@ -20,11 +22,11 @@ public:
         uint32_t meshIndex = -1;
     };
 
-    std::vector<MeshUpdateParam> meshesToUpdate{500}; //  stores all indices of scene meshes to be updated
-    std::vector<uint32_t> materialsToUpdate{250}; //  stores all indices of scene materials to be updated
+    std::vector<MeshUpdateParam> meshesToUpdate{20}; //  stores all indices of scene meshes to be updated
+    std::vector<uint32_t> materialsToUpdate{20}; //  stores all indices of scene materials to be updated
 
 
-    void PerformAllSceneUpdates();
+    void PerformAllSceneUpdates(Scene& scene, Renderer& renderer);
 };
 
 
