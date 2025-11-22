@@ -132,8 +132,6 @@ public:
                                                       rot,
                                                       scale,
                                                       7);
-
-            Walnut::Timer timer;
             
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -149,8 +147,6 @@ public:
             else
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-
-            std::cerr << "Banana BVHs build time : " << timer.ElapsedMillis() << "(ms)\n";
         }
         std::vector<Vertex> boxVertices = {
             // Bottom (-Y)
@@ -436,8 +432,6 @@ public:
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
         }
         
-        Walnut::Timer timer;
-        
         //	Scene TLAS Construction
         auto tlasObjectNodes = m_Scene.CreateBVHnodesFromSceneMeshes();
         m_Scene.tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
@@ -450,8 +444,6 @@ public:
         //auto lightTreeEmitterNodes = m_Scene.CreateLightTreeNodesFromEmissiveTriangles();
         m_Scene.lightTree_tlas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                   static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-
-        std::cerr << "Scene TLASs build time : " << timer.ElapsedMillis() << "(ms)\n";
 
         //	Set Starting Camera Position and Direction
         m_Camera.SetPosition(glm::vec3{-0.206f, 8.288f, -9.494f});
@@ -586,6 +578,10 @@ public:
             bool matToBeUpdated = false;
             ImGui::Text("Material ID : %d", i);
             matToBeUpdated |= ImGui::ColorEdit3("Albedo", glm::value_ptr(material.albedo));
+            uint32_t minIndex = 0;
+            uint32_t maxIndex = static_cast<uint32_t>(m_Scene.textures.size()) - 1;
+            matToBeUpdated |= ImGui::DragScalar("Albedo Map Index", ImGuiDataType_U32, &material.albedoMapIndex, 1.0f, &minIndex, &maxIndex);
+            matToBeUpdated |= ImGui::Checkbox("Use Albedo Map instead of Solid Color", &material.isUseAlbedoMap);
             matToBeUpdated |= ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
             matToBeUpdated |= ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
             matToBeUpdated |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.emissionColor));

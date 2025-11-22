@@ -92,9 +92,10 @@ void SceneManager::PerformAllSceneUpdates(Scene& scene, Renderer& renderer)
     }
 
     //  do all material updates
-    for(uint32_t i = 0; i < materialsToUpdate.size(); i++)
+    if(!materialsToUpdate.empty())
     {
-        
+        //  values are already set in UI
+        renderer.SetSceneToBeUpdatedFlag(true);
     }
 
     if(toUpdateSceneTLAS)
