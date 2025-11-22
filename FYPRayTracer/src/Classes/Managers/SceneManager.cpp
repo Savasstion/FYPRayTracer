@@ -14,6 +14,16 @@ void SceneManager::PerformAllSceneUpdates(Scene& scene, Renderer& renderer)
 
         if(meshesToUpdate[i].meshMatToBeUpdated)
         {
+            int32_t triangleStart = mesh.indexStart / 3;
+            uint32_t triangleEnd = mesh.indexStart / 3 + mesh.indexCount / 3;
+
+            // modify triangles' material index
+            for (uint32_t i = triangleStart; i < triangleEnd; i++)
+            {
+                Triangle& tri = scene.triangles[i];
+                tri.materialIndex = mesh.materialIndex;
+            }
+            
             renderer.SetSceneToBeUpdatedFlag(true);
         }
         
