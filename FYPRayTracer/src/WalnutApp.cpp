@@ -463,7 +463,7 @@ public:
 
     void OnUIRender() override
     {
-        ImGui::Begin("Settings");
+        ImGui::Begin("General");
         bool isCameraUpdated = false;
         isCameraUpdated |= ImGui::DragFloat3("Camera Position", glm::value_ptr(m_Camera.GetPosition()), 0.1f);
         isCameraUpdated |= ImGui::DragFloat3("Camera Forward Direction", glm::value_ptr(m_Camera.GetDirection()), 0.1f);
@@ -474,25 +474,12 @@ public:
             m_RenderTime = 0.0f;
             stopRender = false;
         }
-        ImGui::ColorEdit3("Skybox Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
         bool rayTracingSettingsUpdated = false;
+        rayTracingSettingsUpdated |= ImGui::ColorEdit3("Skybox Color", glm::value_ptr(m_Renderer.GetSettings().skyColor));
         rayTracingSettingsUpdated |= ImGui::DragInt("Light Bounce Amount", &m_Renderer.GetSettings().lightBounces, 1.0f,
-                                                    0, UINT8_MAX);
+                                    0, UINT8_MAX);
         rayTracingSettingsUpdated |= ImGui::DragInt("Ray Sample Count", &m_Renderer.GetSettings().sampleCount, 1.0f, 1,
                                                     UINT8_MAX);
-        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Candidate Count",
-                                                    &m_Renderer.GetSettings().lightCandidateCount, 1.0f, 1, UINT16_MAX);
-        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Temporal History Limit",
-                                            &m_Renderer.GetSettings().temporalHistoryLimit, 1.0f, 1, UINT8_MAX);
-        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Spatial Neighbour Count",
-                                            &m_Renderer.GetSettings().spatialNeighborNum, 1.0f, 1, UINT8_MAX);
-        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Spatial Neighbour Radius",
-                                    &m_Renderer.GetSettings().spatialNeighborRadius, 1.0f, 1, UINT8_MAX);
-        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Temporal Reuse",
-                        &m_Renderer.GetSettings().useTemporalReuse);
-        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Spatial Reuse",
-                        &m_Renderer.GetSettings().useSpatialReuse);
-        
         ImGui::Text("Resolution : %dx%d", m_ViewportWidth, m_ViewportHeight);
         ImGui::Text("Triangle Count : %d", static_cast<uint32_t>(m_Scene.triangles.size()));
         ImGui::Text("Vertices Count : %d", static_cast<uint32_t>(m_Scene.vertices.size()));
@@ -524,11 +511,6 @@ public:
             stopRender = false;
         }
 
-        if (ImGui::Button("Import"))
-        {
-            //	not yet implemented
-        }
-
         if (ImGui::Button("Benchmark render results"))
         {
             SaveBenchmarkResults();
@@ -536,14 +518,30 @@ public:
 
         ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)",
                         &m_Renderer.GetSettings().toAccumulate);
+        ImGui::End();
+
+        ImGui::Begin("ReSTIR");
+        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Candidate Count",
+                                                    &m_Renderer.GetSettings().lightCandidateCount, 1.0f, 1, UINT16_MAX);
+        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Temporal History Limit",
+                                            &m_Renderer.GetSettings().temporalHistoryLimit, 1.0f, 1, UINT8_MAX);
+        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Spatial Neighbour Count",
+                                            &m_Renderer.GetSettings().spatialNeighborNum, 1.0f, 1, UINT8_MAX);
+        rayTracingSettingsUpdated |= ImGui::DragInt("ReSTIR Spatial Neighbour Radius",
+                                    &m_Renderer.GetSettings().spatialNeighborRadius, 1.0f, 1, UINT8_MAX);
+        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Temporal Reuse",
+                        &m_Renderer.GetSettings().useTemporalReuse);
+        rayTracingSettingsUpdated |= ImGui::Checkbox("ReSTIR Spatial Reuse",
+                        &m_Renderer.GetSettings().useSpatialReuse);
+        ImGui::End();
+
         if (m_Renderer.GetSettings().toAccumulate && rayTracingSettingsUpdated)
         {
             m_Renderer.ResetFrameIndex();
             m_RenderTime = 0.0f;
             stopRender = false;
         }
-        ImGui::End();
-
+        
         ImGui::Begin("Scene");
         for (uint32_t i = 0; i < m_Scene.meshes.size(); i++)
         {
@@ -563,9 +561,12 @@ public:
                 m_Scene.sceneManager.meshesToUpdate.emplace_back(meshTransformToBeUpdated, meshMatToBeUpdated, i);
                 //std::cerr << "object index " << i << " is updated\n";
             }
-            
             ImGui::Separator();
             ImGui::PopID();
+        }
+        if (ImGui::Button("Import Mesh"))
+        {
+            //	not yet implemented
         }
         ImGui::End();
 
@@ -589,11 +590,33 @@ public:
 
             if (matToBeUpdated)
                 m_Scene.sceneManager.materialsToUpdate.push_back(i);
-
             ImGui::Separator();
-
             ImGui::PopID();
         }
+        if (ImGui::Button("Create New Material"))
+        {
+                
+        }
+        ImGui::End();
+
+        ImGui::Begin("Textures");
+        for (uint32_t i = 0; i < m_Scene.textures.size(); i++)
+        {
+            ImGui::PushID(i);
+
+            ImGui::Text("Texture ID : %d", i);
+            ImGui::Text("File Name : %s", m_Scene.textures[i].fileName.c_str());
+            ImGui::Text("Width : %d", m_Scene.textures[i].width);
+            ImGui::Text("Height : %d", m_Scene.textures[i].height);
+            
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+        if (ImGui::Button("Import Texture"))
+        {
+                
+        }
+        
         ImGui::End();
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -613,11 +636,6 @@ public:
 
         ImGui::End();
         ImGui::PopStyleVar();
-
-        //  uint32_t triOffset = 0;
-        //  auto blasObjectNodes = m_Scene.meshes[0].CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
-        //  m_Scene.meshes[0].blas.objectOffset = triOffset;
-        //  m_Scene.meshes[0].blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
         
         m_Scene.sceneManager.PerformAllSceneUpdates(m_Scene, m_Renderer);
         Render();
