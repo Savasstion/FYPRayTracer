@@ -3,6 +3,7 @@
 #include <glm/vec4.hpp>
 #include "../../../vendor/stb_image/stb_image.h"
 #include "../../Utility/ColorUtils.cuh"
+#include <filesystem>
 
 Texture::Texture(std::string& imageFilePath)
 {
@@ -28,6 +29,10 @@ Texture::Texture(std::string& imageFilePath)
     }
 
     stbi_image_free(data);
+
+    //  Get actual file name. Example : "BananaDiffuse.png"
+    std::filesystem::path p(imageFilePath);
+    fileName = p.filename().string();
 }
 
 Texture TextureToHostTextureGPU(const Texture& h_tex)
