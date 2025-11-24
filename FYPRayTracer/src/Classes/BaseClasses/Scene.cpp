@@ -1,6 +1,8 @@
 #include "Scene.h"
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/norm.hpp>
+#include "../Core/Renderer.h"
+#include "../../../vendor/stb_image/stb_image.h"
 
 Mesh* Scene::AddNewMeshToScene(std::vector<Vertex>& meshVertices,
                                std::vector<uint32_t>& meshTriangleVertexIndices,
@@ -214,4 +216,22 @@ void Scene::InitSceneEmissiveTriangles()
             emissiveTriangles.push_back(i);
         }
     }
+}
+
+void Scene::CreateNewMaterialInScene()
+{
+    materials.emplace_back();
+}
+
+void Scene::CreateNewTextureInScene(std::string& imageFilePath)
+{
+    int w, h, channels;
+    stbi_uc* data = stbi_load(imageFilePath.c_str(), &w, &h, &channels, 4);
+    if (!data)
+    {
+        std::cerr << ("Failed to load image: " + imageFilePath) << std::endl;
+        stbi_image_free(data);
+        return;
+    }
+    textures.emplace_back(imageFilePath);
 }

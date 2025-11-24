@@ -50,6 +50,8 @@ struct Scene
     std::vector<LightTree::Node> CreateLightTreeNodesFromBLASLightTrees() const;
     uint32_t AddNewTexture(std::string& textureFilePath, Material& mat, MaterialPropertiesEnum matProperty);
     void InitSceneEmissiveTriangles();
+    void CreateNewMaterialInScene();
+    void CreateNewTextureInScene(std::string& imageFilePath);
 };
 
 #endif

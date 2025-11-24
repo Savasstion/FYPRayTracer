@@ -1,4 +1,6 @@
 #include <array>
+#include <filesystem>
+
 #include "Classes/BaseClasses/Camera.h"
 #include "Walnut/Application.h"
 #include "Walnut/EntryPoint.h"
@@ -7,6 +9,7 @@
 #include "Classes/Core/Renderer.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "Utility/MisUtils.h"
+#include "Utility/tinyfiledialogs.h"
 
 class MainLayer : public Walnut::Layer
 {
@@ -595,7 +598,8 @@ public:
         }
         if (ImGui::Button("Create New Material"))
         {
-                
+            m_Scene.CreateNewMaterialInScene();
+            m_Renderer.SetSceneToBeUpdatedFlag(true);
         }
         ImGui::End();
 
@@ -612,9 +616,21 @@ public:
             ImGui::Separator();
             ImGui::PopID();
         }
+        char const * patterns[5] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
         if (ImGui::Button("Import Texture"))
         {
-                
+            const char* abs = tinyfd_openFileDialog(
+                "Select Texture",
+                "",
+                5, patterns,
+                NULL, 0);
+
+            if (abs)
+            {
+                auto rel = std::filesystem::relative(abs, std::filesystem::current_path()).string();
+                m_Scene.CreateNewTextureInScene(rel);
+                m_Renderer.SetSceneToBeUpdatedFlag(true);
+            }
         }
         
         ImGui::End();

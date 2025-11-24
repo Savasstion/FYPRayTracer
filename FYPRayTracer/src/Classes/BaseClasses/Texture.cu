@@ -10,8 +10,12 @@ Texture::Texture(std::string& imageFilePath)
     int w, h, channels;
     stbi_uc* data = stbi_load(imageFilePath.c_str(), &w, &h, &channels, 4);
     if (!data)
+    {
         std::cerr << ("Failed to load image: " + imageFilePath) << std::endl;
-
+        stbi_image_free(data);
+        return;
+    }
+    
     width = static_cast<uint32_t>(w);
     height = static_cast<uint32_t>(h);
 
