@@ -60,7 +60,7 @@ Scene_GPU* SceneToGPU(const Scene& cpuScene)
     for (size_t i = 0; i < cpuScene.textures.size(); i++)
         texBuffer.push_back(TextureToHostTextureGPU(cpuScene.textures[i]));
 
-    err = cudaMemcpy(gpuScene.textures, texBuffer.data(), sizeof(Texture), cudaMemcpyHostToDevice);
+    err = cudaMemcpy(gpuScene.textures, texBuffer.data(), sizeof(Texture) * texBuffer.size(), cudaMemcpyHostToDevice);
     if (err != cudaSuccess)
         std::cerr << "cudaMemcpy failed\n";
     gpuScene.textureCount = static_cast<uint32_t>(cpuScene.textures.size());
