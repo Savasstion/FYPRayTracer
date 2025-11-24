@@ -235,3 +235,50 @@ void Scene::CreateNewTextureInScene(std::string& imageFilePath)
     }
     textures.emplace_back(imageFilePath);
 }
+
+void Scene::CreateNewMeshInScene(std::string& meshFilePath)
+{
+    std::vector<Vertex> meshVertices;
+    std::vector<uint32_t> meshIndices;
+    Mesh::GenerateMesh(meshFilePath, meshVertices, meshIndices, false);
+
+    //	Set transforms
+    glm::vec3 pos{0, 0, 0};
+    glm::vec3 rot{0, 0, 0};
+    glm::vec3 scale{1, 1, 1};
+
+    //	Init mesh into scene
+    Mesh* meshPtr = AddNewMeshToScene(meshVertices,
+                                              meshIndices,
+                                              pos,
+                                              rot,
+                                              scale,
+                                              0);
+            
+    //	Build BVH for ray collision for mesh
+    uint32_t triOffset = 0;
+    auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(triangles, &triOffset);
+    meshPtr->blas.objectOffset = triOffset;
+    meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+    //	Build Light Tree for Light Source Sampling for mesh
+    auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(
+        triangles, materials, worldVertices);
+    if (lightTreeEmitterNodes.empty())
+        meshPtr->lightTree_blas.nodeCount = 0;
+    else
+        meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
+                                                   static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+
+    //	Scene TLAS Construction
+    auto tlasObjectNodes = CreateBVHnodesFromSceneMeshes();
+    tlas.ConstructBVH_SAH(tlasObjectNodes.data(), tlasObjectNodes.size());
+
+    //	Init Scene Emissive Light Source list
+    InitSceneEmissiveTriangles();
+
+    //	Scene Light Tree TLAS Construction
+    auto tlasLightTreeEmitterNodes = CreateLightTreeNodesFromBLASLightTrees();
+    lightTree_tlas.ConstructLightTree(tlasLightTreeEmitterNodes.data(),
+                                              static_cast<uint32_t>(tlasLightTreeEmitterNodes.size()));
+}

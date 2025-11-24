@@ -506,7 +506,7 @@ public:
 
             m_Renderer.GetSettings().currentSamplingTechnique = static_cast<SamplingTechniqueEnum>(currentIndex);
         }
-
+        
         if (ImGui::Button("Reset"))
         {
             m_Renderer.ResetFrameIndex();
@@ -514,10 +514,17 @@ public:
             stopRender = false;
         }
 
+        if (ImGui::Button("Save render image"))
+        {
+            SaveRenderImage();
+        }
+        
         if (ImGui::Button("Benchmark render results"))
         {
             SaveBenchmarkResults();
         }
+        ImGui::SameLine();
+        ImGui::Text("Note: You will be prompt to select a reference image to compare with current render");
 
         ImGui::Checkbox("Accumulate (Not good for Dynamic Scenes! Only use when trying to get a good picture)",
                         &m_Renderer.GetSettings().toAccumulate);
@@ -569,7 +576,29 @@ public:
         }
         if (ImGui::Button("Import Mesh"))
         {
-            //	not yet implemented
+            // File filters
+            const char* meshPatterns[] = { "*.obj", "*.fbx", "*.gltf", "*.glb" };
+
+            // Open native file dialog
+            const char* absPath = tinyfd_openFileDialog(
+                "Select Mesh",
+                "",
+                4, meshPatterns,
+                nullptr,
+                0 
+            );
+
+            if (absPath) // user selected a file
+            {
+                // Convert absolute to relative path
+                std::filesystem::path absolute(absPath);
+                std::filesystem::path base = std::filesystem::current_path();
+                std::string relativePath = std::filesystem::relative(absolute, base).string();
+
+                // Send into your engine
+                m_Scene.CreateNewMeshInScene(relativePath);
+                m_Renderer.SetSceneToBeUpdatedFlag(true);
+            }
         }
         ImGui::End();
 
@@ -616,9 +645,9 @@ public:
             ImGui::Separator();
             ImGui::PopID();
         }
-        char const * patterns[5] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
         if (ImGui::Button("Import Texture"))
         {
+            const char* patterns[5] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
             const char* abs = tinyfd_openFileDialog(
                 "Select Texture",
                 "",
@@ -657,6 +686,24 @@ public:
         Render();
     }
 
+    void SaveRenderImage()
+    {
+        if (m_Renderer.GetCurrentFrameIndex() == 1)
+            m_AverageFrameTime = m_CurrentFrameTime;
+        else
+            m_AverageFrameTime = m_RenderTime / (float)m_Renderer.GetCurrentFrameIndex();
+
+        std::string fileName = "RenderedImages/output";
+        fileName.append("_" + std::to_string(m_AverageFrameTime) + "(ms)");
+        fileName.append("_" + std::to_string(m_RenderTime / 60000.0f) + "(min)s");
+        std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
+        fileName.append("_" + samplingTechniqueName);
+        fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
+        fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
+        MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
+    }
+
     void SaveBenchmarkResults()
     {
         if (m_Renderer.GetCurrentFrameIndex() == 1)
@@ -671,6 +718,9 @@ public:
         fileName.append("_" + samplingTechniqueName);
         fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
         fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+
+        //  Add noise metrics in the log by first loading a reference image from file explorer and compare it to get MSE and PSNR
+        
         std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
         MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
     }
@@ -701,7 +751,7 @@ public:
         if (m_RenderTime / 60000.0f >= m_TimeToRender && !stopRender)
         {
             stopRender = true;
-            SaveBenchmarkResults();
+            SaveRenderImage();
         }
 
         //  Set Prev buffers

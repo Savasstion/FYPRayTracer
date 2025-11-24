@@ -52,6 +52,7 @@ struct Scene
     void InitSceneEmissiveTriangles();
     void CreateNewMaterialInScene();
     void CreateNewTextureInScene(std::string& imageFilePath);
+    void CreateNewMeshInScene(std::string& meshFilePath);
 };
 
 #endif
