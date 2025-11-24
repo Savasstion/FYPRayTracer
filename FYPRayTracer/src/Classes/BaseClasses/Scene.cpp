@@ -1,4 +1,6 @@
 #include "Scene.h"
+
+#include <filesystem>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/norm.hpp>
 #include "../Core/Renderer.h"
@@ -254,6 +256,10 @@ void Scene::CreateNewMeshInScene(std::string& meshFilePath)
                                               rot,
                                               scale,
                                               0);
+
+    //  Get actual file name. Example : "banana.obj"
+    std::filesystem::path p(meshFilePath);
+    meshPtr->meshName = p.filename().string();
             
     //	Build BVH for ray collision for mesh
     uint32_t triOffset = 0;

@@ -34,6 +34,8 @@ struct Mesh
     BVH blas;
     LightTree lightTree_blas;
 
+    std::string meshName;
+
     static void GenerateSphereMesh(float radius, int n_stacks, int n_slices, std::vector<Vertex>& outVertices,
                                    std::vector<uint32_t>& outIndices);
     static void UpdateWorldTransform(Mesh& mesh);

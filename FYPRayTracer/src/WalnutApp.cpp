@@ -135,6 +135,10 @@ public:
                                                       rot,
                                                       scale,
                                                       7);
+
+            //  Get actual file name. Example : "banana.obj"
+            std::filesystem::path p(filePath);
+            meshPtr->meshName = p.filename().string();
             
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -208,6 +212,8 @@ public:
                                                       scale,
                                                       5);
 
+            meshPtr->meshName = "bottomBox";
+
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
             auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
@@ -241,6 +247,8 @@ public:
                                                       rot,
                                                       scale,
                                                       5);
+
+            meshPtr->meshName = "topBox";
 
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -276,6 +284,8 @@ public:
                                                       scale,
                                                       3);
 
+            meshPtr->meshName = "frontBox";
+
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
             auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
@@ -309,6 +319,8 @@ public:
                                                       rot,
                                                       scale,
                                                       0);
+
+            meshPtr->meshName = "backBox";
 
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -344,6 +356,8 @@ public:
                                                       scale,
                                                       6);
 
+            meshPtr->meshName = "leftBox";
+
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
             auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
@@ -377,6 +391,8 @@ public:
                                                       rot,
                                                       scale,
                                                       4);
+
+            meshPtr->meshName = "rightBox";
 
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -418,6 +434,8 @@ public:
                                                       rot,
                                                       scale,
                                                       2);
+
+            meshPtr->meshName = "lightPlane";
 
             //	Build BVH for ray collision
             uint32_t triOffset = 0;
@@ -560,6 +578,7 @@ public:
             Mesh& mesh = m_Scene.meshes[i];
             bool meshTransformToBeUpdated = false, meshMatToBeUpdated = false;
             ImGui::Text("Object ID : %d", i);
+            ImGui::Text("Object Name : %s", mesh.meshName);
             meshTransformToBeUpdated |= ImGui::DragFloat3("Position", glm::value_ptr(mesh.position), 0.1f);
             meshTransformToBeUpdated |= ImGui::DragFloat3("Rotation", glm::value_ptr(mesh.rotation), 0.1f);
             meshTransformToBeUpdated |= ImGui::DragFloat3("Scale", glm::value_ptr(mesh.scale), 0.1f);
