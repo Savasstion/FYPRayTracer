@@ -5,6 +5,9 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <glm/vec3.hpp>
+
+#include "ColorUtils.cuh"
 
 
 bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPixels, int width,
@@ -110,4 +113,44 @@ std::string MisUtils::GetTimestampedFilename(const std::string& baseName, const 
         << extension;
 
     return oss.str();
+}
+
+double MisUtils::ComputeMSE(const uint32_t* orig, const uint32_t* noisy, uint32_t width, uint32_t height)
+{
+    const uint64_t pixelCount = uint64_t(width) * uint64_t(height);
+    const uint64_t channelCount = pixelCount * 3; // RGB only
+
+    double mse = 0.0;
+
+    for (uint64_t i = 0; i < pixelCount; i++)
+    {
+        uint32_t p0 = orig[i];
+        uint32_t p1 = noisy[i];
+
+        // Extract channels (ABGR format)
+        int r0 = (p0 >> 0)  & 0xFF;
+        int g0 = (p0 >> 8)  & 0xFF;
+        int b0 = (p0 >> 16) & 0xFF;
+
+        int r1 = (p1 >> 0)  & 0xFF;
+        int g1 = (p1 >> 8)  & 0xFF;
+        int b1 = (p1 >> 16) & 0xFF;
+
+        // Accumulate squared differences
+        mse += (r0 - r1) * (r0 - r1);
+        mse += (g0 - g1) * (g0 - g1);
+        mse += (b0 - b1) * (b0 - b1);
+    }
+
+    mse /= double(channelCount);
+    return mse;
+}
+
+double MisUtils::ComputePSNR(double mse)
+{
+    if (mse == 0.0)
+        return INFINITY;
+
+    const double maxValue = 255.0; // 8-bit per channel
+    return 10.0 * log10((maxValue * maxValue) / mse);
 }

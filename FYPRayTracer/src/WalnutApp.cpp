@@ -539,7 +539,28 @@ public:
         
         if (ImGui::Button("Benchmark render results"))
         {
-            SaveBenchmarkResults();
+            const char* patterns[] = { "*.bmp" };
+            const char* abs = tinyfd_openFileDialog(
+                "Select Reference Image",
+                "",
+                1, patterns,
+                NULL, 0);
+
+            if (abs)
+            {
+                auto rel = std::filesystem::relative(abs, std::filesystem::current_path()).string();
+                Texture referenceImage = Texture(rel);
+
+                if(m_ViewportHeight == referenceImage.height && m_ViewportWidth == referenceImage.width)
+                {
+                    SaveBenchmarkResults(referenceImage.pixels);
+                }
+                else
+                {
+                    std::cerr << "Incorrect Reference Image Dimensions!\n";
+                }
+                referenceImage.FreeTexture();
+            }
         }
         ImGui::SameLine();
         ImGui::Text("Note: You will be prompt to select a reference image to compare with current render");
@@ -717,13 +738,41 @@ public:
         fileName.append("_" + std::to_string(m_RenderTime / 60000.0f) + "(min)s");
         std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
         fileName.append("_" + samplingTechniqueName);
-        fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
-        fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        
+        if(m_Renderer.GetSettings().currentSamplingTechnique != RESTIR_DI && m_Renderer.GetSettings().currentSamplingTechnique != RESTIR_GI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        }
+        else if(m_Renderer.GetSettings().currentSamplingTechnique == RESTIR_DI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightCandidateCount) + "candidate(s)");
+            if(m_Renderer.GetSettings().useTemporalReuse)
+                fileName.append("_temporalHistoryLimit(" + std::to_string(m_Renderer.GetSettings().temporalHistoryLimit) + ")");
+            if(m_Renderer.GetSettings().useSpatialReuse)
+            {
+                fileName.append("_NeighbourCount(" + std::to_string(m_Renderer.GetSettings().spatialNeighborNum) + ")");
+                fileName.append("_NeighbourRadius(" + std::to_string(m_Renderer.GetSettings().spatialNeighborRadius) + ")");
+            }
+        }
+        else if(m_Renderer.GetSettings().currentSamplingTechnique == RESTIR_GI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightCandidateCount) + "candidate(s)");
+            if(m_Renderer.GetSettings().useTemporalReuse)
+                fileName.append("_temporalHistoryLimit(" + std::to_string(m_Renderer.GetSettings().temporalHistoryLimit) + ")");
+            if(m_Renderer.GetSettings().useSpatialReuse)
+            {
+                fileName.append("_NeighbourCount(" + std::to_string(m_Renderer.GetSettings().spatialNeighborNum) + ")");
+                fileName.append("_NeighbourRadius(" + std::to_string(m_Renderer.GetSettings().spatialNeighborRadius) + ")");
+            }
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        }
+        
         std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
         MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
     }
 
-    void SaveBenchmarkResults()
+    void SaveBenchmarkResults(uint32_t* referenceImagePixels)
     {
         if (m_Renderer.GetCurrentFrameIndex() == 1)
             m_AverageFrameTime = m_CurrentFrameTime;
@@ -735,10 +784,41 @@ public:
         fileName.append("_" + std::to_string(m_RenderTime / 60000.0f) + "(min)s");
         std::string samplingTechniqueName = samplingTechniqueNames[m_Renderer.GetSettings().currentSamplingTechnique];
         fileName.append("_" + samplingTechniqueName);
-        fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
-        fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
-
+        
+        if(m_Renderer.GetSettings().currentSamplingTechnique != RESTIR_DI && m_Renderer.GetSettings().currentSamplingTechnique != RESTIR_GI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().sampleCount) + "sample(s)");
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        }
+        else if(m_Renderer.GetSettings().currentSamplingTechnique == RESTIR_DI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightCandidateCount) + "candidate(s)");
+            if(m_Renderer.GetSettings().useTemporalReuse)
+                fileName.append("_temporalHistoryLimit(" + std::to_string(m_Renderer.GetSettings().temporalHistoryLimit) + ")");
+            if(m_Renderer.GetSettings().useSpatialReuse)
+            {
+                fileName.append("_NeighbourCount(" + std::to_string(m_Renderer.GetSettings().spatialNeighborNum) + ")");
+                fileName.append("_NeighbourRadius(" + std::to_string(m_Renderer.GetSettings().spatialNeighborRadius) + ")");
+            }
+        }
+        else if(m_Renderer.GetSettings().currentSamplingTechnique == RESTIR_GI)
+        {
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightCandidateCount) + "candidate(s)");
+            if(m_Renderer.GetSettings().useTemporalReuse)
+                fileName.append("_temporalHistoryLimit(" + std::to_string(m_Renderer.GetSettings().temporalHistoryLimit) + ")");
+            if(m_Renderer.GetSettings().useSpatialReuse)
+            {
+                fileName.append("_NeighbourCount(" + std::to_string(m_Renderer.GetSettings().spatialNeighborNum) + ")");
+                fileName.append("_NeighbourRadius(" + std::to_string(m_Renderer.GetSettings().spatialNeighborRadius) + ")");
+            }
+            fileName.append("_" + std::to_string(m_Renderer.GetSettings().lightBounces) + "rayBounces(s)");
+        }
+        
         //  Add noise metrics in the log by first loading a reference image from file explorer and compare it to get MSE and PSNR
+        float mse = MisUtils::ComputeMSE(referenceImagePixels, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
+        fileName.append("_MSE(" + std::to_string(mse) + ")");
+        float psnr = MisUtils::ComputePSNR(mse);
+        fileName.append("_PSNR(" + std::to_string(psnr) + ")");
         
         std::string finalFilename = MisUtils::GetTimestampedFilename(fileName);
         MisUtils::SaveABGRToBMP(finalFilename, m_Renderer.GetRenderImageDataPtr(), m_ViewportWidth, m_ViewportHeight);
