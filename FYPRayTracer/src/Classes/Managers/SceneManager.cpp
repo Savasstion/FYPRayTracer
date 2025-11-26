@@ -6,11 +6,21 @@
 void SceneManager::PerformAllSceneUpdates(Scene& scene, Renderer& renderer)
 {
     bool toUpdateSceneTLAS = false;
+
+    //  do all material updates
+    if(!materialsToUpdate.empty())
+    {
+        //  values are already set in UI
+        renderer.SetSceneToBeUpdatedFlag(true);
+        //  Its possible user has change the emission properties and Light Trees need to be rebuilt accordingly
+        toUpdateSceneTLAS = true;
+    }
     
     //  do all mesh updates here
     for(uint32_t i = 0; i < meshesToUpdate.size(); i++)
     {
         Mesh& mesh = scene.meshes[meshesToUpdate[i].meshIndex];
+        bool toUpdateMeshBLASs = false;
         
         if(meshesToUpdate[i].meshTransformToBeUpdated)
         {
@@ -49,8 +59,37 @@ void SceneManager::PerformAllSceneUpdates(Scene& scene, Renderer& renderer)
                 tri.aabb.centroidPos = AABB::FindCentroid(tri.aabb);
             }
             
+            
+
+            toUpdateSceneTLAS = true;
+            renderer.SetSceneToBeUpdatedFlag(true);
+            toUpdateMeshBLASs = true;
+        }
+
+        if(meshesToUpdate[i].meshMatToBeUpdated)
+        {
+            int32_t triangleStart = mesh.indexStart / 3;
+            uint32_t triangleEnd = mesh.indexStart / 3 + mesh.indexCount / 3;
+
+            // modify triangles' material index
+            for (uint32_t i = triangleStart; i < triangleEnd; i++)
+            {
+                Triangle& tri = scene.triangles[i];
+                tri.materialIndex = mesh.materialIndex;
+            }
+            
+            renderer.SetSceneToBeUpdatedFlag(true);
+            //  New emissive triangles could have been made
+            toUpdateSceneTLAS = true;
+            toUpdateMeshBLASs = true;
+        }
+
+        if(toUpdateMeshBLASs)
+        {
             // compute mesh AABB by merging its triangles’ AABBs
             AABB meshBounds{};
+            int32_t triangleStart = mesh.indexStart / 3;
+            uint32_t triangleEnd = mesh.indexStart / 3 + mesh.indexCount / 3;
             for (uint32_t i = triangleStart; i < triangleEnd; i++)
                 meshBounds = AABB::UnionAABB(meshBounds, scene.triangles[i].aabb);
             mesh.aabb = meshBounds;
@@ -70,34 +109,9 @@ void SceneManager::PerformAllSceneUpdates(Scene& scene, Renderer& renderer)
             else
                 mesh.lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
-
-            toUpdateSceneTLAS = true;
-            renderer.SetSceneToBeUpdatedFlag(true);
-        }
-
-        if(meshesToUpdate[i].meshMatToBeUpdated)
-        {
-            int32_t triangleStart = mesh.indexStart / 3;
-            uint32_t triangleEnd = mesh.indexStart / 3 + mesh.indexCount / 3;
-
-            // modify triangles' material index
-            for (uint32_t i = triangleStart; i < triangleEnd; i++)
-            {
-                Triangle& tri = scene.triangles[i];
-                tri.materialIndex = mesh.materialIndex;
-            }
-            
-            renderer.SetSceneToBeUpdatedFlag(true);
         }
     }
-
-    //  do all material updates
-    if(!materialsToUpdate.empty())
-    {
-        //  values are already set in UI
-        renderer.SetSceneToBeUpdatedFlag(true);
-    }
-
+    
     if(toUpdateSceneTLAS)
     {
         //	Scene TLAS Construction
