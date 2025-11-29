@@ -128,13 +128,13 @@ double MisUtils::ComputeMSE(const uint32_t* orig, const uint32_t* noisy, uint32_
         uint32_t p1 = noisy[i];
 
         // Extract channels (ABGR format)
-        int r0 = (p0 >> 0)  & 0xFF;
-        int g0 = (p0 >> 8)  & 0xFF;
-        int b0 = (p0 >> 16) & 0xFF;
+        int r0 = static_cast<int>((p0 >> 0) & 0xFF);
+        int g0 = static_cast<int>((p0 >> 8) & 0xFF);
+        int b0 = static_cast<int>((p0 >> 16) & 0xFF);
 
-        int r1 = (p1 >> 0)  & 0xFF;
-        int g1 = (p1 >> 8)  & 0xFF;
-        int b1 = (p1 >> 16) & 0xFF;
+        int r1 = static_cast<int>((p1 >> 0) & 0xFF);
+        int g1 = static_cast<int>((p1 >> 8) & 0xFF);
+        int b1 = static_cast<int>((p1 >> 16) & 0xFF);
 
         // Accumulate squared differences
         mse += (r0 - r1) * (r0 - r1);
