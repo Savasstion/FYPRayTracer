@@ -19,7 +19,7 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
         //  Reset Primary Hit Payload Data Buffer
         ResizePrimaryHitPayloadBuffers(width, height);
         // Reset ReSTIR DI reservoirs
-        ResizeDIReservoirs(width, height);
+        ResizeReservoirs(width, height);
     }
     else
     {

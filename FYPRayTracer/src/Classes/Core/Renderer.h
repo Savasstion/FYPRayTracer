@@ -9,6 +9,7 @@
 #include "../BaseClasses/Scene.h"
 #include "../BaseClasses/Camera.h"
 #include "../../DataStructures/ReSTIR_DI_Reservoir.cuh"
+#include "../../DataStructures/ReSTIR_GI_Reservoir.cuh"
 
 
 class Renderer
@@ -33,6 +34,10 @@ private:
     ReSTIR_DI_Reservoir* di_reservoirs = nullptr;
     ReSTIR_DI_Reservoir* di_prev_reservoirs = nullptr;
 
+    //  for ReSTIR GI (device ptrs)
+    ReSTIR_GI_Reservoir::PathSample* gi_samples = nullptr;
+    ReSTIR_GI_Reservoir* gi_prev_reservoirs = nullptr;
+
 public:
     Renderer() = default;
     void OnResize(uint32_t width, uint32_t height);
@@ -43,7 +48,7 @@ public:
     RenderingSettings& GetSettings() { return m_Settings; }
     uint32_t GetCurrentFrameIndex() const { return m_FrameIndex; }
     uint32_t* GetRenderImageDataPtr() const { return m_RenderImageData; }
-    void ResizeDIReservoirs(uint32_t width, uint32_t height);
+    void ResizeReservoirs(uint32_t width, uint32_t height);
     void ResizeDepthBuffers(uint32_t width, uint32_t height);
     void ResizeNormalBuffers(uint32_t width, uint32_t height);
     void ResizePrimaryHitPayloadBuffers(uint32_t width, uint32_t height);

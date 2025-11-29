@@ -82,6 +82,15 @@ struct RendererGPU
         uint32_t imageWidth,
         ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
         float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
+
+    __host__ __device__ static glm::vec4 PerPixel_ReSTIR_GI(
+        uint32_t x, uint32_t y,
+        uint8_t maxBounces,
+        uint32_t frameIndex, const RenderingSettings& settings,
+        const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+        uint32_t imageWidth,
+        ReSTIR_GI_Reservoir::PathSample* gi_samples, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+        float* depthBuffers, glm::vec2* normalBuffers);
     
     __host__ __device__ static RayHitPayload TraceRay(
         const Ray& ray, const Scene_GPU* activeScene);

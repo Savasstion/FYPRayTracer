@@ -254,7 +254,7 @@ void Renderer::Render(Scene& scene, Camera& camera)
     FreeCameraGPU(d_cameraGPU);
 }
 
-void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
+void Renderer::ResizeReservoirs(uint32_t width, uint32_t height)
 {
     if (di_reservoirs)
         cudaFree(di_reservoirs);
@@ -262,31 +262,64 @@ void Renderer::ResizeDIReservoirs(uint32_t width, uint32_t height)
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
+    if (gi_samples)
+        cudaFree(gi_samples);
+
+    if (gi_prev_reservoirs)
+        cudaFree(gi_prev_reservoirs);
+
     //  each pixel gets its own reservoir
-    uint32_t di_reservoir_count = width * height;
+    uint32_t reservoir_count = width * height;
 
-    cudaError_t err = cudaMalloc((void**)&di_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    cudaError_t err = cudaMalloc((void**)&di_reservoirs, reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
         return;
     }
 
-    err = cudaMalloc((void**)&di_prev_reservoirs, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    err = cudaMalloc((void**)&di_prev_reservoirs, reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
         return;
     }
+
+    err = cudaMalloc((void**)&gi_samples, reservoir_count * sizeof(ReSTIR_GI_Reservoir::PathSample));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+        return;
+    }
+
+    err = cudaMalloc((void**)&gi_prev_reservoirs, reservoir_count * sizeof(ReSTIR_GI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMalloc failed!\n";
+        return;
+    }
+    
 
     //  Properly initialize reservoirs
-    err = cudaMemset(di_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    err = cudaMemset(di_reservoirs, 0, reservoir_count * sizeof(ReSTIR_DI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
     }
 
-    err = cudaMemset(di_prev_reservoirs, 0, di_reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    err = cudaMemset(di_prev_reservoirs, 0, reservoir_count * sizeof(ReSTIR_DI_Reservoir));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
+
+    err = cudaMemset(gi_samples, 0, reservoir_count * sizeof(ReSTIR_GI_Reservoir::PathSample));
+    if (err != cudaSuccess)
+    {
+        std::cerr << "cudaMemset failed!\n";
+    }
+
+    err = cudaMemset(gi_prev_reservoirs, 0, reservoir_count * sizeof(ReSTIR_GI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -386,6 +419,12 @@ void Renderer::FreeDynamicallyAllocatedMemory()
 
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
+
+    if (gi_samples)
+        cudaFree(gi_samples);
+
+    if (gi_prev_reservoirs)
+        cudaFree(gi_prev_reservoirs);
 }
 
 
@@ -2361,6 +2400,206 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI_Part2(uint32_t x, 
     di_prev_reservoirs[x + y * imageWidth] = pixelReservoir;
 
     return glm::vec4(radiance, 1.0f);
+}
+
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI(uint32_t x, uint32_t y, uint8_t maxBounces, uint32_t frameIndex,
+    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth, ReSTIR_GI_Reservoir::PathSample* gi_samples, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+    float* depthBuffers, glm::vec2* normalBuffers)
+{
+    uint32_t seed = x + y * imageWidth;
+    seed *= frameIndex + 1;
+
+    glm::vec3 radiance{0.0f};
+
+    // PRIMARY RAY
+    Ray primaryRay;
+    primaryRay.origin = activeCamera->position;
+    primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
+
+    RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
+    //primaryHitPayloadBuffers[x + y * imageWidth] = primaryPayload;
+    ReSTIR_GI_Reservoir::PathSample& pixelSample = gi_samples[x + y * imageWidth];
+    pixelSample.ResetSample();
+
+    // Miss: hit sky
+    if (primaryPayload.hitDistance < 0.0f)
+    {
+        //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
+        depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
+        normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+        return glm::vec4(settings.skyColor, 1.0f);
+    }
+    
+    const Triangle& primaryHitTri = activeScene->triangles[primaryPayload.objectIndex];
+    const Material& primaryHitMaterial = activeScene->materials[primaryHitTri.materialIndex];
+
+    // Hit emissive surface
+    if (glm::length(primaryHitMaterial.GetEmission()) > 0.0f)
+    {
+        //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
+        depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
+        normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+        return glm::vec4(primaryHitMaterial.GetEmission(), 1.0f);
+    }
+
+    //  ReSTIR GI
+    //  Initial Sampling by using BRDF Sampling
+    {
+        uint32_t originalSeedForPath = seed;
+        glm::vec3 sampleThroughput{1.0f};
+        glm::vec3 sampleRadiance{0.0f};
+        glm::vec3 samplePoint{0.0f};
+        glm::vec3 sampleNormal{0.0f};
+        Ray sampleRay;
+        RayHitPayload samplePayload = primaryPayload;
+
+        // Sample albedo from albedo map is exist
+        glm::vec3 sampledAlbedo = {0.0f, 0.0f, 0.0f};
+        if (primaryHitMaterial.isUseAlbedoMap && primaryHitMaterial.albedoMapIndex <= activeScene->textureCount - 1)
+        {
+            Texture& albedoMap = activeScene->textures[primaryHitMaterial.albedoMapIndex];
+            uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+            glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+            sampledAlbedo.r = color4.r;
+            sampledAlbedo.g = color4.g;
+            sampledAlbedo.b = color4.b;
+        }
+        else
+        {
+            sampledAlbedo = primaryHitMaterial.albedo;
+        }
+
+        // Sample initial bounce
+        float sampledPDF;
+        glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
+            primaryPayload.worldNormal,
+            -primaryRay.direction,
+            sampledAlbedo,
+            primaryHitMaterial.metallic,
+            primaryHitMaterial.roughness,
+            seed,
+            sampledPDF
+        );
+
+        glm::vec3 brdf = MathUtils::CalculateBRDF(
+            primaryPayload.worldNormal,
+            -primaryRay.direction,
+            newDir,
+            sampledAlbedo,
+            primaryHitMaterial.metallic,
+            primaryHitMaterial.roughness
+        );
+
+        float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
+        sampleThroughput *= brdf * cosTheta / sampledPDF;
+
+        sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
+        sampleRay.direction = newDir;
+    
+        for(int bounce = 0; bounce < maxBounces; bounce++)
+        {
+            seed += 31 * bounce;
+            samplePayload = TraceRay(sampleRay, activeScene);
+
+            //  Get ReSTIR GI sample point and normal, only for first bounce's sample point and normal
+            if(bounce == 0)
+            {
+                samplePoint = samplePayload.worldPosition;
+                sampleNormal = samplePayload.worldNormal;
+            }
+
+            // Miss: hit sky
+            if (samplePayload.hitDistance < 0.0f)
+            {
+                sampleRadiance += sampleThroughput * settings.skyColor;
+                break;
+            }
+
+            const Triangle& tri = activeScene->triangles[samplePayload.objectIndex];
+            const Material& material = activeScene->materials[tri.materialIndex];
+
+            // Hit emissive
+            glm::vec3 emission = material.GetEmission();
+            if (glm::length(emission) > 0.0f)
+            {
+                sampleRadiance += sampleThroughput * emission;
+                break;
+            }
+
+            // Sample albedo from albedo map is exist
+            sampledAlbedo = {0.0f, 0.0f, 0.0f};
+            if (material.isUseAlbedoMap && material.albedoMapIndex <= activeScene->textureCount - 1)
+            {
+                Texture& albedoMap = activeScene->textures[material.albedoMapIndex];
+                uint32_t pixelBits = albedoMap.SampleBilinear(samplePayload.u, samplePayload.v);
+                glm::vec4 color4 = ColorUtils::UnpackABGR(pixelBits);
+                sampledAlbedo.r = color4.r;
+                sampledAlbedo.g = color4.g;
+                sampledAlbedo.b = color4.b;
+            }
+            else
+            {
+                sampledAlbedo = material.albedo;
+            }
+
+            // Next bounce
+            float bouncePdf;
+            glm::vec3 bounceDir = MathUtils::BRDFSampleHemisphere(
+                samplePayload.worldNormal,
+                -sampleRay.direction,
+                sampledAlbedo,
+                material.metallic,
+                material.roughness,
+                seed,
+                bouncePdf
+            );
+
+            glm::vec3 bounceBrdf = MathUtils::CalculateBRDF(
+                samplePayload.worldNormal,
+                -sampleRay.direction,
+                bounceDir,
+                sampledAlbedo,
+                material.metallic,
+                material.roughness
+            );
+
+            float bounceCosTheta = glm::max(glm::dot(bounceDir, samplePayload.worldNormal), 0.0f);
+            sampleThroughput *= bounceBrdf * bounceCosTheta / bouncePdf;
+
+            sampleRay.origin = samplePayload.worldPosition + samplePayload.worldNormal * 1e-12f;
+            sampleRay.direction = bounceDir;
+        }
+        
+        pixelSample.randSeed = originalSeedForPath;
+        pixelSample.visiblePoint = primaryPayload.worldPosition;
+        pixelSample.visibleNormal = primaryPayload.worldNormal;
+        pixelSample.samplePoint = samplePoint;
+        pixelSample.sampleNormal = sampleNormal;
+        pixelSample.outgoingRadiance = sampleRadiance;
+    }
+
+    ReSTIR_GI_Reservoir& temporalReservoir = gi_prev_reservoirs[x + y * imageWidth];
+    //  Temporal Resampling
+    if (settings.useTemporalReuse)
+    {
+        float weight = glm::length(pixelSample.outgoingRadiance);
+        temporalReservoir.UpdateReservoir(pixelSample, weight, seed);
+        temporalReservoir.weightFinal = temporalReservoir.weightSample /
+            (static_cast<float>(temporalReservoir.pathProcessedCount) * glm::length(temporalReservoir.sample.outgoingRadiance));
+    }
+    else
+    {
+        temporalReservoir.sample = pixelSample;
+        temporalReservoir.weightFinal = 1.0f;
+    }
+
+    
+
+
+    //  Final step
+    radiance = temporalReservoir.sample.outgoingRadiance * temporalReservoir.weightFinal;
+    return {radiance, 1.0f};
 }
 
 __host__ __device__ RayHitPayload RendererGPU::ClosestHit(
