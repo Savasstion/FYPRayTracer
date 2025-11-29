@@ -2573,9 +2573,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI(uint32_t x, uint32
         
         pixelSample.randSeed = originalSeedForPath;
         pixelSample.visiblePoint = primaryPayload.worldPosition;
-        pixelSample.visibleNormal = primaryPayload.worldNormal;
+        pixelSample.visibleNormal = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
         pixelSample.samplePoint = samplePoint;
-        pixelSample.sampleNormal = sampleNormal;
+        pixelSample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
         pixelSample.outgoingRadiance = sampleRadiance;
     }
 
