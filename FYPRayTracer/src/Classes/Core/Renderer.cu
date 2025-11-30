@@ -2602,11 +2602,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
     uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
     float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
+    ReSTIR_GI_Reservoir temporalReservoir = gi_prev_reservoirs[x + y * imageWidth]; // take a copy instead of reference, race condition could be avoided here.
+    RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1 * 213;
     glm::vec3 radiance{0.0f};
-    ReSTIR_GI_Reservoir& temporalReservoir = gi_prev_reservoirs[x + y * imageWidth];
-    RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
 
     //  Spatial resampling
     if (settings.useTemporalReuse)
@@ -2677,6 +2677,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
     //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
     depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
     normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+
+    //  Update temporal reservoir
+    gi_prev_reservoirs[x + y * imageWidth] = temporalReservoir;
     
     //  Final step
     radiance = temporalReservoir.sample.outgoingRadiance * temporalReservoir.weightFinal;
