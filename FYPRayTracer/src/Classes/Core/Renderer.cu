@@ -2402,15 +2402,13 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI_Part2(uint32_t x, 
     return glm::vec4(radiance, 1.0f);
 }
 
-__host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI(uint32_t x, uint32_t y, uint8_t maxBounces, uint32_t frameIndex,
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, uint32_t y, uint8_t maxBounces, uint32_t frameIndex,
     const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
     uint32_t imageWidth, ReSTIR_GI_Reservoir::PathSample* gi_samples, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
-    float* depthBuffers, glm::vec2* normalBuffers)
+    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1;
-
-    glm::vec3 radiance{0.0f};
 
     // PRIMARY RAY
     Ray primaryRay;
@@ -2418,7 +2416,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI(uint32_t x, uint32
     primaryRay.direction = activeCamera->rayDirections[x + y * imageWidth];
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
-    //primaryHitPayloadBuffers[x + y * imageWidth] = primaryPayload;
+    primaryHitPayloadBuffers[x + y * imageWidth] = primaryPayload;
     ReSTIR_GI_Reservoir::PathSample& pixelSample = gi_samples[x + y * imageWidth];
     pixelSample.ResetSample();
 
@@ -2590,13 +2588,96 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI(uint32_t x, uint32
     }
     else
     {
-        temporalReservoir.sample = pixelSample;
+        temporalReservoir.ResetReservoir();
+        float weight = glm::length(pixelSample.outgoingRadiance);
+        temporalReservoir.UpdateReservoir(pixelSample, weight, seed);
         temporalReservoir.weightFinal = 1.0f;
     }
-
     
+    return {0.0f, 0.0f, 0.0f, 0.0f};
+}
 
+__host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, uint32_t y, uint32_t frameIndex,
+    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+    uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
+{
+    uint32_t seed = x + y * imageWidth;
+    seed *= frameIndex + 1 * 213;
+    glm::vec3 radiance{0.0f};
+    ReSTIR_GI_Reservoir& temporalReservoir = gi_prev_reservoirs[x + y * imageWidth];
+    RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
 
+    //  Spatial resampling
+    if (settings.useTemporalReuse)
+    {
+        uint8_t numNeighbors = static_cast<uint8_t>(settings.spatialNeighborNum); //  num of neighbours to sample
+        uint8_t radius = static_cast<uint8_t>(settings.spatialNeighborRadius); //  pixel radius
+        uint32_t Z = 0;
+
+        //  Update spatial reservoir with neighbors' reservoirs
+        for (uint8_t i = 0; i < numNeighbors; i++)
+        {
+            glm::float2 offset{2.0f * MathUtils::randomFloat(seed) - 1.0f, 2.0f * MathUtils::randomFloat(seed) - 1.0f};
+            offset.x = x + int(offset.x * radius);
+            offset.y = y + int(offset.y * radius);
+
+            offset.x = fmaxf(0, fminf(activeCamera->viewportSize.x - 1, offset.x));
+            offset.y = fmaxf(0, fminf(activeCamera->viewportSize.y - 1, offset.y));
+
+            uint32_t neighborIndex = static_cast<uint32_t>(offset.x) + static_cast<uint32_t>(offset.y) * imageWidth;
+
+            float neighbourDepth = primaryHitPayloadBuffers[neighborIndex].hitDistance;
+            float pixelDepth = primaryPayload.hitDistance;
+
+            if ((neighbourDepth > 1.1f * pixelDepth || neighbourDepth < 0.9f * pixelDepth) ||
+                glm::dot(primaryPayload.worldNormal, MathUtils::DecodeOctahedral(normalBuffers[neighborIndex])) < 0.906)
+            {
+                // skip this neighbour sample if not suitable
+                continue;
+            }
+
+            ReSTIR_GI_Reservoir& neighbourReservoir = gi_prev_reservoirs[neighborIndex];
+
+            //  check neighbor radiance len for bias correction step
+            float neigborRadianceLen = glm::length(neighbourReservoir.sample.outgoingRadiance);
+            if(neigborRadianceLen > 0.0f)
+            {
+                Z += neighbourReservoir.pathProcessedCount;
+            }
+
+            //  Calc Jacobian, Equation 11 of ReSTIR GI paper
+            glm::vec3 dirNsampleToNvisible = glm::normalize(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float cosDeltaQ2 = glm::dot(MathUtils::DecodeOctahedral(neighbourReservoir.sample.sampleNormal), dirNsampleToNvisible);
+            glm::vec3 dirNsampleToPvisible = glm::normalize(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float cosDeltaR2 = glm::dot(MathUtils::DecodeOctahedral(neighbourReservoir.sample.sampleNormal), dirNsampleToPvisible);
+            float jacobianLHS = cosDeltaR2 / cosDeltaQ2;
+            float jacobianRHS = glm::exp2(glm::length(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint)) / glm::exp2(glm::length(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint));
+            float jacobian = jacobianLHS * jacobianRHS;
+            float pdf = neigborRadianceLen / jacobian;
+
+            //  Check if neighbor's sample point is not visible to visible point of current pixel
+            Ray ray;
+            ray.origin = neighbourReservoir.sample.samplePoint;
+            ray.direction = glm::normalize(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float distance = glm::length(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            RayHitPayload payload = TraceRay(ray, activeScene);
+            if(payload.hitDistance != distance)
+            {
+                pdf = 0.0f;
+            }
+
+            temporalReservoir.MergeReservoir(neighbourReservoir, pdf, seed);
+        }
+        //  Bias correction, equation 7 of ReSTIR GI paper
+        temporalReservoir.weightFinal = temporalReservoir.weightSample / (static_cast<float>(Z) * glm::length(temporalReservoir.sample.outgoingRadiance));
+        
+    }
+
+    //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
+    depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
+    normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+    
     //  Final step
     radiance = temporalReservoir.sample.outgoingRadiance * temporalReservoir.weightFinal;
     return {radiance, 1.0f};
