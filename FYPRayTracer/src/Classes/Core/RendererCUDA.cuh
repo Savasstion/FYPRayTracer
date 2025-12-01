@@ -89,7 +89,7 @@ struct RendererGPU
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth,
-        ReSTIR_GI_Reservoir::PathSample* gi_samples, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+        ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
         float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
 
     __host__ __device__ static glm::vec4 PerPixel_ReSTIR_GI_Part2(
@@ -97,7 +97,7 @@ struct RendererGPU
         uint32_t frameIndex, const RenderingSettings& settings,
         const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
         uint32_t imageWidth,
-        ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+        ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
         float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
     
     __host__ __device__ static RayHitPayload TraceRay(
@@ -148,5 +148,15 @@ __global__ void ReSTIR_DI_Part2_Kernel(glm::vec4* accumulationData, uint32_t* re
                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
                                       ReSTIR_DI_Reservoir* di_reservoirs, ReSTIR_DI_Reservoir* di_prev_reservoirs,
                                       float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
+
+__global__ void ReSTIR_GI_Part1_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                                       ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+                                       float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
+
+__global__ void ReSTIR_GI_Part2_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                                       ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+                                       float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers);
 
 #endif

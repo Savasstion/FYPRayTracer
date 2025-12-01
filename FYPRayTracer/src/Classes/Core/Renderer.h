@@ -35,7 +35,7 @@ private:
     ReSTIR_DI_Reservoir* di_prev_reservoirs = nullptr;
 
     //  for ReSTIR GI (device ptrs)
-    ReSTIR_GI_Reservoir::PathSample* gi_samples = nullptr;
+    ReSTIR_GI_Reservoir* gi_reservoirs = nullptr;
     ReSTIR_GI_Reservoir* gi_prev_reservoirs = nullptr;
 
 public:

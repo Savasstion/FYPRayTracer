@@ -16,6 +16,7 @@ struct ReSTIR_GI_Reservoir
         glm::vec2 sampleNormal{0.0f};  // Octahedral Encoded
         glm::vec3 outgoingRadiance{0.0f};   //  Outgoing radiance at sample point in RGB
         uint32_t randSeed = 0;  // Random number used for path
+        float samplePDF;
 
         __host__ __device__ void ResetSample();
     };
@@ -23,12 +24,13 @@ struct ReSTIR_GI_Reservoir
     PathSample sample;
     float weightSample = 0.0f;
     uint32_t pathProcessedCount = 0;
-    float weightFinal = 0.0f;
+    float weightSum = 0.0f;
 
     __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t count, uint32_t& randSeed);
     __host__ __device__ bool MergeReservoir(const ReSTIR_GI_Reservoir& otherReservoir, float pdf, uint32_t& randSeed);
     __host__ __device__ void ResetReservoir();
-    __host__ __device__ bool CheckIfValid();
+    __host__ __device__ bool CheckIfValid() const;
 };
 
 #endif

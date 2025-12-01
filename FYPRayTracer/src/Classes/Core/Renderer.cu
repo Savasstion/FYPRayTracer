@@ -7,6 +7,7 @@
 #include <iostream>
 #include <glm/gtx/compatibility.hpp>
 
+
 Scene_GPU* RendererGPU::d_currentScene = nullptr;
 
 void Renderer::Render(Scene& scene, Camera& camera)
@@ -192,7 +193,35 @@ void Renderer::Render(Scene& scene, Camera& camera)
             normalBuffers,
             primaryHitPayloadBuffers);
         break;
-    // case RESTIR_GI:
+    case RESTIR_GI:
+        ReSTIR_GI_Part1_Kernel<<<numBlocks, threadsPerBlock>>>(
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU,
+            gi_reservoirs,
+            gi_prev_reservoirs,
+            depthBuffers,
+            normalBuffers,
+            primaryHitPayloadBuffers);
+        ReSTIR_GI_Part2_Kernel<<<numBlocks, threadsPerBlock>>>(
+            d_accumulationData,
+            d_renderImageData,
+            width,
+            height,
+            m_FrameIndex,
+            m_Settings,
+            d_sceneGPU,
+            d_cameraGPU,
+            gi_reservoirs,
+            gi_prev_reservoirs,
+            depthBuffers,
+            normalBuffers, primaryHitPayloadBuffers);
+        break;
     default:
         ShadeBruteForce_Kernel<<<numBlocks, threadsPerBlock>>>(
             d_accumulationData,
@@ -262,8 +291,8 @@ void Renderer::ResizeReservoirs(uint32_t width, uint32_t height)
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
-    if (gi_samples)
-        cudaFree(gi_samples);
+    if (gi_reservoirs)
+        cudaFree(gi_reservoirs);
 
     if (gi_prev_reservoirs)
         cudaFree(gi_prev_reservoirs);
@@ -285,7 +314,7 @@ void Renderer::ResizeReservoirs(uint32_t width, uint32_t height)
         return;
     }
 
-    err = cudaMalloc((void**)&gi_samples, reservoir_count * sizeof(ReSTIR_GI_Reservoir::PathSample));
+    err = cudaMalloc((void**)&gi_reservoirs, reservoir_count * sizeof(ReSTIR_GI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMalloc failed!\n";
@@ -313,7 +342,7 @@ void Renderer::ResizeReservoirs(uint32_t width, uint32_t height)
         std::cerr << "cudaMemset failed!\n";
     }
 
-    err = cudaMemset(gi_samples, 0, reservoir_count * sizeof(ReSTIR_GI_Reservoir::PathSample));
+    err = cudaMemset(gi_reservoirs, 0, reservoir_count * sizeof(ReSTIR_GI_Reservoir));
     if (err != cudaSuccess)
     {
         std::cerr << "cudaMemset failed!\n";
@@ -420,8 +449,8 @@ void Renderer::FreeDynamicallyAllocatedMemory()
     if (di_prev_reservoirs)
         cudaFree(di_prev_reservoirs);
 
-    if (gi_samples)
-        cudaFree(gi_samples);
+    if (gi_reservoirs)
+        cudaFree(gi_reservoirs);
 
     if (gi_prev_reservoirs)
         cudaFree(gi_prev_reservoirs);
@@ -2403,9 +2432,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI_Part2(uint32_t x, 
 }
 
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, uint32_t y, uint8_t maxBounces, uint32_t frameIndex,
-    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-    uint32_t imageWidth, ReSTIR_GI_Reservoir::PathSample* gi_samples, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
-    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
+                                                                    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+                                                                    uint32_t imageWidth, ::ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+                                                                    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1;
@@ -2417,8 +2446,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
 
     RayHitPayload primaryPayload = TraceRay(primaryRay, activeScene);
     primaryHitPayloadBuffers[x + y * imageWidth] = primaryPayload;
-    ReSTIR_GI_Reservoir::PathSample& pixelSample = gi_samples[x + y * imageWidth];
-    pixelSample.ResetSample();
+    ReSTIR_GI_Reservoir& pixelReservoir = gi_reservoirs[x + y * imageWidth];
+    pixelReservoir.ResetReservoir();
 
     // Miss: hit sky
     if (primaryPayload.hitDistance < 0.0f)
@@ -2469,7 +2498,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         }
 
         // Sample initial bounce
-        float sampledPDF;
         glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
             primaryPayload.worldNormal,
             -primaryRay.direction,
@@ -2477,7 +2505,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             primaryHitMaterial.metallic,
             primaryHitMaterial.roughness,
             seed,
-            sampledPDF
+            pixelReservoir.sample.samplePDF
         );
 
         glm::vec3 brdf = MathUtils::CalculateBRDF(
@@ -2490,7 +2518,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         );
 
         float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-        sampleThroughput *= brdf * cosTheta / sampledPDF;
+        sampleThroughput *= brdf * cosTheta / pixelReservoir.sample.samplePDF;
 
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;
@@ -2569,51 +2597,88 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             sampleRay.direction = bounceDir;
         }
         
-        pixelSample.randSeed = originalSeedForPath;
-        pixelSample.visiblePoint = primaryPayload.worldPosition;
-        pixelSample.visibleNormal = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
-        pixelSample.samplePoint = samplePoint;
-        pixelSample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
-        pixelSample.outgoingRadiance = sampleRadiance;
+        pixelReservoir.sample.randSeed = originalSeedForPath;
+        pixelReservoir.sample.visiblePoint = primaryPayload.worldPosition;
+        pixelReservoir.sample.visibleNormal = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+        pixelReservoir.sample.samplePoint = samplePoint;
+        pixelReservoir.sample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
+        pixelReservoir.sample.outgoingRadiance = sampleRadiance;
+        
     }
-
-    ReSTIR_GI_Reservoir& temporalReservoir = gi_prev_reservoirs[x + y * imageWidth];
+    
     //  Temporal Resampling
     if (settings.useTemporalReuse)
     {
-        float weight = glm::length(pixelSample.outgoingRadiance);
-        temporalReservoir.UpdateReservoir(pixelSample, weight, seed);
-        temporalReservoir.weightFinal = temporalReservoir.weightSample /
-            (static_cast<float>(temporalReservoir.pathProcessedCount) * glm::length(temporalReservoir.sample.outgoingRadiance));
+        //  Reproject using the motion vectors.
+        glm::vec2 uvPrev = MathUtils::GetUVFromNDC(activeCamera->prevProjection, activeCamera->prevView,
+                                                   primaryPayload.worldPosition);
+        glm::vec2 prevScreenPos = uvPrev * activeCamera->viewportSize;
+
+        uint32_t viewportW = static_cast<uint32_t>(activeCamera->viewportSize.x);
+        uint32_t viewportH = static_cast<uint32_t>(activeCamera->viewportSize.y);
+
+        int px = static_cast<int>(glm::floor(prevScreenPos.x));
+        int py = static_cast<int>(glm::floor(prevScreenPos.y));
+        px = glm::clamp(px, 0, (int)viewportW - 1);
+        py = glm::clamp(py, 0, (int)viewportH - 1);
+
+        //  Get normal buffer and prev reservoir of previous screen pos
+        uint32_t prevIdx = static_cast<uint32_t>(py) * viewportW + static_cast<uint32_t>(px);
+        glm::vec3 prevNormal = MathUtils::DecodeOctahedral(normalBuffers[prevIdx]);
+        ReSTIR_GI_Reservoir& prevReservoir = gi_prev_reservoirs[prevIdx];
+
+        //  Some simple rejection based on normals' divergence, can be improved
+        bool validHistory = glm::dot(prevNormal, primaryPayload.worldNormal) >= 0.99;
+        
+        ReSTIR_DI_Reservoir temporalReservoir;
+        temporalReservoir.ResetReservoir();
+
+        if (validHistory && prevReservoir.CheckIfValid())
+        {
+            //  Set history limit
+            uint8_t historyLimit = static_cast<uint8_t>(settings.temporalHistoryLimit);
+            prevReservoir.pathProcessedCount =
+                (historyLimit * pixelReservoir.pathProcessedCount < prevReservoir.pathProcessedCount)
+                    ? historyLimit * pixelReservoir.pathProcessedCount
+                    : prevReservoir.pathProcessedCount; //  return a < b ? a : b;
+
+            // glm::vec3 dir = pixelReservoir.sample.samplePoint - pixelReservoir.sample.visiblePoint;
+            // float dist = glm::length(dir);
+            // dir /= dist;
+            // float sourcePDF = pixelReservoir.sample.pdf * glm::dot(MathUtils::DecodeOctahedral(pixelReservoir.sample.visibleNormal), dir) / (dist * dist);
+            // pixelReservoir.weightSample = glm::length(pixelReservoir.sample.outgoingRadiance);
+            prevReservoir.UpdateReservoir(pixelReservoir.sample, pixelReservoir.weightSample, seed);
+            prevReservoir.weightSum = pixelReservoir.weightSample /
+                (static_cast<float>(pixelReservoir.pathProcessedCount) * pixelReservoir.weightSample);
+
+            pixelReservoir = prevReservoir;
+        }
     }
     else
     {
-        temporalReservoir.ResetReservoir();
-        float weight = glm::length(pixelSample.outgoingRadiance);
-        temporalReservoir.UpdateReservoir(pixelSample, weight, seed);
-        temporalReservoir.weightFinal = 1.0f;
+        pixelReservoir.weightSum = 1.0f;
     }
     
     return {0.0f, 0.0f, 0.0f, 0.0f};
 }
 
 __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, uint32_t y, uint32_t frameIndex,
-    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
-    uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
-    float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
+                                                                    const RenderingSettings& settings, const Scene_GPU* activeScene, const Camera_GPU* activeCamera,
+                                                                    uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_reservoirs,
+                                                                    ReSTIR_GI_Reservoir* gi_prev_reservoirs, float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
-    ReSTIR_GI_Reservoir temporalReservoir = gi_prev_reservoirs[x + y * imageWidth]; // take a copy instead of reference, race condition could be avoided here.
+    ReSTIR_GI_Reservoir pixelReservoir = gi_reservoirs[x + y * imageWidth];
     RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1 * 213;
     glm::vec3 radiance{0.0f};
 
     //  Spatial resampling
-    if (settings.useTemporalReuse)
+    if (settings.useSpatialReuse)
     {
         uint8_t numNeighbors = static_cast<uint8_t>(settings.spatialNeighborNum); //  num of neighbours to sample
         uint8_t radius = static_cast<uint8_t>(settings.spatialNeighborRadius); //  pixel radius
-        uint32_t Z = 0;
+        uint32_t Z = glm::length2(pixelReservoir.sample.outgoingRadiance) > 0.0f ? pixelReservoir.pathProcessedCount : 0;
 
         //  Update spatial reservoir with neighbors' reservoirs
         for (uint8_t i = 0; i < numNeighbors; i++)
@@ -2637,10 +2702,10 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
                 continue;
             }
 
-            ReSTIR_GI_Reservoir& neighbourReservoir = gi_prev_reservoirs[neighborIndex];
+            ReSTIR_GI_Reservoir& neighbourReservoir = gi_reservoirs[neighborIndex];
 
             //  check neighbor radiance len for bias correction step
-            float neigborRadianceLen = glm::length(neighbourReservoir.sample.outgoingRadiance);
+            float neigborRadianceLen = glm::length2(neighbourReservoir.sample.outgoingRadiance);
             if(neigborRadianceLen > 0.0f)
             {
                 Z += neighbourReservoir.pathProcessedCount;
@@ -2649,40 +2714,43 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
             //  Calc Jacobian, Equation 11 of ReSTIR GI paper
             glm::vec3 dirNsampleToNvisible = glm::normalize(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
             float cosDeltaQ2 = glm::dot(MathUtils::DecodeOctahedral(neighbourReservoir.sample.sampleNormal), dirNsampleToNvisible);
-            glm::vec3 dirNsampleToPvisible = glm::normalize(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            glm::vec3 dirNsampleToPvisible = glm::normalize(pixelReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
             float cosDeltaR2 = glm::dot(MathUtils::DecodeOctahedral(neighbourReservoir.sample.sampleNormal), dirNsampleToPvisible);
             float jacobianLHS = cosDeltaR2 / cosDeltaQ2;
-            float jacobianRHS = glm::exp2(glm::length(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint)) / glm::exp2(glm::length(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint));
+            float distQ = glm::length(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float distR = glm::length(pixelReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float jacobianRHS = (distQ * distQ) / (distR * distR);
             float jacobian = jacobianLHS * jacobianRHS;
-            float pdf = neigborRadianceLen / jacobian;
+            float pdf = glm::length(pixelReservoir.sample.outgoingRadiance) / jacobian;
 
             //  Check if neighbor's sample point is not visible to visible point of current pixel
             Ray ray;
             ray.origin = neighbourReservoir.sample.samplePoint;
-            ray.direction = glm::normalize(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
-            float distance = glm::length(temporalReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            ray.direction = glm::normalize(pixelReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
+            float distance = glm::length(pixelReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
             RayHitPayload payload = TraceRay(ray, activeScene);
             if(payload.hitDistance != distance)
             {
                 pdf = 0.0f;
             }
 
-            temporalReservoir.MergeReservoir(neighbourReservoir, pdf, seed);
+            pixelReservoir.MergeReservoir(neighbourReservoir, pdf, seed);
         }
         //  Bias correction, equation 7 of ReSTIR GI paper
-        temporalReservoir.weightFinal = temporalReservoir.weightSample / (static_cast<float>(Z) * glm::length(temporalReservoir.sample.outgoingRadiance));
+        pixelReservoir.weightSum = pixelReservoir.weightSample / (static_cast<float>(Z) * glm::length(pixelReservoir.sample.outgoingRadiance));
         
     }
+
+    //  Final step
+    radiance = pixelReservoir.weightSum > 0.0f ? pixelReservoir.sample.outgoingRadiance * pixelReservoir.weightSum : glm::vec3{0.0f};
 
     //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
     depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
     normalBuffers[x + y * imageWidth] = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
 
     //  Update temporal reservoir
-    gi_prev_reservoirs[x + y * imageWidth] = temporalReservoir;
+    gi_prev_reservoirs[x + y * imageWidth] = pixelReservoir;
     
-    //  Final step
-    radiance = temporalReservoir.sample.outgoingRadiance * temporalReservoir.weightFinal;
     return {radiance, 1.0f};
 }
 
@@ -3090,6 +3158,93 @@ __global__ void ReSTIR_DI_Part2_Kernel(glm::vec4* accumulationData, uint32_t* re
         glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_DI_Part2(x, y, frameIndex, settings, scene, camera, width,
                                                                di_reservoirs, di_prev_reservoirs, depthBuffers,
                                                                normalBuffers, primaryHitPayloadBuffers);
+
+        // Prevent NaNs or Infs from propagating
+        if (!glm::all(glm::isfinite(pixelColor)))
+            pixelColor = glm::vec4(0.0f);
+
+        // Accumulate pixel color
+        accumulationData[index] += pixelColor;
+
+        // Average over frames
+        glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+        // Simple tone mapping for HDR
+        accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+        // Clamp to valid range
+        accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+        // Convert to packed RGBA
+        renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+    }
+}
+
+__global__ void ReSTIR_GI_Part1_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                                       ::ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs, float* depthBuffers,
+                                       glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    //  generate candidates and do temporal reuse
+    glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_GI_Part1(x, y, static_cast<uint8_t>(settings.lightBounces),frameIndex, settings, scene, camera, width,
+                                                           gi_reservoirs, gi_prev_reservoirs,
+                                                           depthBuffers, normalBuffers, primaryHitPayloadBuffers);
+
+    if(pixelColor == glm::vec4{0.0f})   //  use {0,0,0,0} as a sentinel value of whether should continue to Part2 cuz if not vec4 zero, that means primary ray hit an emissive
+    {
+        // Accumulate pixel color
+        renderImageData[index] = ColorUtils::ConvertToRGBA(pixelColor);
+    }
+    else
+    {
+        // Prevent NaNs or Infs from propagating
+        if (!glm::all(glm::isfinite(pixelColor)))
+            pixelColor = glm::vec4(0.0f);
+
+        // Accumulate pixel color
+        accumulationData[index] += pixelColor;
+
+        // Average over frames
+        glm::vec4 accumulatedColor = accumulationData[index] / (float)frameIndex;
+
+        // Simple tone mapping for HDR
+        accumulatedColor = accumulatedColor / (accumulatedColor + glm::vec4(1, 1, 1, 0));
+
+        // Clamp to valid range
+        accumulatedColor = glm::clamp(accumulatedColor, glm::vec4(0.0f), glm::vec4(1.0f));
+
+        // Convert to packed RGBA
+        renderImageData[index] = ColorUtils::ConvertToRGBA(accumulatedColor);
+    }
+}
+
+__global__ void ReSTIR_GI_Part2_Kernel(glm::vec4* accumulationData, uint32_t* renderImageData, uint32_t width, uint32_t height,
+                                       uint32_t frameIndex, RenderingSettings settings, const Scene_GPU* scene, const Camera_GPU* camera,
+                                       ::ReSTIR_GI_Reservoir* gi_reservoirs, ReSTIR_GI_Reservoir* gi_prev_reservoirs,
+                                       float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
+{
+    uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    size_t index = x + y * width;
+
+    if(ColorUtils::UnpackABGR(renderImageData[index]) == glm::vec4{0.0f})
+    {
+        //  do spatial reuse and shade pixel
+        glm::vec4 pixelColor = RendererGPU::PerPixel_ReSTIR_GI_Part2(x, y, frameIndex, settings, scene, camera, width,
+                                                                     gi_reservoirs, gi_prev_reservoirs,
+                                                                     depthBuffers, normalBuffers, primaryHitPayloadBuffers);
 
         // Prevent NaNs or Infs from propagating
         if (!glm::all(glm::isfinite(pixelColor)))
