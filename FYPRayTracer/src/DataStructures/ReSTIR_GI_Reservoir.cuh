@@ -26,8 +26,8 @@ struct ReSTIR_GI_Reservoir
     uint32_t pathProcessedCount = 0;
     float weightSum = 0.0f;
 
-    __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t& randSeed);
-    __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t count, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, float pdf, uint32_t& randSeed);
+    __host__ __device__ bool UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t count, float pdf, uint32_t& randSeed);
     __host__ __device__ bool MergeReservoir(const ReSTIR_GI_Reservoir& otherReservoir, float pdf, uint32_t& randSeed);
     __host__ __device__ void ResetReservoir();
     __host__ __device__ bool CheckIfValid() const;

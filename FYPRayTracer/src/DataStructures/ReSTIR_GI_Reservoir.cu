@@ -2,7 +2,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include "../Utility/MathUtils.cuh"
 
-__host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t& randSeed)
+__host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& newSample, float newWeight, float pdf, uint32_t& randSeed)
 {
     weightSum += newWeight;
     pathProcessedCount += 1;
@@ -10,12 +10,13 @@ __host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& 
     if (MathUtils::randomFloat(randSeed) < newWeight / weightSum)
     {
         sample = newSample;
+        sample.samplePDF = pdf;
         return true;
     }
     return false;
 }
 
-__host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t count,
+__host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& newSample, float newWeight, uint32_t count, float pdf,
     uint32_t& randSeed)
 {
     weightSum += newWeight;
@@ -24,6 +25,7 @@ __host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& 
     if (MathUtils::randomFloat(randSeed) < newWeight / weightSum)
     {
         sample = newSample;
+        sample.samplePDF = pdf;
         return true;
     }
     return false;
@@ -32,7 +34,7 @@ __host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& 
 __host__ __device__ bool ReSTIR_GI_Reservoir::MergeReservoir(const ReSTIR_GI_Reservoir& otherReservoir, float pdf, uint32_t& randSeed)
 {
     uint32_t prevTotalCount = pathProcessedCount;
-    bool sampleUpdated = UpdateReservoir(otherReservoir.sample, pdf * otherReservoir.weightSum * otherReservoir.pathProcessedCount, randSeed);
+    bool sampleUpdated = UpdateReservoir(otherReservoir.sample, pdf * otherReservoir.weightSum * otherReservoir.pathProcessedCount, pdf, randSeed);
     pathProcessedCount = prevTotalCount + otherReservoir.pathProcessedCount;
 
     return sampleUpdated;

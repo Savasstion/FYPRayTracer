@@ -2480,6 +2480,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         glm::vec3 sampleNormal{0.0f};
         Ray sampleRay;
         RayHitPayload samplePayload = primaryPayload;
+        ReSTIR_GI_Reservoir::PathSample sample;
 
         // Sample albedo from albedo map is exist
         glm::vec3 sampledAlbedo = {0.0f, 0.0f, 0.0f};
@@ -2505,7 +2506,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             primaryHitMaterial.metallic,
             primaryHitMaterial.roughness,
             seed,
-            pixelReservoir.sample.samplePDF
+            sample.samplePDF
         );
 
         glm::vec3 brdf = MathUtils::CalculateBRDF(
@@ -2518,7 +2519,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         );
 
         float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-        sampleThroughput *= brdf * cosTheta / pixelReservoir.sample.samplePDF;
+        sampleThroughput *= brdf * cosTheta / sample.samplePDF;
 
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;
@@ -2597,13 +2598,15 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             sampleRay.direction = bounceDir;
         }
         
-        pixelReservoir.sample.randSeed = originalSeedForPath;
-        pixelReservoir.sample.visiblePoint = primaryPayload.worldPosition;
-        pixelReservoir.sample.visibleNormal = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
-        pixelReservoir.sample.samplePoint = samplePoint;
-        pixelReservoir.sample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
-        pixelReservoir.sample.outgoingRadiance = sampleRadiance;
-        
+        sample.randSeed = originalSeedForPath;
+        sample.visiblePoint = primaryPayload.worldPosition;
+        sample.visibleNormal = MathUtils::EncodeOctahedral(primaryPayload.worldNormal);
+        sample.samplePoint = samplePoint;
+        sample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
+        sample.outgoingRadiance = sampleRadiance;
+
+        pixelReservoir.UpdateReservoir(sample, sample.samplePDF, sample.samplePDF, seed);
+        pixelReservoir.weightSample = 1.0f;
     }
     
     //  Temporal Resampling
@@ -2630,7 +2633,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         //  Some simple rejection based on normals' divergence, can be improved
         bool validHistory = glm::dot(prevNormal, primaryPayload.worldNormal) >= 0.99;
         
-        ReSTIR_DI_Reservoir temporalReservoir;
+        ReSTIR_GI_Reservoir temporalReservoir;
         temporalReservoir.ResetReservoir();
 
         if (validHistory && prevReservoir.CheckIfValid())
@@ -2642,21 +2645,32 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
                     ? historyLimit * pixelReservoir.pathProcessedCount
                     : prevReservoir.pathProcessedCount; //  return a < b ? a : b;
 
-            // glm::vec3 dir = pixelReservoir.sample.samplePoint - pixelReservoir.sample.visiblePoint;
-            // float dist = glm::length(dir);
-            // dir /= dist;
-            // float sourcePDF = pixelReservoir.sample.pdf * glm::dot(MathUtils::DecodeOctahedral(pixelReservoir.sample.visibleNormal), dir) / (dist * dist);
-            // pixelReservoir.weightSample = glm::length(pixelReservoir.sample.outgoingRadiance);
-            prevReservoir.UpdateReservoir(pixelReservoir.sample, pixelReservoir.weightSample, seed);
-            prevReservoir.weightSum = pixelReservoir.weightSample /
-                (static_cast<float>(pixelReservoir.pathProcessedCount) * pixelReservoir.weightSample);
+            //  Add current reservoir into temporal
+            float pdf = pixelReservoir.sample.samplePDF; //  obtain pixelReservoir pdf
+            temporalReservoir.UpdateReservoir(pixelReservoir.sample,
+                                              pdf * pixelReservoir.weightSample * pixelReservoir.
+                                              pathProcessedCount,
+                                              pixelReservoir.pathProcessedCount,
+                                              pdf, seed);
+            uint32_t Z = glm::length2(pixelReservoir.sample.outgoingRadiance) > 0.0f ? pixelReservoir.pathProcessedCount : 0;
 
-            pixelReservoir = prevReservoir;
+            //  Add prev reservoir into temporal
+            pdf = prevReservoir.sample.samplePDF; //  obtain pprevReservoir pdf
+            temporalReservoir.UpdateReservoir(prevReservoir.sample,
+                                              pdf * prevReservoir.weightSample * prevReservoir.
+                                              pathProcessedCount,
+                                              prevReservoir.pathProcessedCount,
+                                              pdf, seed);
+            Z += glm::length2(prevReservoir.sample.outgoingRadiance) > 0.0f ? prevReservoir.pathProcessedCount : 0;
+            float m = 1.0f / static_cast<float>(Z);
+
+            //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
+            temporalReservoir.weightSample = temporalReservoir.sample.samplePDF > 0.0f
+                                                   ? (1.0f / temporalReservoir.sample.samplePDF) * (m * temporalReservoir.weightSum)
+                                                   : 0.0f;     
+            
+            pixelReservoir = temporalReservoir;
         }
-    }
-    else
-    {
-        pixelReservoir.weightSum = 1.0f;
     }
     
     return {0.0f, 0.0f, 0.0f, 0.0f};
@@ -2667,7 +2681,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
                                                                     uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_reservoirs,
                                                                     ReSTIR_GI_Reservoir* gi_prev_reservoirs, float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
-    ReSTIR_GI_Reservoir pixelReservoir = gi_reservoirs[x + y * imageWidth];
+    ReSTIR_GI_Reservoir& pixelReservoir = gi_reservoirs[x + y * imageWidth];
     RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1 * 213;
@@ -2742,7 +2756,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
     }
 
     //  Final step
-    radiance = pixelReservoir.weightSum > 0.0f ? pixelReservoir.sample.outgoingRadiance * pixelReservoir.weightSum : glm::vec3{0.0f};
+    radiance = pixelReservoir.sample.outgoingRadiance * pixelReservoir.weightSample;
 
     //  store primary surface hit data into pixel's depth and normal buffer (the first ever hit from camera to the surface)
     depthBuffers[x + y * imageWidth] = primaryPayload.hitDistance;
