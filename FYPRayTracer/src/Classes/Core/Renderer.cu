@@ -2252,11 +2252,11 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_DI_Part1(uint32_t x, 
                 //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
                 temporalReservoir.weightEmissive = temporalReservoir.emissivePDF > 0.0f
                                                        ? (1.0f / temporalReservoir.emissivePDF) * (m * temporalReservoir.weightSum)
-                                                       : 0.0f;                
-            }
+                                                       : 0.0f;
 
-            //  Use combined reservoir as the default reservoir
-            pixelReservoir = temporalReservoir;
+                //  Use combined reservoir as the default reservoir
+                pixelReservoir = temporalReservoir;
+            }
         }
     }
     
@@ -2605,8 +2605,16 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         sample.sampleNormal = MathUtils::EncodeOctahedral(sampleNormal);
         sample.outgoingRadiance = sampleRadiance;
 
-        pixelReservoir.UpdateReservoir(sample, sample.samplePDF, sample.samplePDF, seed);
-        pixelReservoir.weightSample = 1.0f;
+        float lenRadiance = glm::length(sample.outgoingRadiance);
+        float weight = lenRadiance; //  complex pdf / simple pdf, lenRadiance * 1 since we only have 1 candidate
+        
+        pixelReservoir.UpdateReservoir(sample, weight, lenRadiance, seed);
+        
+        //  Updated current reservoir's weight
+        pixelReservoir.weightSample = pixelReservoir.sample.samplePDF > 0.0f
+                                    ? (1.0f / pixelReservoir.sample.samplePDF) * pixelReservoir.weightSum / static_cast<
+                                        float>(pixelReservoir.pathProcessedCount)
+                                    : 0.0f;
     }
     
     //  Temporal Resampling
@@ -2646,28 +2654,24 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
                     : prevReservoir.pathProcessedCount; //  return a < b ? a : b;
 
             //  Add current reservoir into temporal
-            float pdf = pixelReservoir.sample.samplePDF; //  obtain pixelReservoir pdf
+            float pdf = glm::length(pixelReservoir.sample.outgoingRadiance); //  obtain pixelReservoir pdf
             temporalReservoir.UpdateReservoir(pixelReservoir.sample,
                                               pdf * pixelReservoir.weightSample * pixelReservoir.
                                               pathProcessedCount,
                                               pixelReservoir.pathProcessedCount,
                                               pdf, seed);
-            uint32_t Z = glm::length2(pixelReservoir.sample.outgoingRadiance) > 0.0f ? pixelReservoir.pathProcessedCount : 0;
 
             //  Add prev reservoir into temporal
-            pdf = prevReservoir.sample.samplePDF; //  obtain pprevReservoir pdf
+            pdf = glm::length(prevReservoir.sample.outgoingRadiance); //  obtain prevReservoir pdf
             temporalReservoir.UpdateReservoir(prevReservoir.sample,
                                               pdf * prevReservoir.weightSample * prevReservoir.
                                               pathProcessedCount,
                                               prevReservoir.pathProcessedCount,
                                               pdf, seed);
-            Z += glm::length2(prevReservoir.sample.outgoingRadiance) > 0.0f ? prevReservoir.pathProcessedCount : 0;
-            float m = 1.0f / static_cast<float>(Z);
-
-            //  Unbiased : from Algorithm 6 in the ReSTIR DI paper
-            temporalReservoir.weightSample = temporalReservoir.sample.samplePDF > 0.0f
-                                                   ? (1.0f / temporalReservoir.sample.samplePDF) * (m * temporalReservoir.weightSum)
-                                                   : 0.0f;     
+            
+            temporalReservoir.weightSample = temporalReservoir.sample.samplePDF > 0.0f ?
+                temporalReservoir.sample.samplePDF / (temporalReservoir.pathProcessedCount * temporalReservoir.sample.samplePDF)
+            : 0.0f;  
             
             pixelReservoir = temporalReservoir;
         }
