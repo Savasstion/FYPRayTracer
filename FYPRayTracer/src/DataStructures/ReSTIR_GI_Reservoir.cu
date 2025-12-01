@@ -9,6 +9,7 @@ __host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& 
 
     if (MathUtils::randomFloat(randSeed) < newWeight / weightSum)
     {
+        sample.ResetSample();
         sample = newSample;
         sample.samplePDF = pdf;
         return true;
@@ -24,6 +25,7 @@ __host__ __device__ bool ReSTIR_GI_Reservoir::UpdateReservoir(const PathSample& 
 
     if (MathUtils::randomFloat(randSeed) < newWeight / weightSum)
     {
+        sample.ResetSample();
         sample = newSample;
         sample.samplePDF = pdf;
         return true;

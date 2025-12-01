@@ -2636,13 +2636,14 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         //  Get normal buffer and prev reservoir of previous screen pos
         uint32_t prevIdx = static_cast<uint32_t>(py) * viewportW + static_cast<uint32_t>(px);
         glm::vec3 prevNormal = MathUtils::DecodeOctahedral(normalBuffers[prevIdx]);
-        ReSTIR_GI_Reservoir& prevReservoir = gi_prev_reservoirs[prevIdx];
+        ReSTIR_GI_Reservoir prevReservoir = gi_prev_reservoirs[prevIdx];
 
         //  Some simple rejection based on normals' divergence, can be improved
         bool validHistory = glm::dot(prevNormal, primaryPayload.worldNormal) >= 0.99;
         
         ReSTIR_GI_Reservoir temporalReservoir;
         temporalReservoir.ResetReservoir();
+        temporalReservoir = pixelReservoir;
 
         if (validHistory && prevReservoir.CheckIfValid())
         {
@@ -2653,16 +2654,16 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
                     ? historyLimit * pixelReservoir.pathProcessedCount
                     : prevReservoir.pathProcessedCount; //  return a < b ? a : b;
 
-            //  Add current reservoir into temporal
-            float pdf = glm::length(pixelReservoir.sample.outgoingRadiance); //  obtain pixelReservoir pdf
-            temporalReservoir.UpdateReservoir(pixelReservoir.sample,
-                                              pdf * pixelReservoir.weightSample * pixelReservoir.
-                                              pathProcessedCount,
-                                              pixelReservoir.pathProcessedCount,
-                                              pdf, seed);
+            // //  Add current reservoir into temporal
+            // float pdf = glm::length(pixelReservoir.sample.outgoingRadiance); //  obtain pixelReservoir pdf
+            // temporalReservoir.UpdateReservoir(pixelReservoir.sample,
+            //                                   pdf * pixelReservoir.weightSample * pixelReservoir.
+            //                                   pathProcessedCount,
+            //                                   pixelReservoir.pathProcessedCount,
+            //                                   pdf, seed);
 
             //  Add prev reservoir into temporal
-            pdf = glm::length(prevReservoir.sample.outgoingRadiance); //  obtain prevReservoir pdf
+            float pdf = glm::length(prevReservoir.sample.outgoingRadiance); //  obtain prevReservoir pdf
             temporalReservoir.UpdateReservoir(prevReservoir.sample,
                                               pdf * prevReservoir.weightSample * prevReservoir.
                                               pathProcessedCount,
@@ -2672,8 +2673,9 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             temporalReservoir.weightSample = temporalReservoir.sample.samplePDF > 0.0f ?
                 temporalReservoir.sample.samplePDF / (temporalReservoir.pathProcessedCount * temporalReservoir.sample.samplePDF)
             : 0.0f;  
-            
-            pixelReservoir = temporalReservoir;
+
+            pixelReservoir.ResetReservoir();
+            pixelReservoir.MergeReservoir(temporalReservoir, temporalReservoir.sample.samplePDF, seed);
         }
     }
     
