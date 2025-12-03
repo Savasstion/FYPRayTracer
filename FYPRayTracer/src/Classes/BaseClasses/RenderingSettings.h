@@ -10,6 +10,8 @@ struct RenderingSettings
     glm::vec3 skyColor{01, 01, 01};
     SamplingTechniqueEnum currentSamplingTechnique = BRUTE_FORCE;
     int lightCandidateCount = 4;
+
+    uint32_t randSeed = 1;
     
     //  ReSTIR Settings
     bool useTemporalReuse = false;

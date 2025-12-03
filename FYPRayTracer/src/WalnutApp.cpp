@@ -480,6 +480,7 @@ public:
             m_RenderTime = 0.0f;
             stopRender = false;
         }
+        m_Renderer.GetSettings().randSeed++;
     }
 
     void OnUIRender() override
