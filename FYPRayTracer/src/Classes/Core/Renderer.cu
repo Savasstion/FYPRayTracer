@@ -2369,7 +2369,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
         }
         
         //  Bias correction, equation 7 of ReSTIR GI paper
-        pixelReservoir.weightSample = pixelRadianceLen > 0.0f ? pixelRadianceLen / (static_cast<float>(Z) * pixelRadianceLen) : 0.0f;
+        pixelReservoir.weightSample = pixelReservoir.sample.samplePDF > 0.0f ? pixelReservoir.sample.samplePDF / (static_cast<float>(Z) * pixelReservoir.sample.samplePDF) : 0.0f;
         
     }
 
