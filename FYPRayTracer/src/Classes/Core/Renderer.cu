@@ -2337,7 +2337,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
                 continue;
             }
 
-            //  check neighbor radiance len for bias correction step
+            //  Bias correction step
             Z += neighbourReservoir.pathProcessedCount;
 
             //  Calc Jacobian, Equation 11 of ReSTIR GI paper
