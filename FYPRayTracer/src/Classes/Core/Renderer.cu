@@ -2283,7 +2283,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             temporalReservoir.weightSample = temporalReservoir.sample.samplePDF > 0.0f ?
                 temporalReservoir.sample.samplePDF / (temporalReservoir.pathProcessedCount * temporalReservoir.sample.samplePDF)
             : 0.0f;  
-
+            
             pixelReservoir.ResetReservoir();
             pixelReservoir.MergeReservoir(temporalReservoir, temporalReservoir.sample.samplePDF, seed);
         }
@@ -2326,21 +2326,19 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
             float neighbourDepth = primaryHitPayloadBuffers[neighborIndex].hitDistance;
             float pixelDepth = primaryPayload.hitDistance;
 
+            ReSTIR_GI_Reservoir& neighbourReservoir = gi_reservoirs[neighborIndex];
+            float neigborRadianceLen = glm::length(neighbourReservoir.sample.outgoingRadiance);
+
             if ((neighbourDepth > 1.1f * pixelDepth || neighbourDepth < 0.9f * pixelDepth) ||
-                glm::dot(primaryPayload.worldNormal, MathUtils::DecodeOctahedral(normalBuffers[neighborIndex])) < 0.906)
+                glm::dot(primaryPayload.worldNormal, MathUtils::DecodeOctahedral(normalBuffers[neighborIndex])) < 0.906 ||
+                neigborRadianceLen == 0.0f)
             {
                 // skip this neighbour sample if not suitable
                 continue;
             }
 
-            ReSTIR_GI_Reservoir& neighbourReservoir = gi_reservoirs[neighborIndex];
-
             //  check neighbor radiance len for bias correction step
-            float neigborRadianceLen = glm::length(neighbourReservoir.sample.outgoingRadiance);
-            if(neigborRadianceLen > 0.0f)
-            {
-                Z += neighbourReservoir.pathProcessedCount;
-            }
+            Z += neighbourReservoir.pathProcessedCount;
 
             //  Calc Jacobian, Equation 11 of ReSTIR GI paper
             glm::vec3 dirNsampleToNvisible = glm::normalize(neighbourReservoir.sample.visiblePoint - neighbourReservoir.sample.samplePoint);
