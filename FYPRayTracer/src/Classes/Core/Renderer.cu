@@ -2108,6 +2108,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         }
 
         // Sample initial bounce
+        float pdf;
         glm::vec3 newDir = MathUtils::BRDFSampleHemisphere(
             primaryPayload.worldNormal,
             -primaryRay.direction,
@@ -2115,7 +2116,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
             primaryHitMaterial.metallic,
             primaryHitMaterial.roughness,
             seed,
-            sample.samplePDF
+            pdf
         );
 
         glm::vec3 brdf = MathUtils::CalculateBRDF(
@@ -2128,7 +2129,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part1(uint32_t x, 
         );
 
         float cosTheta = glm::max(glm::dot(newDir, primaryPayload.worldNormal), 0.0f);
-        sampleThroughput *= brdf * cosTheta / sample.samplePDF;
+        sampleThroughput *= brdf * cosTheta / pdf;
 
         sampleRay.origin = primaryPayload.worldPosition + primaryPayload.worldNormal * 1e-12f;
         sampleRay.direction = newDir;
