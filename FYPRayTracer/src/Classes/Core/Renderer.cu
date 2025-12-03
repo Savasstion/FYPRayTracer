@@ -2308,7 +2308,8 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
     {
         uint8_t numNeighbors = static_cast<uint8_t>(settings.spatialNeighborNum); //  num of neighbours to sample
         uint8_t radius = static_cast<uint8_t>(settings.spatialNeighborRadius); //  pixel radius
-        uint32_t Z = glm::length2(pixelReservoir.sample.outgoingRadiance) > 0.0f ? pixelReservoir.pathProcessedCount : 0;
+        float pixelRadianceLen = glm::length(pixelReservoir.sample.outgoingRadiance);
+        uint32_t Z = pixelRadianceLen > 0.0f ? pixelReservoir.pathProcessedCount : 0;
 
         //  Update spatial reservoir with neighbors' reservoirs
         for (uint8_t i = 0; i < numNeighbors; i++)
@@ -2369,7 +2370,6 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
             pixelReservoir.MergeReservoir(neighbourReservoir, pdf, seed);
         }
         
-        float pixelRadianceLen = glm::length(pixelReservoir.sample.outgoingRadiance);
         //  Bias correction, equation 7 of ReSTIR GI paper
         pixelReservoir.weightSample = pixelRadianceLen > 0.0f ? pixelRadianceLen / (static_cast<float>(Z) * pixelRadianceLen) : 0.0f;
         
