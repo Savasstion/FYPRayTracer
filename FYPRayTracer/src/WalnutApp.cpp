@@ -125,7 +125,7 @@ public:
 
             //	Set transforms
             glm::vec3 pos{0, 0, 0};
-            glm::vec3 rot{-90, 0, 0};
+            glm::vec3 rot{90, 0, 0};
             glm::vec3 scale{1, 1, 1};
 
             //	Init mesh into scene
@@ -618,13 +618,13 @@ public:
         if (ImGui::Button("Import Mesh"))
         {
             // File filters
-            const char* meshPatterns[] = { "*.obj", "*.fbx", "*.gltf", "*.glb" };
+            const char* meshPatterns[] = { "*.obj" };
 
             // Open native file dialog
             const char* absPath = tinyfd_openFileDialog(
                 "Select Mesh",
                 "",
-                4, meshPatterns,
+                1, meshPatterns,
                 nullptr,
                 0 
             );

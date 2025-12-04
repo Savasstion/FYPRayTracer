@@ -274,13 +274,14 @@ void Mesh::GenerateMesh(const std::string& filepath, std::vector<Vertex>& outVer
     Assimp::Importer importer;
 
     const aiScene* scene = importer.ReadFile(
-        filepath,
-        aiProcess_Triangulate |
-        aiProcess_GenSmoothNormals |
-        aiProcess_FlipUVs | // Flip UVs (OpenGL-style)
-        aiProcess_JoinIdenticalVertices |
-        aiProcess_CalcTangentSpace
-    );
+    filepath,
+    aiProcess_Triangulate |
+    aiProcess_GenSmoothNormals |
+    aiProcess_FlipUVs |
+    aiProcess_JoinIdenticalVertices |
+    aiProcess_CalcTangentSpace |
+    aiProcess_ConvertToLeftHanded
+);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
