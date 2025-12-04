@@ -2297,7 +2297,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
                                                                     uint32_t imageWidth, ReSTIR_GI_Reservoir* gi_reservoirs,
                                                                     ReSTIR_GI_Reservoir* gi_prev_reservoirs, float* depthBuffers, glm::vec2* normalBuffers, RayHitPayload* primaryHitPayloadBuffers)
 {
-    ReSTIR_GI_Reservoir& pixelReservoir = gi_reservoirs[x + y * imageWidth];
+    ReSTIR_GI_Reservoir pixelReservoir = gi_reservoirs[x + y * imageWidth];
     RayHitPayload& primaryPayload = primaryHitPayloadBuffers[x + y * imageWidth];
     uint32_t seed = x + y * imageWidth;
     seed *= frameIndex + 1 * 213 + settings.randSeed;
@@ -2326,7 +2326,7 @@ __host__ __device__ glm::vec4 RendererGPU::PerPixel_ReSTIR_GI_Part2(uint32_t x, 
             float neighbourDepth = primaryHitPayloadBuffers[neighborIndex].hitDistance;
             float pixelDepth = primaryPayload.hitDistance;
 
-            ReSTIR_GI_Reservoir& neighbourReservoir = gi_reservoirs[neighborIndex];
+            ReSTIR_GI_Reservoir neighbourReservoir = gi_reservoirs[neighborIndex];
             float neigborRadianceLen = glm::length(neighbourReservoir.sample.outgoingRadiance);
 
             if ((neighbourDepth > 1.1f * pixelDepth || neighbourDepth < 0.9f * pixelDepth) ||
