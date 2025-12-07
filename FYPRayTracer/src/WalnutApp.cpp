@@ -124,7 +124,7 @@ public:
             Mesh::GenerateMesh(filePath, meshVertices, meshIndices, false);
 
             //	Set transforms
-            glm::vec3 pos{0, 0, 0};
+            glm::vec3 pos{0, -3, 0};
             glm::vec3 rot{90, 0, 0};
             glm::vec3 scale{1, 1, 1};
 
@@ -202,7 +202,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -238,7 +238,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -274,7 +274,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -310,7 +310,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -346,7 +346,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -382,7 +382,7 @@ public:
             //	Set transforms
             glm::vec3 pos{0, -1, 0};
             glm::vec3 rot{0, 0, 0};
-            glm::vec3 scale{20, 20, 20};
+            glm::vec3 scale{7.5f};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(boxVertices,
@@ -409,7 +409,7 @@ public:
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
         }
-        for (int i = -4; i < 4; i++)
+        for (int i = -2; i < 3; i++)
         {
             std::vector<Vertex> planeVertices = {
                 {{-0.5f, 0.0f, -0.5f}, {0, 1, 0}, {0, 0}}, // 0: Bottom Left
@@ -423,9 +423,9 @@ public:
             };
 
             //	Set transforms
-            glm::vec3 pos{i * 2, 8.99999f, 0};
+            glm::vec3 pos{i * 1.5f, 2.7499f, 0};
             glm::vec3 rot{180, 0, 0};
-            glm::vec3 scale{1.5, 1.5, 1.5};
+            glm::vec3 scale{1, 1, 1};
 
             //	Init mesh into scene
             Mesh* meshPtr = m_Scene.AddNewMeshToScene(planeVertices,
@@ -467,8 +467,8 @@ public:
                                                   static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 
         //	Set Starting Camera Position and Direction
-        m_Camera.SetPosition(glm::vec3{-0.206f, 8.288f, -9.494f});
-        m_Camera.SetDirection(glm::vec3{0.275f, -0.622f, 0.733f});
+        m_Camera.SetPosition(glm::vec3{1.052f, -1.184f, -2.089f});
+        m_Camera.SetDirection(glm::vec3{-0.330f, -0.634f, 0.699f});
     }
 
     void OnUpdate(float ts) override
@@ -659,7 +659,7 @@ public:
             matToBeUpdated |= ImGui::DragFloat("Roughness", &material.roughness, 0.05f, 0.0f, 1.0f);
             matToBeUpdated |= ImGui::DragFloat("Metallic", &material.metallic, 0.05f, 0.0f, 1.0f);
             matToBeUpdated |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.emissionColor));
-            matToBeUpdated |= ImGui::DragFloat("Emission Power", &material.emissionPower, 100.f, 0.0f, FLT_MAX);
+            matToBeUpdated |= ImGui::DragFloat("Emission Power", &material.emissionPower, 10.f, 0.0f, FLT_MAX);
 
             if (matToBeUpdated)
                 m_Scene.sceneManager.materialsToUpdate.push_back(i);
