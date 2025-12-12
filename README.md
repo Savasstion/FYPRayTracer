@@ -1,4 +1,4 @@
-# Final Year Project (Ray Tracing Sampling Techniques Benchmarker) [Work in Progress]
+# Final Year Project (Ray Tracing Sampling Techniques Benchmarker)
 
 This project uses [Walnut](https://github.com/TheCherno/Walnut) as a template.
 
