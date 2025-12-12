@@ -34,7 +34,9 @@ This project implements many ray tracing sampling techniques to be benchmarked a
 - [Next Event Estimation (NEE)](https://www.cg.tuwien.ac.at/sites/default/files/course/4411/attachments/08_next%20event%20estimation.pdf)
 - [ReSTIR DI](https://doi.org/10.1145/3386569.3392481)
 - [ReSTIR GI](https://doi.org/10.1111/cgf.14378)
- 
+
+## Executable File
+[FYPRayTracer.zip](https://github.com/user-attachments/files/24132515/FYPRayTracer.zip)
 
 
 ## References
