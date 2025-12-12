@@ -6,7 +6,7 @@ This project uses [Walnut](https://github.com/TheCherno/Walnut) as a template.
 This project implements many ray tracing sampling techniques to be benchmarked and performance logged for comparison purposes. This project is done as my Final Year Project for my Bachelor of Computer Science (Honours) in Interactive Software Technology from Tunku Abdul Rahman University of Management and Technology (TAR UMT).
 
 <img width="1945" height="1067" alt="sneakPeekDemo" src="https://github.com/user-attachments/assets/d5b51134-b2b2-46e4-8a5a-e18286dc687b" />
-(A ray-traced vanana for reference)
+(A ray-traced banana for reference)
 
 ## Requirements
 - CUDA Toolkit 12.8.1
