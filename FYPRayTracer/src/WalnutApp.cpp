@@ -11,6 +11,8 @@
 #include "Utility/MisUtils.h"
 #include "Utility/tinyfiledialogs.h"
 
+//  Note : Using CUDA Toolkit 12.8.1
+
 class MainLayer : public Walnut::Layer
 {
 private:
