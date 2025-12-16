@@ -48,18 +48,15 @@ bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPi
         0, 0, 0, 0 // Important colors
     };
 
-    // Width (positive)
+    // Fill in width and height (little endian)
     dibHeader[4] = width & 0xFF;
     dibHeader[5] = (width >> 8) & 0xFF;
     dibHeader[6] = (width >> 16) & 0xFF;
     dibHeader[7] = (width >> 24) & 0xFF;
-
-    // Height (NEGATIVE = top-down)
-    int negHeight = -height;
-    dibHeader[8]  = negHeight & 0xFF;
-    dibHeader[9]  = (negHeight >> 8) & 0xFF;
-    dibHeader[10] = (negHeight >> 16) & 0xFF;
-    dibHeader[11] = (negHeight >> 24) & 0xFF;
+    dibHeader[8] = height & 0xFF;
+    dibHeader[9] = (height >> 8) & 0xFF;
+    dibHeader[10] = (height >> 16) & 0xFF;
+    dibHeader[11] = (height >> 24) & 0xFF;
 
     // Open file
     std::ofstream file(filename, std::ios::binary);
@@ -125,10 +122,11 @@ double MisUtils::ComputeMSE(const uint32_t* orig, const uint32_t* noisy, uint32_
 
     double mse = 0.0;
 
-    for (uint64_t i = 0; i < pixelCount; i++)
+    for(uint32_t x = 0; x < width; x++)
+    for (uint32_t y = 0; y < height; y++)
     {
-        uint32_t p0 = orig[i];
-        uint32_t p1 = noisy[i];
+        uint32_t p0 = orig[x + (height - 1 - y) * width];   //  BMP starts at bottom left first
+        uint32_t p1 = noisy[x + y * width];
 
         // Extract channels (ABGR format)
         int r0 = static_cast<int>((p0 >> 0) & 0xFF);
