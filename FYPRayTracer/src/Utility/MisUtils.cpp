@@ -48,15 +48,18 @@ bool MisUtils::SaveABGRToBMP(const std::string& filename, const uint32_t* abgrPi
         0, 0, 0, 0 // Important colors
     };
 
-    // Fill in width and height (little endian)
+    // Width (positive)
     dibHeader[4] = width & 0xFF;
     dibHeader[5] = (width >> 8) & 0xFF;
     dibHeader[6] = (width >> 16) & 0xFF;
     dibHeader[7] = (width >> 24) & 0xFF;
-    dibHeader[8] = height & 0xFF;
-    dibHeader[9] = (height >> 8) & 0xFF;
-    dibHeader[10] = (height >> 16) & 0xFF;
-    dibHeader[11] = (height >> 24) & 0xFF;
+
+    // Height (NEGATIVE = top-down)
+    int negHeight = -height;
+    dibHeader[8]  = negHeight & 0xFF;
+    dibHeader[9]  = (negHeight >> 8) & 0xFF;
+    dibHeader[10] = (negHeight >> 16) & 0xFF;
+    dibHeader[11] = (negHeight >> 24) & 0xFF;
 
     // Open file
     std::ofstream file(filename, std::ios::binary);
