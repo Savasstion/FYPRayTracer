@@ -38,6 +38,7 @@ This project implements many ray tracing sampling techniques to be benchmarked a
 
 ## Executable File
 [FYPRayTracer.zip](https://github.com/user-attachments/files/24132515/FYPRayTracer.zip)
+- Note: For some reason, some machines even with the cuda dll file, it refuses to run. To fix, install CUDA Toolkit 12.8.1
 
 ## How to use in IDE
 1. Download the project folder
