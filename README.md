@@ -39,6 +39,11 @@ This project implements many ray tracing sampling techniques to be benchmarked a
 ## Executable File
 [FYPRayTracer.zip](https://github.com/user-attachments/files/24132515/FYPRayTracer.zip)
 
+## How to use in IDE
+1. Download the project folder
+2. Configure the project for Release x86, hook up all include directories and libraries for CUDA, Vulkan, and Assimp.
+3. Done!
+
 
 ## References
 Moreau, P., Pharr, M., & Clarberg, P. (2019). Dynamic Many-Light Sampling for Real-Time Ray Tracing. High Performance Graphics, 21–26. https://doi.org/10.2312/hpg.20191191
