@@ -12,6 +12,7 @@ This project implements many ray tracing sampling techniques to be benchmarked a
 - CUDA Toolkit 12.8.1
 - NVIDIA Graphics Card (for CUDA)
 - Vulkan SDK
+- Assimp
 
 ## Features
 - Represent and render custom 3D meshes.
