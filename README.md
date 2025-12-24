@@ -43,8 +43,9 @@ This project implements many ray tracing sampling techniques to be benchmarked a
 
 ## How to use in IDE
 1. Download the project folder
-2. Configure the project for Release x86, hook up all include directories and libraries for CUDA, Vulkan, and Assimp.
-3. Done!
+2. Go to the scripts folder, then run Setup.bat. This creates a solution file that can be opened by an IDE
+3. Configure the project for Release x86, hook up all include directories and libraries for CUDA, Vulkan, and Assimp
+4. Done!
 
 
 ## References
