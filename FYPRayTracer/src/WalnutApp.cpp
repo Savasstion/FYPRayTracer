@@ -79,10 +79,16 @@ public:
         matBlue.metallic = 0.0f;
 
         Material& matBanana = m_Scene.materials.emplace_back();
-        std::string filePath = "Assets/3D Models/Test/bananaDiffuse.png";
-        matBanana.albedoMapIndex = m_Scene.AddNewTexture(filePath, matBanana, ALBEDO);
+        std::string filePathBanana = "Assets/3D Models/Test/bananaDiffuse.png";
+        matBanana.albedoMapIndex = m_Scene.AddNewTexture(filePathBanana, matBanana, ALBEDO);
         matBanana.roughness = 1.0f;
         matBanana.metallic = 0.0f;
+
+        Material& matToaster = m_Scene.materials.emplace_back();
+        std::string filePathToaster = "Assets/3D Models/Test/toasterBaseColor.png";
+        matToaster.albedoMapIndex = m_Scene.AddNewTexture(filePathToaster, matToaster, ALBEDO);
+        matToaster.roughness = 0.15f;
+        matToaster.metallic = 0.85f;
 
         ////	Place Spehres
         // for(int i = -10; i < 10 ; i++)
@@ -157,6 +163,47 @@ public:
                 meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
                                                            static_cast<uint32_t>(lightTreeEmitterNodes.size()));
         }
+
+        //	Place Toaster
+        {
+            std::vector<Vertex> meshVertices;
+            std::vector<uint32_t> meshIndices;
+            std::string filePath = "Assets/3D Models/Test/toaster.obj";
+            Mesh::GenerateMesh(filePath, meshVertices, meshIndices, false);
+
+            //	Set transforms
+            glm::vec3 pos{-1.9f, -3.0f, 0};
+            glm::vec3 rot{0, 0, 0};
+            glm::vec3 scale{0.5f, 0.5f, 0.5f};
+
+            //	Init mesh into scene
+            Mesh* meshPtr = m_Scene.AddNewMeshToScene(meshVertices,
+                                                      meshIndices,
+                                                      pos,
+                                                      rot,
+                                                      scale,
+                                                      8);
+
+            //  Get actual file name. Example : "banana.obj"
+            std::filesystem::path p(filePath);
+            meshPtr->meshName = p.filename().string();
+            
+            //	Build BVH for ray collision
+            uint32_t triOffset = 0;
+            auto blasObjectNodes = meshPtr->CreateBVHnodesFromMeshTriangles(m_Scene.triangles, &triOffset);
+            meshPtr->blas.objectOffset = triOffset;
+            meshPtr->blas.ConstructBVH_SAH(blasObjectNodes.data(), blasObjectNodes.size());
+
+            //	Build Light Tree for Light Source Sampling
+            auto lightTreeEmitterNodes = meshPtr->CreateLightTreenodesFromEmmisiveMeshTriangles(
+                m_Scene.triangles, m_Scene.materials, m_Scene.worldVertices);
+            if (lightTreeEmitterNodes.empty())
+                meshPtr->lightTree_blas.nodeCount = 0;
+            else
+                meshPtr->lightTree_blas.ConstructLightTree(lightTreeEmitterNodes.data(),
+                                                           static_cast<uint32_t>(lightTreeEmitterNodes.size()));
+        }
+        
         std::vector<Vertex> boxVertices = {
             // Bottom (-Y)
             {{-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0, 0}},
@@ -469,8 +516,8 @@ public:
                                                   static_cast<uint32_t>(lightTreeEmitterNodes.size()));
 
         //	Set Starting Camera Position and Direction
-        m_Camera.SetPosition(glm::vec3{1.052f, -1.184f, -2.089f});
-        m_Camera.SetDirection(glm::vec3{-0.330f, -0.634f, 0.699f});
+        m_Camera.SetPosition(glm::vec3{1.752f, -0.845f, -2.812f});
+        m_Camera.SetDirection(glm::vec3{-0.6f, -0.451f, 0.661f});
     }
 
     void OnUpdate(float ts) override
@@ -552,6 +599,7 @@ public:
             if (abs)
             {
                 auto rel = std::filesystem::relative(abs, std::filesystem::current_path()).string();
+                std::cout << rel << std::endl;
                 Texture referenceImage = Texture(rel);
 
                 if(m_ViewportHeight == referenceImage.height && m_ViewportWidth == referenceImage.width)
